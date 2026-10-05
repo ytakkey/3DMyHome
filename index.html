@@ -294,7 +294,7 @@ const free=(x,z)=>x>=0.1+WM&&x<=W-WM&&z>=WM&&z<=D-WM&&!(x>bedR.x0&&x<bedR.x1&&z>
 const S={scene:sc,shadeP:0.6,elevated:false,free,bounds:[0.12,W-0.05,0.2,H-0.08,0.05,D-0.05],
  nearest:(x,z)=>nearestFree(free,x,z,2.3,0.3),
  setShade(p){S.shadeP=p;applyShades(myShades,p);S.applyEnv(night);},
- applyEnv(night){if(!dOn)dlMat.color.set(night?0x2a2927:0xa8a6a1);if(night){hemi.intensity=0.14;dl.intensity=0;up.color.set(0xffe2c2);up.intensity=0.05+(dOn?0.09:0)+(bOn?0.03:0);sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
+ applyEnv(night){if(!dOn)dlMat.color.set(night?0x2a2927:0xa8a6a1);const f=night?1:0.3;dls.forEach(p=>p.intensity=dOn?DLI*f:0);brs.forEach(p=>p.intensity=bOn?BRI*f:0);if(night){hemi.intensity=0.14;dl.intensity=0;up.color.set(0xffe2c2);up.intensity=0.05+(dOn?0.09:0)+(bOn?0.03:0);sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
   else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;dl.intensity=0.12*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
  toggleDown(){dOn=!dOn;dlMat.color.set(dOn?DLON:0xa8a6a1);dls.forEach(p=>p.intensity=dOn?DLI:0);return dOn;},
  toggleBr(){bOn=!bOn;brGlow.color.set(bOn?BRGLOW:0x3a3a3a);brs.forEach(p=>p.intensity=bOn?BRI:0);return bOn;},
@@ -676,7 +676,7 @@ $('rBed').onclick=()=>setRoom('bed');$('rLiv').onclick=()=>setRoom('liv');$('rKi
 $('tDown').onclick=e=>{mark(e.currentTarget,bedS.toggleDown());applyEnvAll();};
 $('tLdk').onclick=e=>{mark(e.currentTarget,ldkS.toggleL());applyEnvAll();};
 $('tBr').onclick=e=>{mark(e.currentTarget,bedS.toggleBr());applyEnvAll();};
-function setNight(v){night=v;ldkS.lOn=v;mark($('tLdk'),v);mark($('tDay'),!v);mark($('tNight'),v);applyEnvAll();}
+function setNight(v){night=v;mark($('tDay'),!v);mark($('tNight'),v);applyEnvAll();}
 $('tDay').onclick=()=>setNight(false);$('tNight').onclick=()=>setNight(true);
 $('shade').oninput=e=>{const p=Number(e.target.value)/100;cur.setShade(p);shadeLabel(p);draw();};
 $('hide').onclick=()=>{$('panel').hidden=true;$('show').hidden=false;};
