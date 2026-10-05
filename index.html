@@ -71,6 +71,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
   <div class="row" id="lightRow"><span class="lb" role="img" aria-label="照明" title="照明"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.6 1.3 2.6V17h5v-.8c0-1 .5-1.9 1.3-2.6A6 6 0 0 0 12 3z"/></svg></span>
     <button id="tDown" class="tg on" role="switch" aria-checked="true"><i></i>ダウンライト</button>
     <button id="tBr" class="tg on" role="switch" aria-checked="true"><i></i>ブラケット</button>
+    <button id="tLdk" class="tg" role="switch" aria-checked="false"><i></i>照明（一括）</button>
   </div>
   <div class="row shade"><label class="lb" for="shade" title="シェード"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 4h17M5 4v10h14V4M5 7.5h14M5 11h14M12 14v4"/><circle cx="12" cy="19.5" r="1.2"/></svg><span hidden>シェード</span></label><input type="range" id="shade" min="0" max="100" step="10" value="0" aria-label="シェード"><b id="shadeOut">全開</b></div>
 </div>
@@ -179,7 +180,7 @@ function addDaylight(g,um,ym,w,hh,shadeable){g.updateMatrixWorld(true);const c=g
  const sp=new THREE.SpotLight(0xfff8f0,0,12,half,0.85,1.0);sp.position.copy(pos);sp.target.position.copy(tgt);s.add(sp);s.add(sp.target);
  winLights.push({light:sp,I,area:w*hh,shadeable,t:1});}
 // シェードの閉まり具合から、各窓の光の通り具合と部屋全体の明るさ（0〜1）を計算。ハニカムシェードは閉めても6割ほど光を通す
-function dayRatio(list,p){let a=0,b=0;list.forEach(w=>{w.t=w.shadeable?(1-p)+p*0.6:1;a+=w.area*w.t;b+=w.area;});return b?a/b:1;}
+function dayRatio(list,p){let a=0,b=0;list.forEach(w=>{w.t=w.shadeable?(1-p)+p*0.5:1;a+=w.area*w.t;b+=w.area;});return b?a/b:1;}
 // 壁：ローカル座標（u=壁に沿って、y=上、+z=室内側）。窓・ドアは穴として抜く
 function wallGroup(x,y,z,ry){const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=ry;s.add(g);return g;}
 function addWindow(g,a,b,y1,y2,panes,noShade,split){const w=b-a,hh=y2-y1,um=(a+b)/2,ym=(y1+y2)/2,RV=0xf0ede7;
@@ -293,11 +294,11 @@ const free=(x,z)=>x>=0.1+WM&&x<=W-WM&&z>=WM&&z<=D-WM&&!(x>bedR.x0&&x<bedR.x1&&z>
 const S={scene:sc,shadeP:0.6,elevated:false,free,bounds:[0.12,W-0.05,0.2,H-0.08,0.05,D-0.05],
  nearest:(x,z)=>nearestFree(free,x,z,2.3,0.3),
  setShade(p){S.shadeP=p;applyShades(myShades,p);S.applyEnv(night);},
- applyEnv(night){if(night){hemi.intensity=0.14;dl.intensity=0;up.color.set(0xffe2c2);up.intensity=0.05+(dOn?0.09:0)+(bOn?0.03:0);sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
+ applyEnv(night){if(!dOn)dlMat.color.set(night?0x2a2927:0xa8a6a1);if(night){hemi.intensity=0.14;dl.intensity=0;up.color.set(0xffe2c2);up.intensity=0.05+(dOn?0.09:0)+(bOn?0.03:0);sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
   else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;dl.intensity=0.12*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
- toggleDown(){dOn=!dOn;dlMat.color.set(dOn?DLON:0xd9d8d4);dls.forEach(p=>p.intensity=dOn?DLI:0);return dOn;},
+ toggleDown(){dOn=!dOn;dlMat.color.set(dOn?DLON:0xa8a6a1);dls.forEach(p=>p.intensity=dOn?DLI:0);return dOn;},
  toggleBr(){bOn=!bOn;brGlow.color.set(bOn?BRGLOW:0x3a3a3a);brs.forEach(p=>p.intensity=bOn?BRI:0);return bOn;},
- home(){S.elevated=false;look(2.3,1.5,0.2,0,1.0,2.9,85);},
+ home(){S.elevated=false;look(2.3,1.35,0.2,0,0.85,2.9,85);},
  views:[]};
 S.views=[{label:'入口',fn:()=>S.home()},{label:'全体',fn:()=>{S.elevated=true;look(2.55,2.3,0.08,0.3,0.5,2.3,80);}}];
 return S;}
@@ -396,7 +397,7 @@ const rows=[[TK,0.33],[0.33,0.58],[0.58,CH]];
 // 調理側（北向き）
 box(KX1-KX0,CH-TK,KZM-KZ0,(KX0+KX1)/2,TK+(CH-TK)/2,(KZ0+KZM)/2,carc);
 box(KX1-KX0,TK,KZM-KZ0-0.06,(KX0+KX1)/2,TK/2,(KZ0+KZM)/2+0.03,0x161616);
-[[2.20,3.08],[3.08,3.98],[3.98,KX1]].forEach(([a,b])=>rows.forEach(([y0,y1])=>drawer(a,b,y0,y1,KZ0,-1)));
+[[2.20,3.08],[3.08,3.98],[3.98,KX1]].forEach(([a,b])=>rows.forEach(([y0,y1])=>{if(a===3.98&&y0===0.58)return;drawer(a,b,y0,y1,KZ0,-1);}));   // コンロ下の最上段はグリル
 // ダイニング側：両端の引出し（左右同じ幅）
 [[KX0,KX0+0.75],[KX1-0.75,KX1]].forEach(([a,b])=>{box(b-a,CH-TK,KZ1-KZM,(a+b)/2,TK+(CH-TK)/2,(KZM+KZ1)/2,carc);box(b-a,TK,KZ1-KZM-0.06,(a+b)/2,TK/2,(KZM+KZ1)/2-0.03,0x161616);rows.forEach(([y0,y1])=>drawer(a+0.01,b,y0,y1,KZ1,1));});
 // 中央カウンター（足元の奥の面）
@@ -420,11 +421,48 @@ box(0.72,0.004,0.42,2.69,CH+0.0315,1.93,0x1f1f20);
  {const se=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.004,16),P({color:0x050505,specular:0x777777,shininess:90}));se.rotation.x=Math.PI/2;se.position.set(fx,fy+0.22,fz-0.019);s.add(se);}   // センサー窓
  {const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.019,0.019,0.045,20),fm);hub.rotation.z=Math.PI/2;hub.position.set(fx+0.04,fy+0.083,fz);s.add(hub);}   // レバーの付け根（東側）
  cy(0.005,0.005,0.09,0.083+0.045,0.058,0);}                   // レバー
-// コンロ（右端＝東側）
-box(0.6,0.004,0.5,4.5,CH+0.0315,1.93,0x0e0e0e);
-[[4.35,1.82],[4.65,1.82],[4.5,2.07]].forEach(([x,z])=>{const ring=new THREE.Mesh(new THREE.RingGeometry(0.075,0.085,40),L(0x6a6a6a));ring.rotation.x=-Math.PI/2;ring.position.set(x,CH+0.035,z);s.add(ring);});
-// レンジフード
-box(0.62,0.5,0.52,4.5,2.05,1.93,0x2b2b2b);
+// IHクッキングヒーター（パナソニック、W748×D516、2口＋奥中央の小径）。キャビネット右端（東）の上、手前が北
+// 調理する人から見て左＝東。平面図の寸法：左右の口の中心は端から222・間隔304（φ190）、奥の口φ140は中央・後端から245、手前の口は前端から201
+{const CX=4.43,ZF=1.665,Wc=0.748,Dc=0.516,top=CH+0.03,xe=CX+Wc/2;
+ const glass=P({color:0x07070a,specular:0x2e2e30,shininess:60}),sus=P({color:0xa9abad,specular:0xdddddd,shininess:70});
+ box(Wc,0.006,Dc,CX,top+0.003,ZF+Dc/2,sus);                                       // ステンレスの枠
+ box(Wc-0.016,0.003,Dc-0.1075-0.012,CX,top+0.0075,ZF+0.006+(Dc-0.1075-0.012)/2,glass);   // ガラストップ
+ box(Wc-0.016,0.004,0.1075-0.012,CX,top+0.008,ZF+Dc-0.006-(0.1075-0.012)/2,sus);  // 奥の吸排気口カバー
+ [-1,1].forEach(i=>box(0.2,0.002,0.045,CX+i*0.14,top+0.0105,ZF+Dc-0.055,0x2a2b2d)); // 吸排気のスリット
+ box(0.03,0.002,0.03,CX,top+0.0105,ZF+Dc-0.055,0x2a2b2d);
+ const rg=(x,z,r)=>{const m=new THREE.Mesh(new THREE.RingGeometry(r-0.004,r,48),L(0x4a4a4e));m.rotation.x=-Math.PI/2;m.position.set(x,top+0.0092,z);s.add(m);};
+ rg(xe-0.222,ZF+0.201,0.095);rg(xe-0.222-0.304,ZF+0.201,0.095);rg(CX,ZF+Dc-0.245,0.07);
+ const ctl=new THREE.MeshBasicMaterial({color:0x5c6470});
+ [-0.2,0,0.2].forEach(dx=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(0.12,0.006),ctl);m.rotation.x=-Math.PI/2;m.position.set(CX+dx,top+0.0092,ZF+0.04);s.add(m);});   // 前の操作表示
+ const ln=new THREE.Mesh(new THREE.PlaneGeometry(0.48,0.008),L(0x3a3a3e));ln.rotation.x=-Math.PI/2;ln.position.set(CX,top+0.0092,ZF+0.08);s.add(ln);
+ // 前面：最上段にグリル（幅594。左＝東がグリル扉、右＝西が操作部）。周りはキッチン扉と同じ面材
+ const zf=KZ0,y0=0.58,y1=CH;
+ box(KX1-3.98-0.006,y1-y0-0.006,0.02,(3.98+KX1)/2,(y0+y1)/2,zf-0.01,nsDoor);
+ const gx0=CX-0.297,gx1=CX+0.297,gy1=CH-0.012,gy0=gy1-0.16,gd=gx1-0.37;
+ const gg=P({color:0x0b0b0d,specular:0x666666,shininess:90});
+ box(gx1-gd-0.004,gy1-gy0,0.012,(gd+gx1)/2+0.002,(gy0+gy1)/2,zf-0.026,gg);                  // グリル扉
+ box(0.25,0.06,0.002,(gd+gx1)/2+0.002,gy0+0.075,zf-0.033,0x2a2218);                          // 窓
+ box(0.25,0.004,0.002,(gd+gx1)/2+0.002,gy0+0.075,zf-0.0335,0x6b5636);
+ box(0.29,0.01,0.012,(gd+gx1)/2+0.002,gy1-0.018,zf-0.038,P({color:0x8e9093,specular:0xbbbbbb,shininess:60}));   // 取っ手
+ box(gd-gx0-0.004,gy1-gy0,0.012,(gx0+gd)/2-0.002,(gy0+gy1)/2,zf-0.026,0x121214);           // 操作部
+ box(0.09,0.022,0.002,(gx0+gd)/2,gy1-0.05,zf-0.033,0x34404c);                               // 表示
+ [-2,-1,0,1,2].forEach(k=>box(0.01,0.006,0.002,(gx0+gd)/2+k*0.02,gy1-0.09,zf-0.033,0x55585c));
+}
+// レンジフード：アリアフィーナ SBARR-903 TBK（横壁取付・テクスチャーブラック、W900×D650、高さ700〜900）。東の壁に付くので左壁取付（左右反転）
+// 下がり天井（2300）からの高さを最小の700とした
+{const HX0=W-0.9,HX1=W,HZ0=1.59,HZ1=HZ0+0.65,yb=2.3-0.7,tk=0.075;
+ const hm=P({color:0x18181a,specular:0x202020,shininess:10});
+ const sh=new THREE.Shape();sh.moveTo(HZ1,0);sh.lineTo(HZ0,0);sh.lineTo(HZ0,0.025);sh.lineTo(HZ0+0.12,tk);sh.lineTo(HZ1,tk);sh.lineTo(HZ1,0);
+ const g=new THREE.ExtrudeGeometry(sh,{depth:HX1-HX0,bevelEnabled:false});
+ const cn=new THREE.Mesh(g,hm);cn.rotation.y=-Math.PI/2;cn.position.set(HX1,yb,0);s.add(cn);   // 断面（Z×高さ）を東の壁から西へ押し出す
+ box(HX1-HX0-0.06,0.003,0.65-0.08,(HX0+HX1)/2,yb-0.0015,(HZ0+HZ1)/2+0.01,0x0f0f10);          // 下面の整流板
+ box(0.3,0.004,0.025,(HX0+HX1)/2,yb-0.0035,HZ0+0.06,0x5a5a5c);                              // 手元灯
+ box(0.12,0.004,0.004,(HX0+HX1)/2-0.02,yb+0.014,HZ0-0.002,0xd8d8d8);                        // 前面の表示灯
+ [-0.14,-0.11,-0.08,0.06,0.09].forEach(dx=>box(0.012,0.006,0.003,(HX0+HX1)/2+dx,yb+0.014,HZ0-0.002,0x3a3a3c));   // ボタン
+ box(0.06,0.006,0.003,HX1-0.12,yb+0.014,HZ0-0.002,0x4a4a4c);                                 // ロゴ（東端側）
+ const CW=0.36,CD=0.36,cz=HZ1-0.04-CD/2,ctop=2.3;
+ box(CW,ctop-(yb+tk)-0.16,CD,HX1-CW/2,(yb+tk+ctop-0.16)/2,cz,hm);                           // 幕板（下）
+ box(CW+0.01,0.16,CD+0.01,HX1-CW/2-0.005,ctop-0.08,cz,hm);}                                  // 幕板（上）
 // A3：下がり天井のグレアレスダウンライト パナソニック SLD1035LLB1 ×2（電球色2700K・326lm・集光40度、枠はプラチナメタリック）。電気図面の位置
 const kdlEm=new THREE.MeshBasicMaterial({color:0x6a665e});
 const kdl=[2.75,3.53].map(x=>{const y=2.3,z=2.22;
@@ -603,14 +641,17 @@ const free=(x,z)=>{if(x<M||x>W-M||z<M||z>D-M)return false;for(const b of blocks)
 const S={scene:sc,shadeP:0,elevated:false,free,bounds:[0.05,W-0.05,0.2,H2-0.08,0.05,D-0.05],
  nearest:(x,z)=>nearestFree(free,x,z,1.2,5.5),
  setShade(p){S.shadeP=p;applyShades(myShades,p);S.applyEnv(night);},
- applyEnv(night){if(night){hemi.intensity=0.1;sun.intensity=0;up.color.set(0xffe2c2);up.intensity=0.12;sc.background.set(0x141c28);a5.forEach(p=>p.intensity=1.0);a5Mat.color.set(0xfff2e0);pends.forEach(p=>p.intensity=0.35);kdl.forEach(p=>p.intensity=1.3);kdlEm.color.set(0xffe2b8);rmw.forEach(p=>p.intensity=0.8);rmwEm.color.set(0xfff1e0);bulbMat.emissive.set(0xff8c2e);filMat.color.set(0xffe08a);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
-  else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;sun.intensity=0.15*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);a5.forEach(p=>p.intensity=0);a5Mat.color.set(0xd9d8d4);pends.forEach(p=>p.intensity=0);kdl.forEach(p=>p.intensity=0);kdlEm.color.set(0x6a665e);rmw.forEach(p=>p.intensity=0);rmwEm.color.set(0xd9d8d4);bulbMat.emissive.set(0x000000);filMat.color.set(0x8a6a3a);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
- viewLiv(){S.elevated=false;look(1.0,1.5,6.8,4.2,1.4,1.6,85);},
- viewKit(){S.elevated=false;look(3.75,1.5,1.15,2.2,1.1,6.8,85);},
+ lOn:false,
+ toggleL(){S.lOn=!S.lOn;S.applyEnv(night);return S.lOn;},
+ lights(o,f){if(o){a5.forEach(p=>p.intensity=1.0*f);a5Mat.color.set(0xfff2e0);pends.forEach(p=>p.intensity=0.35*f);kdl.forEach(p=>p.intensity=1.3*f);kdlEm.color.set(0xffe2b8);rmw.forEach(p=>p.intensity=0.8*f);rmwEm.color.set(0xfff1e0);bulbMat.emissive.set(0xff8c2e);filMat.color.set(0xffe08a);}else{a5.forEach(p=>p.intensity=0);a5Mat.color.set(f===1?0x2a2927:0xa8a6a1);pends.forEach(p=>p.intensity=0);kdl.forEach(p=>p.intensity=0);kdlEm.color.set(f===1?0x222120:0x6a665e);rmw.forEach(p=>p.intensity=0);rmwEm.color.set(f===1?0x2a2927:0xa8a6a1);bulbMat.emissive.set(0x000000);filMat.color.set(0x8a6a3a);}},
+ applyEnv(night){S.lights(S.lOn,night?1:0.3);if(night){hemi.intensity=0.1;sun.intensity=0;up.color.set(0xffe2c2);up.intensity=0.12;sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
+  else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;sun.intensity=0.15*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
+ viewLiv(){S.elevated=false;look(1.0,1.35,6.8,4.2,1.25,1.6,85);},
+ viewKit(){S.elevated=false;look(3.75,1.35,1.15,2.2,0.95,6.8,85);},
  views:[]};
-S.views=[{label:'入口',fn:()=>{S.elevated=false;look(0.8,1.5,4.07,4.6,1.7,5.2,85);}},
- {label:'テレビ',fn:()=>{S.elevated=false;look(3.6,1.5,TVC,TVX,0.9,TVC,80);}},
- {label:'2階',fn:()=>{S.elevated=true;look(2.9,FL2+1.5,3.0,3.2,2.5,7.2,78);}}];
+S.views=[{label:'入口',fn:()=>{S.elevated=false;look(0.8,1.35,4.07,4.6,1.55,5.2,85);}},
+ {label:'テレビ',fn:()=>{S.elevated=false;look(3.6,1.35,TVC,TVX,0.75,TVC,80);}},
+ {label:'2階',fn:()=>{S.elevated=true;look(2.9,FL2+1.35,3.0,3.2,2.35,7.2,78);}}];
 return S;}
 
 // ===== 操作 =====
@@ -628,13 +669,14 @@ function setRoom(id){
  mark($('rBed'),id==='bed');mark($('rLiv'),id==='liv');mark($('rKit'),id==='kit');
  const vr=$('viewRow');vr.innerHTML='';cur.views.forEach(v=>{const b=document.createElement('button');b.textContent=v.label;b.onclick=()=>{v.fn();vr.querySelectorAll('button').forEach(x=>mark(x,x===b));};vr.appendChild(b);});
  $('showLbl').textContent=roomName[id];
- $('lightRow').hidden=cur!==bedS;
+ $('tDown').hidden=$('tBr').hidden=cur!==bedS;$('tLdk').hidden=cur===bedS;mark($('tLdk'),ldkS.lOn);
  $('shade').value=Math.round(cur.shadeP*100);shadeLabel(cur.shadeP);applyEnvAll();
  if(id==='bed'){bedS.home();mark(vr.firstChild,true);}else if(id==='liv')ldkS.viewLiv();else ldkS.viewKit();}
 $('rBed').onclick=()=>setRoom('bed');$('rLiv').onclick=()=>setRoom('liv');$('rKit').onclick=()=>setRoom('kit');
 $('tDown').onclick=e=>{mark(e.currentTarget,bedS.toggleDown());applyEnvAll();};
+$('tLdk').onclick=e=>{mark(e.currentTarget,ldkS.toggleL());applyEnvAll();};
 $('tBr').onclick=e=>{mark(e.currentTarget,bedS.toggleBr());applyEnvAll();};
-function setNight(v){night=v;mark($('tDay'),!v);mark($('tNight'),v);applyEnvAll();}
+function setNight(v){night=v;ldkS.lOn=v;mark($('tLdk'),v);mark($('tDay'),!v);mark($('tNight'),v);applyEnvAll();}
 $('tDay').onclick=()=>setNight(false);$('tNight').onclick=()=>setNight(true);
 $('shade').oninput=e=>{const p=Number(e.target.value)/100;cur.setShade(p);shadeLabel(p);draw();};
 $('hide').onclick=()=>{$('panel').hidden=true;$('show').hidden=false;};
