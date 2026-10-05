@@ -407,7 +407,19 @@ box(0.02,CH,KZ1-KZ0,KX0-0.01,CH/2,(KZ0+KZ1)/2,nsDoor);
 box(KX1-KX0+0.025,0.03,KZ1-KZ0+0.03,(KX0-0.025+KX1)/2,CH+0.015,(KZ0+KZ1)/2,nsTop);
 // シンク（左端＝西側）と水栓
 box(0.72,0.004,0.42,2.69,CH+0.0315,1.93,0x1f1f20);
-box(0.03,0.32,0.03,2.69,CH+0.19,2.2,hdl);box(0.03,0.03,0.2,2.69,CH+0.35,2.11,hdl);box(0.026,0.08,0.026,2.69,CH+0.31,2.02,hdl);
+// 水栓：マットブラックのグースネック（引出しシャワー・センサー付き）。高さ396・吐水口までの出幅245・吐水口高185、レバーは横
+{const fx=2.69,fy=CH+0.03,fz=2.2,fm=P({color:0x1a1a1a,specular:0x222222,shininess:18});
+ const cy=(rt,rb,h,y,dx,dz)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,24),fm);c.position.set(fx+(dx||0),fy+y,fz+(dz||0));s.add(c);return c;};
+ cy(0.03,0.03,0.008,0.004);                                   // 座
+ cy(0.017,0.026,0.25,0.008+0.125);                            // 本体（下が太い）
+ const neck=new THREE.CatmullRomCurve3([[0,0.25,0],[0,0.31,-0.005],[-0.0,0.37,-0.05],[0,0.396,-0.12],[0,0.37,-0.2],[0,0.32,-0.24],[0,0.295,-0.245]].map(([x,y,z])=>new THREE.Vector3(fx+x,fy+y,fz+z)));
+ s.add(new THREE.Mesh(new THREE.TubeGeometry(neck,48,0.0125,14,false),fm));
+ cy(0.0165,0.0165,0.1,0.245,0,-0.245);                        // 引出しシャワーヘッド（吐水口高185）
+ cy(0.015,0.0165,0.012,0.191,0,-0.245);
+ {const sw=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.03,0.006),L(0x2c2c2c));sw.position.set(fx,fy+0.26,fz-0.245-0.016);s.add(sw);}   // シャワー切替ボタン
+ {const se=new THREE.Mesh(new THREE.CylinderGeometry(0.006,0.006,0.004,16),P({color:0x050505,specular:0x777777,shininess:90}));se.rotation.x=Math.PI/2;se.position.set(fx,fy+0.22,fz-0.019);s.add(se);}   // センサー窓
+ {const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.019,0.019,0.045,20),fm);hub.rotation.z=Math.PI/2;hub.position.set(fx+0.04,fy+0.083,fz);s.add(hub);}   // レバーの付け根（東側）
+ cy(0.005,0.005,0.09,0.083+0.045,0.058,0);}                   // レバー
 // コンロ（右端＝東側）
 box(0.6,0.004,0.5,4.5,CH+0.0315,1.93,0x0e0e0e);
 [[4.35,1.82],[4.65,1.82],[4.5,2.07]].forEach(([x,z])=>{const ring=new THREE.Mesh(new THREE.RingGeometry(0.075,0.085,40),L(0x6a6a6a));ring.rotation.x=-Math.PI/2;ring.position.set(x,CH+0.035,z);s.add(ring);});
@@ -549,20 +561,29 @@ const a5=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.M
 // ソファ：ニトリ 3人掛け電動リクライニングソファ KK6133 LGY（W1830×D890×H945、写真より少し暗めのライトグレー）
 // テレビの正面に、テレビとの距離が約2.2m（座った目線から）になる位置に配置
 
-const fabric=tmat(fabricC,{specular:0x0a0a0a,shininess:4});fabric.map.repeat.set(3,3);
+const fabric=tmat(fabricC,{specular:0x0a0a0a,shininess:4});fabric.map.repeat.set(7,7);
+const fabricDk=tmat(fabricC,{color:0xd6d6d4,specular:0x0a0a0a,shininess:4});fabricDk.map.repeat.set(7,7);
+// 角の丸い箱（クッション用）：角丸の四角形を押し出し、縁を丸める
+function rbox(g,w,h,d,r,x,y,z,m,rx){const sw=w-2*r,sh=h-2*r,cr=Math.min(sw,sh)*0.25,x0=-sw/2,y0=-sh/2,sp=new THREE.Shape();
+ sp.moveTo(x0+cr,y0);sp.lineTo(x0+sw-cr,y0);sp.quadraticCurveTo(x0+sw,y0,x0+sw,y0+cr);sp.lineTo(x0+sw,y0+sh-cr);sp.quadraticCurveTo(x0+sw,y0+sh,x0+sw-cr,y0+sh);
+ sp.lineTo(x0+cr,y0+sh);sp.quadraticCurveTo(x0,y0+sh,x0,y0+sh-cr);sp.lineTo(x0,y0+cr);sp.quadraticCurveTo(x0,y0,x0+cr,y0);
+ const geo=new THREE.ExtrudeGeometry(sp,{depth:d-2*r,bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelSegments:6,curveSegments:8});geo.translate(0,0,-(d-2*r)/2);
+ const ms=new THREE.Mesh(geo,m);ms.position.set(x,y,z);if(rx)ms.rotation.x=rx;g.add(ms);return ms;}
 const SOFA_BACK=3.15,SOFA_W=1.83,SOFA_D=0.89;
 const sofa=new THREE.Group();sofa.position.set(SOFA_BACK-SOFA_D/2,0,TVC);sofa.rotation.y=-Math.PI/2;s.add(sofa);
-{const g=sofa,hz=SOFA_D/2,hx=SOFA_W/2,AW=0.2;
- [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,k])=>lbox(g,0.05,0.05,0.05,i*(hx-0.06),0.025,k*(hz-0.06),0x1a1a1a));
- [-1,1].forEach(i=>{lbox(g,AW,0.56,SOFA_D,i*(hx-AW/2),0.05+0.28,0,fabric);
-  const roll=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,SOFA_D-0.04,20),fabric);roll.rotation.x=Math.PI/2;roll.position.set(i*(hx-0.1),0.6,0.01);g.add(roll);});
- const IW=SOFA_W-2*AW,half=IW/2;
- lbox(g,IW,0.9,0.14,0,0.05+0.45,-hz+0.07,fabric);
+{const g=sofa,hz=SOFA_D/2,hx=SOFA_W/2,AW=0.17,IW=SOFA_W-2*AW,half=IW/2;
+ // 脚（黒、肘掛けの下に4つ）
+ [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,k])=>{const f=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.024,0.05,12),L(0x151515));f.position.set(i*(hx-0.07),0.025,k*(hz-0.08));g.add(f);});
+ // 肘掛け：本体と、上端の外側に張り出した丸いロール
+ [-1,1].forEach(i=>{rbox(g,AW,0.5,SOFA_D-0.02,0.035,i*(hx-AW/2),0.05+0.25,0,fabric);
+  rbox(g,AW+0.05,0.12,SOFA_D-0.03,0.055,i*(hx-AW/2+0.012),0.6,0,fabric);});
+ // 背もたれの外側
+ rbox(g,IW+0.02,0.62,0.18,0.05,0,0.53,-hz+0.09,fabric);
  [-1,1].forEach(i=>{const cx=i*half/2;
-  lbox(g,half-0.01,0.25,SOFA_D-0.14,cx,0.05+0.125,0.07,fabric);
-  lbox(g,half-0.02,0.15,0.6,cx,0.375,hz-0.31,fabric);
-  lbox(g,half-0.02,0.32,0.2,cx,0.61,-hz+0.24,fabric);
-  lbox(g,half-0.02,0.21,0.22,cx,0.84,-hz+0.21,fabric);});}
+  rbox(g,half-0.012,0.25,SOFA_D-0.16,0.03,cx,0.185,0.07,fabricDk);        // 座面の土台と前のフットレスト（電動リクライニング部）
+  rbox(g,half-0.014,0.17,0.66,0.07,cx,0.395,hz-0.34,fabric);             // 座クッション
+  rbox(g,half-0.02,0.32,0.21,0.08,cx,0.62,-hz+0.24,fabric,-0.12);        // 背クッション（腰）
+  rbox(g,half-0.02,0.25,0.2,0.09,cx,0.83,-hz+0.17,fabric,-0.1);});}      // ヘッドレスト
 
 // エアコン（AC④）
 // A1・A4：拡散タイプのダウンライト パナソニック RMW(P1)（LEDフラットランプφ70・温白色3500K・440lm・白枠）
