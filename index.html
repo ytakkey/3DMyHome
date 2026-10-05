@@ -69,6 +69,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
   <div class="row" id="lightRow"><span class="lb" role="img" aria-label="照明" title="照明"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.6 1.3 2.6V17h5v-.8c0-1 .5-1.9 1.3-2.6A6 6 0 0 0 12 3z"/></svg></span>
     <div class="chips">
     <button id="tLdk" class="tg" role="switch" aria-checked="false"><i></i>LDK照明</button>
+    <button id="tHall" class="tg" role="switch" aria-checked="false"><i></i>廊下・階段</button>
     <button id="tDown" class="tg on" role="switch" aria-checked="true"><i></i>寝室ダウン</button>
     <button id="tBr" class="tg on" role="switch" aria-checked="true"><i></i>ブラケット</button>
     </div>
@@ -145,10 +146,10 @@ const pleatC=cv((g,w,h)=>{g.fillStyle='rgb(244,241,234)';g.fillRect(0,0,w,h);g.f
 const nsDoorC=noiseCanvas(512,[72,72,74],9,100,8);
 const nsTopC=cv((g,w,h)=>{g.fillStyle='rgb(46,46,48)';g.fillRect(0,0,w,h);for(let i=0;i<9000;i++){const v=30+R()*60;g.fillStyle=`rgba(${v},${v},${v+3},0.6)`;g.fillRect(R()*w,R()*h,1+R()*1.5,1+R()*1.5);}for(let i=0;i<900;i++){const v=150+R()*90;g.fillStyle=`rgba(${v},${v},${v},${0.4+R()*0.5})`;g.fillRect(R()*w,R()*h,1,1);}},512,512);
 // 1階の床：ライブナチュラルプレミアム オークN-45°（近似）。1.82m四方のタイル
-const oakTile=planksC(1024,12,0.45,0.9,(g,x,y,len,ph,q)=>{const v=195+q()*28;g.fillStyle=`rgb(${v|0},${v*0.69|0},${v*0.42|0})`;g.fillRect(x,y,len,ph);
- for(let k=0;k<16;k++){g.fillStyle=q()<0.4?'rgba(240,200,150,0.16)':'rgba(150,90,40,0.16)';g.fillRect(x,y+q()*ph,len,0.8+q()*1.5);}
- const nA=1+(q()*3|0);for(let a=0;a<nA;a++){const cx=x+q()*len,cy=y+ph*(0.3+q()*0.4),rx=len*(0.08+q()*0.18),ry=ph*(0.25+q()*0.3);g.strokeStyle='rgba(140,82,35,0.28)';for(let k=0;k<5;k++){g.lineWidth=0.8+q()*1.2;g.beginPath();g.ellipse(cx,cy,rx*(1-k*0.17),ry*(1-k*0.17),0,0,Math.PI*2);g.stroke();}}
- g.fillStyle='rgba(105,65,30,0.5)';g.fillRect(x,y,2,ph);g.fillRect(x,y,len,1.5);});
+const oakTile=planksC(1024,12,0.45,0.9,(g,x,y,len,ph,q)=>{const v=195+q()*28;g.fillStyle=`rgb(${v*0.93|0},${v*0.71|0},${v*0.47|0})`;g.fillRect(x,y,len,ph);
+ for(let k=0;k<16;k++){g.fillStyle=q()<0.4?'rgba(230,205,160,0.16)':'rgba(140,96,52,0.16)';g.fillRect(x,y+q()*ph,len,0.8+q()*1.5);}
+ const nA=1+(q()*3|0);for(let a=0;a<nA;a++){const cx=x+q()*len,cy=y+ph*(0.3+q()*0.4),rx=len*(0.08+q()*0.18),ry=ph*(0.25+q()*0.3);g.strokeStyle='rgba(130,88,45,0.28)';for(let k=0;k<5;k++){g.lineWidth=0.8+q()*1.2;g.beginPath();g.ellipse(cx,cy,rx*(1-k*0.17),ry*(1-k*0.17),0,0,Math.PI*2);g.stroke();}}
+ g.fillStyle='rgba(98,70,40,0.5)';g.fillRect(x,y,2,ph);g.fillRect(x,y,len,1.5);});
 // 2階の床：モクリア ビター・ウォールナット（BWT、近似）。1.82m四方のタイル
 const walnutTile=planksC(1024,12,0.45,0.9,(g,x,y,len,ph,q)=>{const v=82+q()*20;g.fillStyle=`rgb(${v|0},${v*0.78|0},${v*0.66|0})`;g.fillRect(x,y,len,ph);
  for(let k=0;k<12;k++){g.fillStyle=q()<0.35?'rgba(150,122,100,0.14)':'rgba(48,32,22,0.22)';g.fillRect(x,y+q()*ph,len,0.8+q()*1.6);}
@@ -524,13 +525,16 @@ box(4.04-2.18,0.03,0.63,(2.18+4.04)/2,CH+0.015,0.315,nsTop);
 // うす壁と自在棚（4枚）
 wbox(0.06,H1,0.62,4.07,H1/2,0.31,plasterMat,1);
 [0.45,0.85,1.25,1.65].forEach(y=>box(W-4.10-0.004,0.02,0.45,(4.10+W)/2,y,0.23,FIT));
-// 冷蔵庫（押入とカップボードの間、ベージュのガラス扉。上から冷蔵・野菜・冷凍の3段）
-{const FX=1.77,FW=0.685,FD=0.7,FH=1.82,fz=0.02+FD;const body=P({color:0xbdb6aa,specular:0x222222,shininess:20}),gls=P({color:0xd8cab2,specular:0x3a3a3a,shininess:60});
- box(FW,FH,FD-0.03,FX,FH/2,0.02+(FD-0.03)/2,body);
- // 冷蔵室（1枚扉）、野菜室・冷凍室（引出し）
- const fd=(x0,x1,y0,y1)=>box(x1-x0-0.006,y1-y0-0.006,0.03,(x0+x1)/2,(y0+y1)/2,fz-0.015,gls);
- fd(FX-FW/2,FX+FW/2,0.88,FH);fd(FX-FW/2,FX+FW/2,0.48,0.88);fd(FX-FW/2,FX+FW/2,0.04,0.48);
- box(0.012,0.3,0.01,FX+FW/2-0.04,1.35,fz+0.005,0xa89f90);}
+// 冷蔵庫：東芝 3ドア（W600×H1757×D665、ハンドル込み677）。サテンベージュ系のガラス扉、上から冷蔵・野菜・冷凍。押入とカップボードの間
+{const FX=1.77,FW=0.6,FD=0.665,FH=1.757,z0=0.02,fz=z0+FD;
+ const body=P({color:0xd6cab4,specular:0x222222,shininess:20}),gls=P({color:0xe0d1b6,specular:0x303030,shininess:60}),trim=P({color:0xb39466,specular:0x777777,shininess:70});
+ box(FW,FH,FD-0.025,FX,FH/2,z0+(FD-0.025)/2,body);
+ box(FW-0.02,0.045,0.02,FX,0.0225,fz-0.03,0xcfc2ab);                                   // 下の脚カバー
+ const fd=(y0,y1)=>box(FW-0.004,y1-y0-0.006,0.025,FX,(y0+y1)/2,fz-0.0125,gls);
+ fd(0.745,FH);fd(0.455,0.745);fd(0.05,0.455);                                            // 冷蔵室・野菜室・冷凍室
+ [0.745,0.455].forEach(y=>box(FW-0.03,0.012,0.004,FX,y-0.012,fz+0.001,trim));            // 引出し上端の取っ手（シャンパン色）
+ box(0.008,0.07,0.012,FX+FW/2-0.006,0.79,fz-0.008,trim);                                 // 冷蔵室の取っ手（右下）
+ box(0.05,0.008,0.002,FX-FW/2+0.06,FH-0.05,fz+0.001,0x9a9080);}                          // ロゴ
 
 // ダイニングテーブル（1500×850、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚
 const tblTop=tmat(tjC,{specular:0x222222,shininess:20});
@@ -644,6 +648,12 @@ const rmw=[[2.63,1.0],[3.53,1.0],[4.30,1.0],[1.79,TVC-0.75],[1.79,TVC+0.75]].map
  const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),rmwEm);lamp.position.set(x,y-0.003,z);s.add(lamp);
  const sp=new THREE.SpotLight(0xffd9b4,0,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,0,z);s.add(sp);s.add(sp.target);return sp;});
 acUnit(0.9,H1-0.065-0.295,D,Math.PI);   // ダイキン AXシリーズ（南の壁の西寄り）
+// 2階天井のダウンライト（電気図面の位置）。J1×2：2階廊下 RML(P1)（電球色2700K）。H1×2：階段の上 RMW(P1)（温白色3500K）
+const hlEmL=new THREE.MeshBasicMaterial({color:0xa8a6a1}),hlEmW=new THREE.MeshBasicMaterial({color:0xa8a6a1});
+const hallDL=[[0.99,3.12,0xffc68e,hlEmL,5],[3.32,3.12,0xffc68e,hlEmL,5],[4.43,4.35,0xffd9b4,hlEmW,6],[4.43,5.51,0xffd9b4,hlEmW,6]].map(([x,z,c,em,dist])=>{const y=H2;
+ const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);
+ const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),em);lamp.position.set(x,y-0.003,z);s.add(lamp);
+ const sp=new THREE.SpotLight(c,0,dist,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,0,z);s.add(sp);s.add(sp.target);return sp;});
 
 
 // 状態・視点・当たり判定
@@ -667,10 +677,12 @@ const S={scene:sc,shadeP:0,elevated:false,free,
   [2.15,W,2.22,FL2,1.565,2.67]],                                     // キッチン上の下がり天井（CH2300）
  nearest:(x,z)=>nearestFree(free,x,z,1.2,5.5),
  setShade(p){S.shadeP=p;applyShades(myShades,p);S.applyEnv(night);},
- lOn:false,
+ lOn:false,hOn:false,
+ toggleH(){S.hOn=!S.hOn;S.applyEnv(night);return S.hOn;},
+ hallL(o,f){hallDL.forEach(p=>p.intensity=o?0.8*f:0);hlEmL.color.set(o?0xffe2b8:(f===1?0x2a2927:0xa8a6a1));hlEmW.color.set(o?0xfff1e0:(f===1?0x2a2927:0xa8a6a1));},
  toggleL(){S.lOn=!S.lOn;S.applyEnv(night);return S.lOn;},
  lights(o,f){if(o){a5.forEach(p=>p.intensity=1.0*f);a5Mat.color.set(0xfff2e0);pends.forEach(p=>p.intensity=0.35*f);kdl.forEach(p=>p.intensity=1.3*f);kdlEm.color.set(0xffe2b8);rmw.forEach(p=>p.intensity=0.8*f);rmwEm.color.set(0xfff1e0);bulbMat.emissive.set(0xff8c2e);filMat.color.set(0xffe08a);}else{a5.forEach(p=>p.intensity=0);a5Mat.color.set(f===1?0x2a2927:0xa8a6a1);pends.forEach(p=>p.intensity=0);kdl.forEach(p=>p.intensity=0);kdlEm.color.set(f===1?0x222120:0x6a665e);rmw.forEach(p=>p.intensity=0);rmwEm.color.set(f===1?0x2a2927:0xa8a6a1);bulbMat.emissive.set(0x000000);filMat.color.set(0x8a6a3a);}},
- applyEnv(night){S.lights(S.lOn,night?1:0.3);if(night){hemi.intensity=0.1;sun.intensity=0;up.color.set(0xffe2c2);up.intensity=0.12;sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
+ applyEnv(night){S.lights(S.lOn,night?1:0.3);S.hallL(S.hOn,night?1:0.3);if(night){hemi.intensity=0.1;sun.intensity=0;up.color.set(0xffe2c2);up.intensity=0.12;sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
   else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;sun.intensity=0.15*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
  viewLiv(){S.elevated=false;look(1.0,1.35,6.8,4.2,1.25,1.6,85);},
  viewHall(){S.elevated=true;look(4.4,FL2+1.35,3.12,-0.6,FL2+1.15,3.12,80);},
@@ -696,6 +708,7 @@ const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKi
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));}
 function setView(lb){VIEWS.find(v=>v[0]===lb)[1]();$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));}
 $('tDown').onclick=e=>{mark(e.currentTarget,bedS.toggleDown());applyEnvAll();};
+$('tHall').onclick=e=>{mark(e.currentTarget,ldkS.toggleH());applyEnvAll();};
 $('tLdk').onclick=e=>{mark(e.currentTarget,ldkS.toggleL());applyEnvAll();};
 $('tBr').onclick=e=>{mark(e.currentTarget,bedS.toggleBr());applyEnvAll();};
 function setNight(v){night=v;mark($('tDay'),!v);mark($('tNight'),v);applyEnvAll();}
