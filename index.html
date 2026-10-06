@@ -106,6 +106,7 @@ document.body.prepend(r.domElement);
 const cam=new THREE.PerspectiveCamera(85,window.innerWidth/window.innerHeight,0.05,80);cam.rotation.order='YXZ';
 const R=Math.random,WARM=0xffc68e,FIT=0xfbfbf9;
 // ===== 寸法データ（m）。座標：X=東、Z=南、原点はLDK北西の室内側の角。部屋を足すときはここに追加する =====
+const EYE=1.25;   // 視点（各部屋のショートカット）の目の高さ
 const HOUSE={
  ldk:{W:4.885,D:7.16,H1:2.4,FL2:2.9,H2:5.3,   // 幅・奥行・1階天井・2階床・吹抜けの天井
   VX:2.215,VZ:3.58,                          // 吹抜けの西端・北端
@@ -115,7 +116,7 @@ const HOUSE={
  wash:{X0:-2.2725,LW:-0.115,                 // 脱衣室・洗面所：西の外壁の室内面・LDKの西の壁の裏（壁厚115）
   DZ0:1.8175,DZ1:3.0675,SZ0:3.1825,SZ1:4.4325,   // 脱衣室の北・南、洗面所の北・南（壁の室内面。Y6・Y4.5・Y3の壁芯±57.5）
   SX1:-0.57,CX0:-0.455,CX1:0.34,             // 洗面所の東、廊下の西・東（X2・X3の壁芯±57.5）。廊下の北は仕切り壁（PZ1）、南は洗面所の南と同じ線（SZ1）
-  winZ0:1.830,winZ1:3.028,                   // 脱衣室の窓 F4415N
+  winZ0:1.8435,winZ1:3.0415,                 // 脱衣室の窓 F4415N（W1198、脱衣室の南北の壁のちょうど中心）
   bathA:-1.405,bathB:-0.58,sgA:-1.369,sgB:-0.587,   // 浴室のドア・脱衣室と洗面所のSG300の開口（X）
   s33A:3.6825,s33B:4.4325,hbX:-0.963},       // SG33の開口（Z。南端は廊下の南の壁にそろう）、ヘッダーボックスの中心（X）
  hall:{X0:-0.47,Z0:2.7275},                  // 2階廊下：西の突き当り（収納SGC-30Tの扉の面、仮）・北の壁の室内面（Y5の壁芯+57.5）。南は吹抜けの北端、東はLDKの東の壁
@@ -125,7 +126,12 @@ const HOUSE={
 const MC={};
 const P=o=>new THREE.MeshPhongMaterial(Object.assign({specular:0x0a0a0a,shininess:6},o));
 const L=c=>MC[c]||(MC[c]=P({color:c}));
-let s=null,shades=null,winLights=null;   // 部品を追加する先（作成中の部屋）と、その部屋のシェード一覧・窓の自然光一覧
+let s=null,shades=null,winLights=null;
+// 開閉できるドア（両側の部屋が再現されているもの）。DS：開閉状態（true＝開、ページを開いたときはすべて閉）、DOORS：開いた形と閉じた形の部品
+const DS={sg300l:false,sg300w:false,sg33:false,sg11h:false,sg311:false},DOORS={};   // sg300l：脱衣室とLDK、sg300w：脱衣室と洗面所、sg33：洗面所と廊下、sg11h：廊下とLDK、sg311：寝室と2階廊下
+const ifOpen=(k,b)=>(b.door=k,b),ifShut=(k,b)=>(b.shut=k,b);   // 移動範囲の箱：開いているときだけ通れる開口／閉じているときだけ通れない所
+// 開いた形（gO）と閉じた形（gC）を登録。部品はまとめる対象から外し、枠・戸袋・壁（skipの素材）以外を扉の本体（タップで開閉）にする
+function regDoor(k,gO,gC,skip){[gO,gC].forEach(x=>x.traverse(c=>{if(!c.isMesh)return;c.userData.dyn=true;c.userData.dk=k;if(!skip.includes(c.material))c.userData.door=k;}));DOORS[k]={gO,gC};}   // 部品を追加する先（作成中の部屋）と、その部屋のシェード一覧・窓の自然光一覧
 function cv(draw,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);return c;}
 function tex(c,rot){const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=r.capabilities.getMaxAnisotropy();if(rot){t.center.set(0.5,0.5);t.rotation=rot;}return t;}
 function tmat(c,o,rot){return P(Object.assign({map:tex(c,rot)},o||{}));}
@@ -253,8 +259,9 @@ for(let k=0;k<n;k++){const pw=w/n,cx=a+pw*(k+0.5),sw=pw-(n>1?0.07:0.05),zz=n>1?-
  shades.push({fab,rail,um:cx,w:sw,top:y2-0.055,max:hh-0.075,z:zz});}}
 // 開口の見込み（左右・上）と、扉の奥の面。扉と枠の隙間から壁の向こうが見えないように
 // T（壁の厚み）を指定したとき（開いたドア）は、見込みを壁の厚み全体に付け、奥の面は付けない
-function doorBox(g,a,b,h,T){const w=b-a,d=T||0.066;if(!T)lbox(g,w+0.04,h+0.03,0.006,(a+b)/2,(h+0.03)/2,-0.068,0xdedcd7);
- lbox(g,0.008,h,d,a+0.004,h/2,-d/2,FIT);lbox(g,0.008,h,d,b-0.004,h/2,-d/2,FIT);lbox(g,w,0.008,d,(a+b)/2,h-0.004,-d/2,FIT);}
+function doorBox(g,a,b,h,T,mid){const w=b-a,d=T||0.066;if(!T)lbox(g,w+0.04,h+0.03,0.006,(a+b)/2,(h+0.03)/2,-0.068,0xdedcd7);
+ const jb=(x,part)=>part?lbox(g,0.008,h,d-0.035,x,h/2,-(d+0.035)/2,FIT):lbox(g,0.008,h,d,x,h/2,-d/2,FIT);   // part：開閉できる引き戸の戸袋側の見込み（扉が通る面より奥だけ）
+ jb(a+0.004,mid==='a');jb(b-0.004,mid==='b');lbox(g,w,0.008,d,(a+b)/2,h-0.004,-d/2,FIT);}
 function addDoor(g,a,b,h,n){const w=b-a;
 lbox(g,0.05,h+0.025,0.02,a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,(a+b)/2,h,0.01,FIT);
 const pw=(w-0.01)/n;for(let i=0;i<n;i++)lbox(g,pw-0.006,h-0.01,0.035,a+0.005+pw*(i+0.5),(h-0.01)/2,-0.03,0xf6f5f2);
@@ -303,8 +310,7 @@ lbox(g,SL,y1-y0,0.035,l0+SL/2,(y0+y1)/2,z,bathFrM);lbox(g,SH,y1-y0,0.035,l1-SH/2
 lbox(g,gw,0.022,0.002,gc,y1-RT-0.011,z+0.0185,bathLtM);lbox(g,gw,0.018,0.002,gc,y0+RB+0.009,z+0.0185,bathLtM);   // パネル上下の明るい押縁
 const p0=y0+RB+0.018,p1=y1-RT-0.022;lbox(g,gw,p1-p0,0.006,gc,(p0+p1)/2,z,bathGlM);   // すりガラス調のパネル
 lbox(g,0.003,p1-p0+0.04,0.002,g0-0.008,(p0+p1)/2,z+0.0185,GR);lbox(g,0.003,p1-p0+0.04,0.002,g1+0.008,(p0+p1)/2,z+0.0185,GR);   // 框の溝
-{const ty=0.95,tz=z+0.0175+0.03,tl=gw+0.03,c=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,tl,16),bathFrM);c.rotation.z=Math.PI/2;c.position.set(gc,ty,tz);g.add(c);
- [g0-0.015,g1+0.015].forEach(x=>{const k=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.03,16),bathFrM);k.rotation.x=Math.PI/2;k.position.set(x,ty,z+0.0175+0.015);g.add(k);const q=new THREE.Mesh(new THREE.SphereGeometry(0.01,16,12),bathFrM);q.position.set(x,ty,tz);g.add(q);});}   // タオル掛け（両端は框へ折れ曲がって固定）
+{const ty=0.95,TB=0.022,tz=z+0.0175+0.03,tl=gw+0.03+TB;lbox(g,tl,TB,TB*0.8,gc,ty,tz,bathFrM);[g0-0.015,g1+0.015].forEach(x=>lbox(g,TB,TB,0.03-TB*0.4,x,ty,z+0.0175+(0.03-TB*0.4)/2,bathFrM));}   // タオル掛け（角ばった断面、両端は框へ直角に折れて固定）
 lbox(g,0.02,0.06,0.008,l0+0.03,1.27,z+0.0215,0x8e8b84);lbox(g,0.008,0.022,0.006,l0+0.03,1.275,z+0.0275,0x5f5d58);}   // チャイルドロック
 // 床暖房のヘッダーボックス（壁に埋め込み、白。上・中・下に横長のガラリ、左寄りに小さなつまみ）
 function addHB(g,a,b,h){const w=b-a,um=(a+b)/2,HW=0xf5f4f1;
@@ -315,14 +321,29 @@ const lv=(y0,y1)=>{const lw=dw*0.74,n=Math.round((y1-y0)/0.016);lbox(g,lw,y1-y0,
  lbox(g,lw+0.012,0.006,0.004,um,y1,0.03,HW);lbox(g,lw+0.012,0.006,0.004,um,y0,0.03,HW);lbox(g,0.006,y1-y0,0.004,um-lw/2,(y0+y1)/2,0.03,HW);lbox(g,0.006,y1-y0,0.004,um+lw/2,(y0+y1)/2,0.03,HW);};
 lv(1.04,1.15);lv(0.69,0.78);lv(0.08,0.34);   // ガラリ（上・中・下）
 {const k=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.018,20),L(0xe9e9e7));k.rotation.x=Math.PI/2;k.position.set(a+0.05,0.73,0.037);g.add(k);}}   // つまみ
+// 開き戸（閉じた状態）：b側の吊元。レバーハンドルは両面で戸先（a側）寄り
+function addSwingClosed(g,a,b,h){const w=b-a;
+lbox(g,0.05,h+0.025,0.02,a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,(a+b)/2,h,0.01,FIT);
+lbox(g,w-0.01,h-0.01,0.035,(a+b)/2,(h-0.01)/2,-0.03,0xf6f5f2);
+[-1,1].forEach(k=>lbox(g,0.12,0.02,0.03,a+0.105,1.0,-0.03+k*0.0325,0x8f8b85));}
+// 開閉できるドア（o.toggle）：開いた形と閉じた形を両方作り、表示を切り替える
+function addToggleDoor(g,o,m,sc){const gO=new THREE.Group(),gC=new THREE.Group();g.add(gO);g.add(gC);const a=o.a,b=o.b,h=o.y2,w=b-a;
+ if(o.door==='slide'){const R=o.dir<0?-1:1,p0=R>0?b:a-w,pc=p0+w/2,c0=R>0?a:a-w,c1=R>0?b+w:b;   // 戸袋（p0〜p0+w）はR>0でb側、R<0でa側
+  lbox(g,0.05,h+0.025,0.02,c0,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,c1,(h+0.025)/2,0.01,FIT);lbox(g,2*w+0.05,0.05,0.02,(c0+c1)/2,h,0.01,FIT);   // 枠（開閉で変わらない。開口と戸袋を囲む）
+  lbox(gO,w+0.02,h+0.02,0.006,pc,h/2,-0.05,0xdedcd7);lbox(gO,w-0.01,h-0.01,0.035,pc,(h-0.01)/2,-0.0175,0xf6f5f2);lbox(gO,0.025,0.16,0.01,R>0?b+0.07:a-0.07,1.0,0.002,0x2a2a2a);   // 開：戸袋の奥の面・扉・引手
+  const k0=R>0?a+0.008:a,k1=R>0?b:b-0.008,hx=R>0?a+0.07:b-0.07;lbox(gC,k1-k0,h-0.01,0.035,(k0+k1)/2,(h-0.01)/2,-0.0175,0xf6f5f2);lbox(gC,0.025,0.16,0.01,hx,1.0,0.002,0x2a2a2a);lbox(gC,0.025,0.16,0.01,hx,1.0,-0.04,0x2a2a2a);   // 閉：扉（開いたときと同じ面。戸袋側は戸袋の端まで）・引手（表と裏、戸先寄り）
+  const pt=new THREE.Mesh(uvPlane(w,h,p0,0,sc,sc),m);pt.position.set(pc,h/2,0);gC.add(pt);}   // 閉：戸袋の穴を壁で塞ぐ
+ else if(o.door==='high'){addHighDoor(gO,a,b,h,o.uw);addHighDoor(gC,a,b,h,0);lbox(gC,0.035,0.035,0.012,a+0.06,1.0,-0.0535,0x1a1a1a);}   // 閉じたとき：裏側の引手
+ else if(o.door==='swing'){addSwingOpen(gO,a,b,h,o.uw);addSwingClosed(gC,a,b,h);}
+ regDoor(o.toggle,gO,gC,[L(FIT),L(0xdedcd7),m]);}
 function buildWall(g,len,h,ops,m,sc,bb){
-ops=ops.concat(ops.filter(o=>o.door==='slide'&&o.open).map(o=>({a:o.b,b:2*o.b-o.a,y1:0,y2:o.y2})));   // 開いた引き戸の戸袋（壁を抜いて扉の面を壁とそろえる）
+ops=ops.concat(ops.filter(o=>o.door==='slide'&&o.open).map(o=>o.dir<0?{a:2*o.a-o.b,b:o.a,y1:0,y2:o.y2}:{a:o.b,b:2*o.b-o.a,y1:0,y2:o.y2}));   // dir<0：a側へ引く   // 開いた引き戸の戸袋（壁を抜いて扉の面を壁とそろえる）
 const shp=new THREE.Shape();shp.moveTo(0,0);shp.lineTo(len,0);shp.lineTo(len,h);shp.lineTo(0,h);shp.lineTo(0,0);
 ops.forEach(o=>{const y1=Math.max(o.y1,0.002),p=new THREE.Path();p.moveTo(o.a,y1);p.lineTo(o.a,o.y2);p.lineTo(o.b,o.y2);p.lineTo(o.b,y1);p.lineTo(o.a,y1);shp.holes.push(p);});
 const geo=new THREE.ShapeGeometry(shp);const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sc,uv.getY(i)/sc);
 g.add(new THREE.Mesh(geo,m));
 if(bb){const cuts=ops.filter(o=>o.y1<0.3).sort((p,q)=>p.a-q.a);let u=0;cuts.forEach(o=>{if(o.a-u>0.01)lbox(g,o.a-u,0.06,0.012,(u+o.a)/2,0.03,0.006,FIT);u=Math.max(u,o.b);});if(len-u>0.01)lbox(g,len-u,0.06,0.012,(u+len)/2,0.03,0.006,FIT);}
-ops.forEach(o=>{if(o.win)addWindow(g,o.a,o.b,o.y1,o.y2,o.panes,o.noShade,o.splitShade);if(o.hb)addHB(g,o.a,o.b,o.y2);if(o.door&&o.door!=='frame')doorBox(g,o.a,o.b,o.y2,(o.open||o.door==='swing')?o.T:0);if(o.door==='high')addHighDoor(g,o.a,o.b,o.y2,o.open?o.uw:0);else if(o.door==='slide')addSlideDoor(g,o.a,o.b,o.y2,o.open);else if(o.door==='swing')addSwingOpen(g,o.a,o.b,o.y2,o.uw);else if(o.door==='bath')addBathDoor(g,o.a,o.b,o.y2);else if(o.door==='fold')addFoldDoor(g,o.a,o.b,o.y2);else if(o.door==='frame'){const w=o.b-o.a,h=o.y2;lbox(g,0.05,h+0.025,0.02,o.a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,o.b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,(o.a+o.b)/2,h,0.01,FIT);}else if(o.door)addDoor(g,o.a,o.b,o.y2,o.n||1);});}
+ops.forEach(o=>{if(o.win)addWindow(g,o.a,o.b,o.y1,o.y2,o.panes,o.noShade,o.splitShade);if(o.hb)addHB(g,o.a,o.b,o.y2);if(o.door&&o.door!=='frame')doorBox(g,o.a,o.b,o.y2,(o.open||o.door==='swing')?o.T:0,o.toggle&&o.door==='slide'?(o.dir<0?'a':'b'):0);if(o.toggle)addToggleDoor(g,o,m,sc);else if(o.door==='high')addHighDoor(g,o.a,o.b,o.y2,o.open?o.uw:0);else if(o.door==='slide')addSlideDoor(g,o.a,o.b,o.y2,o.open);else if(o.door==='swing')addSwingOpen(g,o.a,o.b,o.y2,o.uw);else if(o.door==='bath')addBathDoor(g,o.a,o.b,o.y2);else if(o.door==='fold')addFoldDoor(g,o.a,o.b,o.y2);else if(o.door==='frame'){const w=o.b-o.a,h=o.y2;lbox(g,0.05,h+0.025,0.02,o.a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,o.b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,(o.a+o.b)/2,h,0.01,FIT);}else if(o.door)addDoor(g,o.a,o.b,o.y2,o.n||1);});}
 function applyShades(list,p){list.forEach(sh=>{const len=Math.max(0.02,sh.max*p);sh.fab.geometry.dispose();sh.fab.geometry=uvPlane(sh.w,len,0,0,sh.w,0.035);sh.fab.position.set(sh.um,sh.top-len/2,sh.z||-0.07);sh.fab.visible=p>0;sh.rail.position.y=sh.top-len-0.01;});}
 // エアコン：ダイキン AXシリーズ（W798×H295×D370、ホワイト）。x,z=取付け壁面での左右中心、y=本体の下端、ry=向き（+z側が室内）
 const acWhite=P({color:0xf6f6f4,specular:0x333333,shininess:30}),acGrey=P({color:0xb4b1ab,specular:0x222222,shininess:20}),acFlap=P({color:0xe9e9e6,specular:0x333333,shininess:30});
@@ -354,9 +375,7 @@ box(0.1,1.0,D,0.05,0.5,D/2,oakWallM);
 box(0.11,0.025,D,0.055,1.0125,D/2,0x3f2b1f);
 box(0.012,0.06,D,0.106,0.03,D/2,FIT);
 // 北・東（ウォークイン、書斎のドア）・南（FK2442×2）
-buildWall(wallGroup(0,0,0,0),W,H,[{a:doorA,b:doorB,y1:0,y2:2.0,door:'frame'}],wallM,1,true);   // 北（廊下からの入口SG311）
-// SG311の引き戸：開けた状態。寝室側で北の壁に沿って西へ引いた位置
-box(doorB-doorA,1.99,0.035,doorA+0.04-(doorB-doorA)/2,0.995,0.05,0xf6f5f2);box(0.025,0.16,0.006,doorA,1.0,0.07,0x2a2a2a);
+buildWall(wallGroup(0,0,0,0),W,H,[{a:doorA,b:doorB,y1:0,y2:2.0,door:'slide',open:1,T:OZ-HOUSE.ldk.VZ,toggle:'sg311',dir:-1}],wallM,1,true);   // 北（廊下からの入口SG311：1階と同じ壁の中に引き込む引き戸。西へ引いて開ける）
 buildWall(wallGroup(W,0,0,-Math.PI/2),D,H,[{a:0.487,b:1.248,y1:0,y2:2.0,door:1},{a:D-0.759,b:D,y1:0,y2:2.0,door:1}],wallM,1,true);   // ウォークイン（SG500）、書斎（SG33。南端は南の壁にそろう）
 buildWall(wallGroup(W,0,D,Math.PI),W,H,[{a:0.9215,b:1.6645,y1:0.969,y2:2.144,win:1},{a:0.1215,b:0.8645,y1:0.969,y2:2.144,win:1}],wallM,1,true);   // FK2442×2（2枚の中心はX=-0.553、平面図から）
 // コンセント（Sプレート・ブラック）
@@ -391,7 +410,7 @@ const S={shadeP:0,zoneLights:[[dls,['bed','hallNearBed']],[brs,['bed','hallNearB
  applyEnv(night){const f=night?1:0.3,dOn=LS.bdl,bOn=LS.bbr;dlMat.color.set(dOn?DLON:(night?0x2a2927:0xa8a6a1));brGlow.color.set(bOn?BRGLOW:0x3a3a3a);dls.forEach(p=>p.intensity=dOn?DLI*f:0);brs.forEach(p=>p.intensity=bOn?BRI*f:0);   // 点灯状態は LS（全体の照明の状態）から
   if(night){hemi.intensity=0.14;dl.intensity=0;up.color.set(0xffe2c2);up.intensity=0.05+(dOn?0.09:0)+(bOn?0.03:0);myWins.forEach(w=>w.light.intensity=0);}
   else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;dl.intensity=0.12*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;myWins.forEach(w=>w.light.intensity=w.I*w.t);}},
- home(){lk(2.42,1.35,3.31,0.2,0.95,0,85);}};
+ home(){lk(2.42,EYE,3.31,0.2,0.85,0,85);}};
 grp.position.set(OX,OY,OZ);
 return S;}
 
@@ -419,9 +438,9 @@ buildWall(wallGroup(0,0,0,0),W,H1,[{a:2.50,b:3.10,y1:1.541,y2:2.141,win:1,noShad
 const F2a=FL2+0.969,F2b=FL2+2.144,hw=0.3715;
 buildWall(wallGroup(W,0,0,-Math.PI/2),D,H2,[{a:0.615,b:1.215,y1:0.969,y2:2.144,win:1,noShade:1}].concat([4.13,4.97,5.81].map(c=>({a:c-hw,b:c+hw,y1:F2a,y2:F2b,win:1}))),plasterMat,1,true); // 東（1階FK2042：シェードなし、2階FF2442×3）
 buildWall(wallGroup(W,0,D,Math.PI),W-TVX,H2,[{a:0.9615,b:3.4485,y1:0.02,y2:2.194,win:1,panes:3,splitShade:1}].concat([2.195,1.355].map(c=>({a:c-hw,b:c+hw,y1:F2a,y2:F2b,win:1}))),plasterMat,1,true); // 南（1階F8671：シェードは障子ごと、2階FF2442×2）
-buildWall(wallGroup(0,0,PZ0,Math.PI/2),PZ0,H1,[{a:PZ0-SGZ1,b:PZ0-SGZ0,y1:0,y2:2.0,door:'slide',open:1,T:-HOUSE.wash.LW}],plasterMat,1,true);              // 西（SG300：引き戸。開けて北へ引いた状態）
+buildWall(wallGroup(0,0,PZ0,Math.PI/2),PZ0,H1,[{a:PZ0-SGZ1,b:PZ0-SGZ0,y1:0,y2:2.0,door:'slide',open:1,T:-HOUSE.wash.LW,toggle:'sg300l'}],plasterMat,1,true);              // 西（SG300：引き戸。開けて北へ引いた状態）
 buildWall(wallGroup(TVX,0,D,Math.PI/2),D-TVZ,H1,[],accentMat,0.4,true);                                                                        // リビング西（アクセント面：IC-5025）
-buildWall(wallGroup(TVX,0,TVZ,Math.PI/2),TVZ-PZ1,H1,[{a:TVZ-HOUSE.wash.SZ1,b:TVZ-HOUSE.wash.SZ1+0.77,y1:0,y2:H1-0.03,door:'high',open:1,T:TVX-HOUSE.wash.CX1,uw:TVZ-PZ1}],plasterMat,1,true);   // 西のドア（SG11H：北側吊元でリビング側へ開いた状態）
+buildWall(wallGroup(TVX,0,TVZ,Math.PI/2),TVZ-PZ1,H1,[{a:TVZ-HOUSE.wash.SZ1,b:TVZ-HOUSE.wash.SZ1+0.77,y1:0,y2:H1-0.03,door:'high',open:1,T:TVX-HOUSE.wash.CX1,uw:TVZ-PZ1,toggle:'sg11h'}],plasterMat,1,true);   // 西のドア（SG11H：北側吊元でリビング側へ開いた状態）
 wbox(PX1,H1,PZ1-PZ0,PX1/2,H1/2,(PZ0+PZ1)/2,plasterMat,1);                                                                                         // 仕切り壁
 box(PX1+0.01,0.06,PZ1-PZ0+0.024,PX1/2,0.03,(PZ0+PZ1)/2,FIT);
 
@@ -447,8 +466,6 @@ buildWall(wallGroup(HALLX,FL2,HALLZ,0),W-HALLX,HCH-FL2,[{a:0.033,b:0.81,y1:0,y2:
 buildWall(wallGroup(HALLX,FL2,VZ,Math.PI/2),VZ-HALLZ,HCH-FL2,[{a:0.03,b:0.82,y1:0,y2:2.0,door:'fold'}],plasterMat,1,true);   // ホール西の突き当り（収納の折れ戸）
 buildWall(wallGroup(VX,FL2,VZ,Math.PI),VX-HALLX,HCH-FL2,[{a:VX-(B.X0+B.doorB),b:VX-(B.X0+B.doorA),y1:0,y2:2.0,door:'frame'}],plasterMat,1,true);   // ホール南（主寝室の引き戸、ウォークイン側）
 floor2F(walnutMat);   // 2階の床（寝室・廊下で一枚）
-{const x0=B.X0+B.doorA,x1=B.X0+B.doorB,z0=VZ-0.02,z1=B.Z0+0.02,zc=(z0+z1)/2,dz=z1-z0+0.01;   // 寝室の入口：廊下と寝室の壁のすき間を塞ぐ
- [x0,x1].forEach(x=>box(0.05,2.025,dz,x,FL2+1.0125,zc,FIT));box(x1-x0+0.05,0.05,dz,(x0+x1)/2,FL2+2.0,zc,FIT);}
 hRect(HALLX,W,HALLZ,VZ,HCH,ceilMat,0.4,0.4,true);
 hRect(VX,W,VZ,D,H2,ceilMat,0.4,0.4,true);
 // 2階廊下の手すり（黒い支柱＋木の笠木＋透明アクリル板）
@@ -567,7 +584,7 @@ box(4.04-2.18,0.03,0.63,(2.18+4.04)/2,CH+0.015,0.315,nsTop);
 // カップボード上の家電（すべて黒）：西からオーブンレンジ・電気ケトル・炊飯器
 {const top=CH+0.03,bm=P({color:0x1b1b1b,specular:0x222222,shininess:20}),bg=P({color:0x0c0c0c,specular:0x555555,shininess:80});
  // 炊飯器：象印 NW-YA10（W250×D365×H205、黒）。カップボードの右端（東端からの距離はオーブンレンジの西端からの距離と同じ）、奥は壁から4cm、操作部は手前（南）
- {const RG=2.53-0.498/2-2.18,g=new THREE.Group();g.position.set(4.04-RG-0.125,top,0.04+0.1825);s.add(g);
+ {const RG=2.53-0.498/2-2.18,RS=1.05,g=new THREE.Group();g.scale.setScalar(RS);g.position.set(4.04-RG-0.125*RS,top,0.04+0.1825*RS);s.add(g);   // RS：実物より5%大きく
   const A0=0.125,B0=0.1825,R0=0.06,ZC=0.072,TS=0.3,HT=0.205,FR=0.03,glo=P({color:0x161616,specular:0x333333,shininess:36});   // ZC：上面から操作パネルへ折れる位置、TS：操作パネルの傾き
   const rr=(a,b,r)=>{const p=[],c=[[a-r,b-r],[-(a-r),b-r],[-(a-r),-(b-r)],[a-r,-(b-r)]],ne=[6,12,6,12];   // 角丸長方形の周（辺も分割して、傾きの変形が側面にも効くように）
    for(let i=0;i<4;i++){const [cx,cz]=c[i],[nx,nz]=c[(i+1)%4],t1=(i+1)*Math.PI/2;for(let k=0;k<=8;k++){const t=(i+k/8)*Math.PI/2;p.push([cx+r*Math.cos(t),cz+r*Math.sin(t)]);}
@@ -593,43 +610,41 @@ box(4.04-2.18,0.03,0.63,(2.18+4.04)/2,CH+0.015,0.315,nsTop);
   const rrect=(x,l,t,w,h,r)=>{x.beginPath();x.moveTo(l+r,t);x.arcTo(l+w,t,l+w,t+h,r);x.arcTo(l+w,t+h,l,t+h,r);x.arcTo(l,t+h,l,t,r);x.arcTo(l,t,l+w,t,r);x.closePath();};
   const txt=(x,s,cx,cy,sz,col,wt,al)=>{x.font=`${wt||500} ${sz}px ${FONT}`;x.fillStyle=col;x.textAlign=al||'center';x.textBaseline='middle';x.fillText(s,cx,cy);};
   {const z0=ZC+0.004,z1=0.148,al=Math.atan(TS),Wd=0.186,Ls=(z1-z0)/Math.cos(al),zc=(z0+z1)/2;   // 操作パネル（傾いた面に貼る。画像の上が奥）
-   const m=decal(Wd,Ls,7500,x=>{const X=v=>v+93;
-    txt(x,'NW-YA10',X(0),5.5,3,'#b5b5b5',600);
-    [[-70,'#b8202c','保温','とりけし'],[70,'#e07a1f','炊飯','再加熱']].forEach(([cx,rc,a,b])=>{rrect(x,X(cx)-15,17,30,26,7);x.fillStyle=rc;x.fill();rrect(x,X(cx)-13,19,26,22,5.5);x.fillStyle='#141414';x.fill();
-     txt(x,a,X(cx),27,7.5,'#f2f2f2',700);txt(x,b,X(cx),35.5,4,'#f2f2f2',600);x.beginPath();x.arc(X(cx),12.5,1.2,0,7);x.fillStyle='#5a5a5a';x.fill();});
-    const lg=x.createLinearGradient(0,10,0,44);lg.addColorStop(0,'#eb9150');lg.addColorStop(1,'#d8702e');rrect(x,X(-40),10,82,34,2);x.fillStyle=lg;x.fill();   // 液晶
-    const D='#3a1d0b';[['白米',-34],['無洗米',-21],['玄米',-7]].forEach(([s,l])=>{const w=s.length*3+2;x.strokeStyle=D;x.lineWidth=0.4;x.strokeRect(X(l)-1,12.6,w,4.4);txt(x,s,X(l),14.9,3,D,600,'left');});
-    txt(x,'エコ炊飯',X(2),14.9,3,D,600,'left');txt(x,'ふつう しゃっきり 熟成 急速 炊きこみ すしめし',X(-38),21.5,2.9,D,600,'left');txt(x,'おかゆ  雑穀米',X(-38),28,2.9,D,600,'left');txt(x,'麦ごはん 蒸気セーブ',X(-38),34.5,2.9,D,600,'left');
-    x.save();x.transform(1,0,-0.12,1,0,0);txt(x,'10:00',X(22)+4.3,35.5,13,D,700);x.restore();
-    ['お米選択','クリーニング','(長押し)'].forEach((s,i)=>txt(x,s,X(-80),48+i*3.4,2.6,'#e8e8e8',600));txt(x,'保温選択',X(-80),60,3.2,'#e8e8e8',700);
-    [[-38,1],[-17,-1]].forEach(([cx,dr])=>{rrect(x,X(cx)-6.5,48,13,10,1.8);x.fillStyle='#2b2b2b';x.fill();x.strokeStyle='#454545';x.lineWidth=0.4;x.stroke();x.beginPath();x.moveTo(X(cx)-2*dr,53);x.lineTo(X(cx)+2*dr,50.6);x.lineTo(X(cx)+2*dr,55.4);x.closePath();x.fillStyle='#f0f0f0';x.fill();});
-    txt(x,'メニュー選択/時刻合わせ(長押し)',X(-27.5),63,2.4,'#e8e8e8',600);
-    rrect(x,X(6),50,14,9,1.8);x.fillStyle='#2b2b2b';x.fill();x.strokeStyle='#454545';x.stroke();txt(x,'予約',X(14),54.5,3.4,'#f0f0f0',700);x.beginPath();x.arc(X(8.4),54.5,0.8,0,7);x.fillStyle='#f0f0f0';x.fill();});
+   const m=decal(Wd,Ls,2500,x=>{const X=v=>v+93;   // デフォルメ：文字は描かず、液晶・2つの大きなキー・小さなボタンだけ
+    rrect(x,X(-40),10,82,34,3);x.fillStyle='#e0823c';x.fill();rrect(x,X(14),24,24,14,1.5);x.fillStyle='#4a2410';x.fill();   // 液晶と時刻表示
+    [[-70,'#b8202c'],[70,'#e07a1f']].forEach(([cx,rc])=>{rrect(x,X(cx)-14,16,28,26,7);x.fillStyle=rc;x.fill();});   // 保温・炊飯キー
+    [-38,-17,13].forEach(cx=>{rrect(x,X(cx)-7,49,14,10,2);x.fillStyle='#2e2e2e';x.fill();});});   // 小さなボタン
    m.rotation.x=-Math.PI/2+al;m.position.set(0,HT-(zc-ZC)*TS+0.0007*Math.cos(al),zc+0.0007*Math.sin(al));g.add(m);}
-  {const m=decal(0.03,0.042,7500,x=>{txt(x,'圧力IH',15,5,5.5,'#ececec',800);txt(x,'⚠警告',15,11.5,4,'#ececec',700);x.strokeStyle='#d8d8d8';x.lineWidth=0.35;x.strokeRect(1.5,14.5,27,26);
-    ['やけどの恐れあり','蒸気口に手を触れ','ない','故障の恐れあり','ふきんをかけて','使用しない'].forEach((s,i)=>txt(x,s,3,18+i*3.9,2.4,'#dcdcdc',600,'left'));});   // 圧力IHの警告表示
+  {const m=decal(0.03,0.042,1000,x=>{x.fillStyle='#bdbdbd';x.fillRect(3,2,24,6);x.strokeStyle='#bdbdbd';x.lineWidth=1;x.strokeRect(2,13,26,27);});   // 圧力IHの警告表示（デフォルメ）
    m.rotation.x=-Math.PI/2;m.position.set(0.074,HT+0.0004,-0.118);g.add(m);}}
- // 電気ケトル：T-fal ジャスティン ブラック1.2L（W250×D160×H230）。炊飯器の左隣（4cm空ける）、注ぎ口は西・取っ手は東、水量窓は両側面
- {const KX=4.04-(2.53-0.498/2-2.18)-0.25-0.04-0.162,KZ=0.25,y0=top,km=P({color:0xffffff,vertexColors:true,specular:0x1a1a1a,shininess:14}),blk=P({color:0x151515,specular:0x1a1a1a,shininess:14});
-  const NS=96,NL=40,yb=y0+0.024,yt=y0+0.218;                      // 本体：涙形の断面を高さ方向に積み上げる（下が広く上がすぼまる。上部の西側が注ぎ口）
-  const prof=t=>{const rz=0.074+0.008*Math.sin(Math.min(1,t/0.35)*Math.PI/2)-0.022*Math.pow(t,1.6);return rz;};
-  const pos=[],col=[],idx=[],C0=[0.085,0.085,0.085],CW=[0.55,0.55,0.55];
-  for(let l=0;l<=NL;l++){const t=l/NL,y=yb+(yt-yb)*t,rz=prof(t),rx=rz*1.04,sp=t<0.55?0:0.45*Math.pow((t-0.55)/0.45,1.5);
-   for(let k=0;k<NS;k++){const th=k/NS*Math.PI*2,c=Math.cos(th),sn=Math.sin(th),f=1+sp*Math.pow(Math.max(0,-c),7);
-    pos.push(rx*c*f,y,rz*sn);const a=Math.abs(Math.atan2(sn,c))*180/Math.PI,win=a>34&&a<62&&t>0.2&&t<0.84;col.push(...(win?CW:C0));}}
-  for(let l=0;l<NL;l++)for(let k=0;k<NS;k++){const a=l*NS+k,b=l*NS+(k+1)%NS,c=a+NS,d=b+NS;idx.push(a,c,b,b,c,d);}
-  const ct=pos.length/3;pos.push(0,yt+0.004,0);col.push(...C0);for(let k=0;k<NS;k++)idx.push(ct,NL*NS+(k+1)%NS,NL*NS+k);   // フタ（わずかに盛り上がる）
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));g.setIndex(idx);g.computeVertexNormals();
-  const body=new THREE.Mesh(g,km);body.position.set(KX,0,KZ);s.add(body);
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.071,0.073,0.024,48),blk);base.scale.z=0.97;base.position.set(KX+0.004,y0+0.012,KZ);s.add(base);   // 電源プレート（底）
-  // 取っ手：本体上部から後ろへ出て、下で本体に戻るループ。下端にスイッチ
-  const hp=new THREE.CatmullRomCurve3([[0.035,0.214],[0.09,0.214],[0.135,0.2],[0.152,0.165],[0.15,0.12],[0.138,0.08],[0.115,0.052],[0.075,0.04]].map(([x,y])=>new THREE.Vector3(x,y0+y,0)));
-  const hd=new THREE.Mesh(new THREE.TubeGeometry(hp,40,0.0135,12,false),blk);hd.scale.z=1.0;hd.position.set(KX,0,KZ);s.add(hd);
-  const hd2=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.018,0.034),blk);hd2.position.set(KX+0.065,y0+0.212,KZ);s.add(hd2);   // 取っ手の付け根（上面につながる）
-  box(0.03,0.012,0.024,KX+0.112,y0+0.028,KZ,0x101010);            // スイッチ
-  box(0.06,0.003,0.03,KX+0.005,yt+0.004,KZ,0x0b0b0b);             // フタの開閉ボタン
-  {const lg=new THREE.Mesh(new THREE.CircleGeometry(0.009,20),L(0x1e1e1e));lg.rotation.x=-Math.PI/2;lg.position.set(KX-0.035,yt+0.0045,KZ);s.add(lg);}   // フタのロゴ
-  box(0.026,0.006,0.001,KX-0.012,y0+0.052,KZ+0.081,0xbfbfbf);}   // 側面のロゴ（T-fal）
+ // 電気ケトル：T-fal ジャスティン ブラック1.2L（W250×D160×H230）を7%拡大。炊飯器の左隣（4cm空ける）、注ぎ口は西・取っ手は東、水量窓は両側面
+ // 形：上ほどすぼまる本体（側面はわずかにふくらむ）、肩を丸めてほぼ平らなフタへ。上部の西側が前へ伸びて先のとがった注ぎ口。取っ手は上端が水平に出てからグリップで下へ回り込み、下端は本体の手前で終わる（つながらない。断面は楕円で下ほど細い）
+ {const KS=1.07,KHX=0.127,KX=4.04-(2.53-0.498/2-2.18)-0.25*1.05-0.04-KHX*KS,KZ=0.25,y0=top,g=new THREE.Group();g.position.set(KX,y0,KZ);g.scale.setScalar(KS);s.add(g);   // KHX：取っ手の東端（中心から）
+  const km=P({color:0xffffff,vertexColors:true,specular:0x1c1c1c,shininess:16}),blk=P({color:0x141414,specular:0x1c1c1c,shininess:16});
+  const NS=128,yb=0.022,yt=0.212,RS=0.012,rb=0.087,ZR=0.91,C0=[0.075,0.075,0.075],CW=[0.5,0.5,0.5],CT=[0.82,0.82,0.82],CL=[0.03,0.03,0.03];   // yb：本体の下端（電源プレートの上）、yt：肩の始まり、RS：肩の丸み、ZR：奥行き方向の比率
+  const rad=t=>rb*(1-0.22*t)+0.004*Math.sin(Math.PI*t)-0.007*Math.pow(Math.max(0,1-t/0.07),2);   // 本体の半径（下の角は小さく丸める）
+  const rings=[];const NB=96;for(let l=0;l<=NB;l++){const t=l/NB;rings.push({y:yb+(yt-yb)*t,r:rad(t),t,h:t});}
+  const rt=rad(1);for(let k=1;k<=6;k++){const th=k/6*Math.PI/2;rings.push({y:yt+RS*Math.sin(th),r:rt-RS*(1-Math.cos(th)),t:1,h:1});}   // 肩
+  const rc=rt-RS;[0.94,0.88,0.86,0.84,0.7,0.5,0.3,0.12,0].forEach((u,k)=>rings.push({y:yt+RS+0.004*(1-u*u),r:rc*u+0.0001,t:1,h:1,lid:k===2||k===3}));   // フタ（わずかに盛り上がる。k=2・3はフタの継ぎ目）
+  const pos=[],col=[],idx=[];
+  rings.forEach(R=>{const sp=0.6*Math.pow(Math.max(0,(R.h-0.55)/0.45),1.6);   // 注ぎ口：上へ行くほど西側を前へ伸ばす
+   for(let k=0;k<NS;k++){const th=k/NS*Math.PI*2,c=Math.cos(th),sn=Math.sin(th),w=Math.pow(Math.max(0,-c),8),f=1+sp*w,y=R.y+0.012*w*Math.pow(R.h,4)*(R.lid?1:Math.min(1,R.r/rc));
+    pos.push(R.r*c*f,y,R.r*sn*ZR*(1-0.35*sp*w));
+    const a=Math.abs(Math.atan2(sn,c))*180/Math.PI,win=a>36&&a<60&&R.t>0.2&&R.t<0.84&&R.h<1,tick=win&&a>42&&a<48&&[0.32,0.46,0.6,0.74].some(v=>Math.abs(R.t-v)<0.005);
+    col.push(...(R.lid?CL:tick?CT:win?CW:C0));}});
+  for(let l=0;l<rings.length-1;l++)for(let k=0;k<NS;k++){const a=l*NS+k,b=l*NS+(k+1)%NS,c=a+NS,d=b+NS;idx.push(a,c,b,b,c,d);}
+  {const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));gm.setAttribute('color',new THREE.Float32BufferAttribute(col,3));gm.setIndex(idx);gm.computeVertexNormals();g.add(new THREE.Mesh(gm,km));}
+  {const b=new THREE.Mesh(new THREE.CylinderGeometry(0.083,0.085,yb-0.002,64),blk);b.scale.z=ZR;b.position.set(0,yb/2-0.001,0);g.add(b);}   // 電源プレート（本体より少し小さく、継ぎ目が見える）
+  // 取っ手：曲線に沿って楕円の断面を流す（a：曲線の外向きの半径、bz：奥行き方向の半径。上が太く下ほど細い）
+  {const cp=new THREE.CatmullRomCurve3([[0.045,0.214],[0.08,0.216],[0.103,0.207],[0.114,0.184],[0.115,0.157],[0.112,0.132],[0.108,0.11],[0.105,0.094]].map(([x,y])=>new THREE.Vector3(x,y,0)));   // 写真の側面から読んだ中心線
+   const NU=60,NV=20,hp=[],hi=[],ar=q=>0.012-0.004*q,br=q=>0.014-0.0035*q;for(let u=0;u<=NU;u++){const q=u/NU,p=cp.getPointAt(q),tg=cp.getTangentAt(q),nx=-tg.y,ny=tg.x,a=ar(q),bz=br(q);
+    for(let v=0;v<NV;v++){const ph=v/NV*Math.PI*2;hp.push(p.x+nx*a*Math.cos(ph),p.y+ny*a*Math.cos(ph),bz*Math.sin(ph));}}
+   for(let u=0;u<NU;u++)for(let v=0;v<NV;v++){const a=u*NV+v,b=u*NV+(v+1)%NV,c=a+NV,d=b+NV;hi.push(a,b,c,b,d,c);}
+   const hg=new THREE.BufferGeometry();hg.setAttribute('position',new THREE.Float32BufferAttribute(hp,3));hg.setIndex(hi);hg.computeVertexNormals();g.add(new THREE.Mesh(hg,blk));
+   const pe=cp.getPointAt(1),tp=new THREE.Mesh(new THREE.SphereGeometry(1,20,12),blk);tp.scale.set(ar(1),ar(1),br(1));tp.position.copy(pe);g.add(tp);}   // 下端は丸く閉じる（本体とはすき間をあける）
+  lbox(g,0.026,0.004,0.02,0.074,0.228,0,0x262626);   // フタの開閉ボタン（取っ手の付け根の上面）
+  lbox(g,0.016,0.008,0.016,rad((0.078-yb)/(yt-yb))+0.004,0.078,0,0x0d0d0d);       // スイッチ（取っ手の下端の下、本体から出るレバー）
+  [[0.02,0.0045,0.045],[0.015,0.0022,0.037]].forEach(([w,h,y])=>lbox(g,w,h,0.001,-0.004,y,rad((y-yb)/(yt-yb))*ZR+0.0006,0x777777));}   // 正面のロゴ（デフォルメ：T-fal・Justine）
  // オーブンレンジ：東芝 ER-D5000C（W498×H399×D399、ハンドル込み奥行446）。カップボード西端から約10cm空けて設置
  {const x=2.53,W=0.498,H=0.399,Dp=0.399,z0=0.04,fz=z0+Dp,y0=top+0.015,gl=P({color:0x08080a,specular:0x666666,shininess:90});
   [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,k])=>box(0.06,0.015,0.04,x+i*(W/2-0.06),top+0.0075,z0+Dp/2+k*(Dp/2-0.04),0x111111));
@@ -740,11 +755,11 @@ const a5=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.M
 
 const fabric=tmat(fabricC,{specular:0x0a0a0a,shininess:4});fabric.map.repeat.set(7,7);
 const fabricDk=tmat(fabricC,{color:0xd6d6d4,specular:0x0a0a0a,shininess:4});fabricDk.map.repeat.set(7,7);
-// 角の丸い箱（クッション用）：角丸の四角形を押し出し、縁を丸める
-function rbox(g,w,h,d,r,x,y,z,m,rx){const sw=w-2*r,sh=h-2*r,cr=Math.min(sw,sh)*0.25,x0=-sw/2,y0=-sh/2,sp=new THREE.Shape();
- sp.moveTo(x0+cr,y0);sp.lineTo(x0+sw-cr,y0);sp.quadraticCurveTo(x0+sw,y0,x0+sw,y0+cr);sp.lineTo(x0+sw,y0+sh-cr);sp.quadraticCurveTo(x0+sw,y0+sh,x0+sw-cr,y0+sh);
- sp.lineTo(x0+cr,y0+sh);sp.quadraticCurveTo(x0,y0+sh,x0,y0+sh-cr);sp.lineTo(x0,y0+cr);sp.quadraticCurveTo(x0,y0,x0+cr,y0);
- const geo=new THREE.ExtrudeGeometry(sp,{depth:d-2*r,bevelEnabled:true,bevelThickness:r,bevelSize:r,bevelSegments:6,curveSegments:8});geo.translate(0,0,-(d-2*r)/2);
+// 角の丸い箱（クッション用）
+function rbox(g,w,h,d,r,x,y,z,m,rx){const k=6,ns=2*k+2,hs=[w/2,h/2,d/2],geo=new THREE.BoxGeometry(1,1,1,ns,ns,ns),p=geo.attributes.position,nm=geo.attributes.normal,uv=geo.attributes.uv,nf=(ns+1)*(ns+1);   // すべての辺と角を同じ半径rで丸めた箱（辺の近くに頂点を集め、法線は丸めた面から計算）
+ const mp=(t,hl)=>{const i=Math.round((t+0.5)*ns),hi=hl-r;if(i<=k)return -hi-r*Math.cos(i/k*Math.PI/2);if(i>=ns-k)return hi+r*Math.cos((ns-i)/k*Math.PI/2);return (i-k-1)*hi;};
+ for(let v=0;v<p.count;v++){const a=[mp(p.getX(v),hs[0]),mp(p.getY(v),hs[1]),mp(p.getZ(v),hs[2])],c=a.map((q,j)=>Math.max(-hs[j]+r,Math.min(hs[j]-r,q))),n=a.map((q,j)=>q-c[j]),l=Math.hypot(...n)||1;
+  const q=c.map((cc,j)=>cc+n[j]/l*r);p.setXYZ(v,...q);nm.setXYZ(v,n[0]/l,n[1]/l,n[2]/l);const f=Math.floor(v/nf),ax=f<2?[2,1]:f<4?[0,2]:[0,1];uv.setXY(v,q[ax[0]],q[ax[1]]);}
  const ms=new THREE.Mesh(geo,m);ms.position.set(x,y,z);if(rx)ms.rotation.x=rx;g.add(ms);return ms;}
 const SOFA_BACK=3.15,SOFA_W=1.83,SOFA_D=0.89;
 const sofa=new THREE.Group();sofa.position.set(SOFA_BACK-SOFA_D/2,0,TVC);sofa.rotation.y=-Math.PI/2;s.add(sofa);
@@ -755,12 +770,11 @@ const sofa=new THREE.Group();sofa.position.set(SOFA_BACK-SOFA_D/2,0,TVC);sofa.ro
  [-1,1].forEach(i=>{rbox(g,AW,0.5,SOFA_D-0.02,0.035,i*(hx-AW/2),0.05+0.25,0,fabric);
   rbox(g,AW+0.05,0.12,SOFA_D-0.03,0.055,i*(hx-AW/2+0.012),0.6,0,fabric);});
  // 背もたれの外側
- rbox(g,IW+0.02,0.62,0.18,0.05,0,0.53,-hz+0.09,fabric);
+ rbox(g,IW+0.02,0.62,0.12,0.045,0,0.53,-hz+0.06,fabric);   // 背もたれの外側（薄め）
  [-1,1].forEach(i=>{const cx=i*half/2;
   rbox(g,half-0.012,0.25,SOFA_D-0.16,0.03,cx,0.185,0.07,fabricDk);        // 座面の土台と前のフットレスト（電動リクライニング部）
   rbox(g,half-0.014,0.17,0.66,0.07,cx,0.395,hz-0.34,fabric);             // 座クッション
-  rbox(g,half-0.02,0.32,0.21,0.08,cx,0.62,-hz+0.24,fabric,-0.12);        // 背クッション（腰）
-  rbox(g,half-0.02,0.25,0.2,0.09,cx,0.83,-hz+0.17,fabric,-0.1);});}      // ヘッドレスト
+  rbox(g,half-0.02,0.475,0.225,0.08,cx,0.705,-hz+0.209,fabric,-0.1);});}   // 背クッション（上下に分けない一体の厚めのクッション、上を後ろへ傾ける）
 
 // エアコン（AC④）
 // A1・A4：拡散タイプのダウンライト パナソニック RMW(P1)（LEDフラットランプφ70・温白色3500K・440lm・白枠）
@@ -802,12 +816,13 @@ const S={shadeP:0,
   [WM,W-WM,0.2,H2-0.08,HALLZ+WM,VZ-WM],                              // 2階廊下（床をすり抜けて1階と行き来できる）
   [HALLX+WM,WM+0.01,FL2+0.2,H2-0.08,HALLZ+WM,VZ-WM],                 // 2階廊下の西端（下は家の外なので床は抜けない）
   [OX+WM,OX+B.W-WM,OY+0.2,OY+B.H-0.08,OZ+WM,OZ+B.D-WM],             // 寝室
-  [OX+B.doorA+0.08,OX+B.doorB-0.08,OY+0.2,OY+1.95,VZ-WM-0.01,OZ+WM+0.01]],   // 寝室の入口（開いた引き戸）
+  ifOpen('sg311',[OX+B.doorA+0.08,OX+B.doorB-0.08,OY+0.2,OY+1.95,VZ-WM-0.01,OZ+WM+0.01])],   // 寝室の入口（開いた引き戸）
  // 通れない所（壁から WM の余裕を取って判定）
  obs:[[0,1.36,-1,2.45,0,0.5],                                        // 押入
   [0,PX1,-1,2.45,PZ0,PZ1],                                           // 西側の仕切り壁
   [-9,TVX,-1,2.45,TVZ,99],                                           // テレビ壁の向こう
   [HOUSE.wash.CX1,TVX,-1,2.45,PZ1,HOUSE.wash.SZ1-0.77],[HOUSE.wash.CX1,TVX,-1,2.45,HOUSE.wash.SZ1,TVZ],   // SG11Hの両脇の壁（開口の先は廊下）
+  ifShut('sg11h',[HOUSE.wash.CX1,TVX,-1,2.45,HOUSE.wash.SZ1-0.77,HOUSE.wash.SZ1]),   // SG11Hを閉じたとき
   [4.04,4.10,-1,2.45,0,0.62],                                        // うす壁
   [2.15,W,2.22,FL2,1.565,2.67]],                                     // キッチン上の下がり天井（CH2300）
  setShade(p){S.shadeP=p;applyShades(myShades,p);},
@@ -821,9 +836,9 @@ const S={shadeP:0,
   kdl.forEach(p=>p.intensity=on('a3')?1.3*f:0);kdlEm.color.set(on('a3')?0xffe2b8:(f===1?0x222120:0x6a665e));},              // キッチン：下がり天井（A3）
  applyEnv(night){S.lights(night?1:0.3);if(night){hemi.intensity=0.1;sun.intensity=0;up.color.set(0xffe2c2);up.intensity=0.12;sc.background.set(0x141c28);myWins.forEach(w=>w.light.intensity=0);ceilMat.emissive.setScalar(0.045);}
   else{const k=dayRatio(myWins,S.shadeP);hemi.intensity=0.24+0.34*k;sun.intensity=0.15*k;up.color.set(0xfffaf2);up.intensity=0.08+0.10*k;sc.background.set(0xdfe9f2);myWins.forEach(w=>w.light.intensity=w.I*w.t);ceilMat.emissive.setScalar(0.06+0.16*k);}},
- viewLiv(){look(3.84,1.35,6.95,0.56,1.15,3.18,85);},
- viewHall(){look(4.57,FL2+1.35,3.18,-0.6,FL2+1.15,3.18,80);},
- viewKit(){look(4.67,1.35,0.8,1.29,1.05,2.93,85);}};
+ viewLiv(){look(3.84,EYE,6.95,0.56,1.05,3.18,85);},
+ viewHall(){look(4.57,FL2+EYE,3.18,-0.6,FL2+1.05,3.18,80);},
+ viewKit(){look(4.67,EYE,0.8,1.29,0.95,2.93,85);}};
 return S;}
 
 // ===== 脱衣室・洗面所・廊下（1階。座標はLDKと同じ） =====
@@ -837,10 +852,10 @@ ceilRect(X0,0,DZ0,TVZ,H1,ceilMat,0.4);ceilRect(0,HOUSE.ldk.TVX,HOUSE.ldk.VZ,TVZ,
 buildWall(wallGroup(X0,0,DZ1,Math.PI/2),DZ1-DZ0,H1,[{a:DZ1-winZ1,b:DZ1-winZ0,y1:1.677,y2:2.134,win:1,panes:2,noShade:1}],wm,1,true);   // 西（F4415N：W1198×H457、+1677）
 buildWall(wallGroup(X0,0,DZ0,0),LW-X0,H1,[{a:bathA-X0,b:bathB-X0,y1:0,y2:2.0,door:'bath'}],wm,1,true);                                 // 北（浴室のドア、閉じた状態）
 buildWall(wallGroup(LW,0,DZ0,-Math.PI/2),DZ1-DZ0,H1,[{a:SGZ0-DZ0,b:SGZ1-DZ0,y1:0,y2:2.0,door:'frame'}],wm,1,true);                    // 東（LDKとの間のSG300。扉はLDK側）
-buildWall(wallGroup(LW,0,DZ1,Math.PI),LW-X0,H1,[{a:LW-sgB,b:LW-sgA,y1:0,y2:2.0,door:'slide',open:1,T:SZ0-DZ1}],wm,1,true);           // 南（洗面所とのSG300：開けて西へ引いた状態）
+buildWall(wallGroup(LW,0,DZ1,Math.PI),LW-X0,H1,[{a:LW-sgB,b:LW-sgA,y1:0,y2:2.0,door:'slide',open:1,T:SZ0-DZ1,toggle:'sg300w'}],wm,1,true);           // 南（洗面所とのSG300：開けて西へ引いた状態）
 // 洗濯機：パナソニック NA-LX127FL（左開き、白）。ホースを含めない寸法 W604×D732×H1038。脱衣室の南西の角、西と南の壁から20mm、正面は東
 // 形：正面は平らな箱（ドアも本体の面とそろう）。上部の前の角を斜めに落とした操作パネルの面、ドアの左上にくぼみ、下部に2枚のパネル、濃いグレーの台と脚。側面は横リブと運搬用の取っ手。操作パネルはデフォルメ、ガラス越しのドラムは描かない
-{const g=new THREE.Group(),WW=0.604,WD=0.732,WH=1.038,BH=0.089,BW=0.598;g.position.set(X0+0.02+WD/2,0,DZ1-0.02-WW/2);g.rotation.y=Math.PI/2;s.add(g);   // 子の座標：+Z＝正面（東）、+X＝正面に向かって右（北）。BW：リブを除いた本体の幅
+{const g=new THREE.Group(),WW=0.604,WD=0.732,WH=1.038,BH=0.089,BW=0.598;g.position.set(X0+0.03+WD/2,0,DZ1-0.03-WW/2);g.rotation.y=Math.PI/2;s.add(g);   // 子の座標：+Z＝正面（東）、+X＝正面に向かって右（北）。BW：リブを除いた本体の幅
  const wht=P({color:0xf3f3f1,specular:0x333333,shininess:36}),zb=-WD/2,zf=WD/2,LN=0xcfcfcd,PY0=WH-0.049,PSK=0.092,PA=Math.atan2(PSK,WH-PY0);   // zb：背面、zf：正面。操作パネルは前上の角を斜めに落とした面（側面図から：高さ49・奥行92、約62°倒れる）。PY0：斜めの面の下端、PSK：上端で奥へ下がる量、PA：傾き
  {const bv=0.004,hx=BW/2-bv,hz=WD/2-bv,r=0.012,w=hx-r,d=hz-r,sh=new THREE.Shape();sh.moveTo(-w,-hz);sh.lineTo(w,-hz);sh.absarc(w,-d,r,-Math.PI/2,0);sh.lineTo(hx,d);sh.absarc(w,d,r,0,Math.PI/2);sh.lineTo(-w,hz);sh.absarc(-w,d,r,Math.PI/2,Math.PI);sh.lineTo(-hx,-d);sh.absarc(-w,-d,r,Math.PI,Math.PI*1.5);   // 本体（角を少し丸めた箱）
   const part=(y0,y1,sk)=>{const geo=new THREE.ExtrudeGeometry(sh,{depth:y1-y0-2*bv,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:2,curveSegments:6});geo.rotateX(-Math.PI/2);geo.translate(0,y0+bv,0);   // sk：上ほど正面を奥へ下げる量（操作パネルの斜め）
@@ -929,7 +944,7 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
  side(0,0.02,1.92,2.4,0,0.3);side(DW-0.02,DW,1.92,2.4,0,0.3);lbox(g,DW-0.04,0.48,0.282,DW/2,2.16,0.141,grE);front(0.022,XS-0.002,1.922,2.398,0.3);front(XS+0.002,DW-0.022,1.922,2.398,0.3);}
 // 廊下（洗面所とリビングの間）
 buildWall(wallGroup(CX0,0,PZ1,0),-CX0,H1,[],pm,1,true);                                                                                 // 北（仕切り壁の南側。X=0から東はLDKの仕切り壁）
-buildWall(wallGroup(CX0,0,SZ1,Math.PI/2),SZ1-PZ1,H1,[{a:SZ1-s33B,b:SZ1-s33A,y1:0,y2:2.0,door:'swing',T:CX0-SX1,uw:SZ1-PZ1}],pm,1,true);   // 西（SG33：北側吊元で廊下側へ開いた状態）
+buildWall(wallGroup(CX0,0,SZ1,Math.PI/2),SZ1-PZ1,H1,[{a:SZ1-s33B,b:SZ1-s33A,y1:0,y2:2.0,door:'swing',T:CX0-SX1,uw:SZ1-PZ1,toggle:'sg33'}],pm,1,true);   // 西（SG33：北側吊元で廊下側へ開いた状態）
 buildWall(wallGroup(CX1,0,SZ1,Math.PI),CX1-CX0,H1,[],pm,1,true);                                                                        // 南（玄関ホール側。仮に壁）
 buildWall(wallGroup(CX1,0,PZ1,-Math.PI/2),SZ1-PZ1,H1,[{a:SZ1-0.77-PZ1,b:SZ1-PZ1,y1:0,y2:H1-0.03,door:'frame'}],pm,1,true);   // 東（SG11Hの裏。開口の南端は廊下の南の壁にそろう）
 const S={zoneLights:[[myWins.map(w=>w.light),['wash']]],
@@ -938,12 +953,12 @@ const S={zoneLights:[[myWins.map(w=>w.light),['wash']]],
   [X0+WM,SX1-WM,0.2,H1-0.08,SZ0+WM,SZ1-WM],                          // 洗面所
   [X0+WM,LW-WM,0.2,H1-0.08,SZ0+WM,PZ0-WM],                           // 洗面所の北東
   [CX0+WM,CX1-WM,0.2,H1-0.08,PZ1+WM,SZ1-WM],                         // 廊下
-  [LW-WM-0.01,WM+0.01,0.2,1.95,SGZ0+0.08,SGZ1-0.08],                 // LDKとのSG300
-  [sgA+0.08,sgB-0.08,0.2,1.95,DZ1-WM-0.01,SZ0+WM+0.01],              // 脱衣室と洗面所のSG300
-  [SX1-WM-0.01,CX0+WM+0.01,0.2,1.95,s33A+0.08,s33B-0.08]],           // SG33（SG11Hは廊下とLDKの範囲が重なっている）
+  ifOpen('sg300l',[LW-WM-0.01,WM+0.01,0.2,1.95,SGZ0+0.08,SGZ1-0.08]),                 // LDKとのSG300
+  ifOpen('sg300w',[sgA+0.08,sgB-0.08,0.2,1.95,DZ1-WM-0.01,SZ0+WM+0.01]),              // 脱衣室と洗面所のSG300
+  ifOpen('sg33',[SX1-WM-0.01,CX0+WM+0.01,0.2,1.95,s33A+0.08,s33B-0.08])],           // SG33（SG11Hは廊下とLDKの範囲が重なっている）
  obs:[],
  applyEnv(night){myWins.forEach(w=>w.light.intensity=night?0:w.I);},
- viewWash(){look(-0.5,1.35,4.2,-2.77,1.2,2.24,80);}};   // SG33の開口から北西（ドレッサーと脱衣室の入口）を見る
+ viewWash(){look(-0.75,EYE,4.2,-3.02,1.1,2.24,80);}};   // 洗面所の中、SG33の開口のすぐ内側から北西（ドレッサーと脱衣室の入口）を見る
 return S;}
 
 // ===== 動かない部品を素材ごとに1つの形にまとめる（描画の回数を減らす）。動く部品（userData.dyn）は除く =====
@@ -970,8 +985,8 @@ function lightZones(){const {W,D,H1,FL2,H2,VX,VZ,TVX,PZ0}=HOUSE.ldk,{X0:WX,LW,DZ
   hallNearBed:[[HX-e,FL2,HZ-e],[BX+doorB+0.4,H2,VZ],0.6],   // 寝室の入口から見える廊下（寝室の光が入口からこぼれる範囲。0.6mかけて弱まる）
   bedNearHall:[[BX+doorA-0.4,FL2,BZ],[BX+BW+e,FL2+BH,BZ+1.0],0.6],  // 廊下から入口越しに見える寝室（廊下の光がこぼれる範囲）
   // 全体光（空・太陽・照り返し）用：部屋の境目でほとんどぼかさない
-  f1G:[[WX-e,-e,-e],[W+e,H1,D+e],0.02],voidG:[[VX,-e,VZ],[W+e,H2+e,D+e],0.02],hallG:[[HX-e,FL2,HZ-e],[W+e,H2+e,VZ],0.02],
-  bedG:[[BX-e,FL2,BZ],[BX+BW+e,FL2+BH+e,BZ+BD+e],0.02]};}
+  f1G:[[WX-e,-e,-e],[W+e,H1,D+e],0.02],voidG:[[VX,-e,VZ],[W+e,H2+e,D+e],0.02],hallG:[[HX-e,FL2,HZ-e],[W+e,H2+e,VZ+0.03],0.02],
+  bedG:[[BX-e,FL2,BZ-0.0075],[BX+BW+e,FL2+BH+e,BZ+BD+e],0.02]};}   // 廊下用と寝室用は、2枚の壁の間（入口の見込み・床）でぼかしが半分ずつ重なってつながる（途切れも二重にもならない）
 const ZK=3,MAXS=64,MAXP=16,MAXD=8,MAXH=4;    // 光源1つあたりの範囲の数、種類ごとの光源の最大数
 const ZU={zSMin:{value:[]},zSMax:{value:[]},zPMin:{value:[]},zPMax:{value:[]},zDMin:{value:[]},zDMax:{value:[]},zHMin:{value:[]},zHMax:{value:[]}};
 [['zSMin','zSMax',MAXS],['zPMin','zPMax',MAXP],['zDMin','zDMax',MAXD],['zHMin','zHMax',MAXH]].forEach(([a,b,n])=>{for(let i=0;i<n*ZK;i++){ZU[a].value.push(new THREE.Vector4(1,0,0,1));ZU[b].value.push(new THREE.Vector3(0,0,0));}});
@@ -985,7 +1000,8 @@ function zonePatch(sh){Object.assign(sh.uniforms,ZU);
    .replace('getSpotDirectLightIrradiance( spotLight, geometry, directLight );','getSpotDirectLightIrradiance( spotLight, geometry, directLight );\n\t\tdirectLight.color *= zoneS( UNROLLED_LOOP_INDEX );')
    .replace('getDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );','getDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );\n\t\tdirectLight.color *= zoneD( UNROLLED_LOOP_INDEX );')
    .replace('getHemisphereLightIrradiance( hemisphereLights[ i ], geometry )','getHemisphereLightIrradiance( hemisphereLights[ i ], geometry ) * zoneH( UNROLLED_LOOP_INDEX )'));}
-function setupZones(scene,groups){const Z=lightZones();
+let ZONES=null;   // setupZonesで作った範囲（光源が参照している。寝室の入口越しの範囲はドアの開閉で切り替える）
+function setupZones(scene,groups){const Z=lightZones();ZONES=Z;
  groups.forEach(([ls,names])=>ls.forEach(l=>l.userData.zones=names.map(n=>Z[n])));
  scene.traverse(o=>{if(o.isMesh&&o.material.isMeshPhongMaterial&&!o.material.userData.zone){o.material.userData.zone=1;o.material.onBeforeCompile=zonePatch;o.material.customProgramCacheKey=()=>'zone';o.material.needsUpdate=true;}});}
 // 消えている光源は計算から外し、残りの光源の範囲をシェーダーへ渡す（並びは描画時の光源の並びと同じ）
@@ -1008,7 +1024,25 @@ const LS={a5:false,a4:false,a2:false,h1:false,pend:false,a3:false,a1:false,bdl:f
 const bedS=buildBedroom(scene),ldkS=buildLDK(scene),washS=buildWash(scene,ldkS.mats);
 mergeStatic(scene);
 setupZones(scene,[...bedS.zoneLights,...ldkS.zoneLights,...washS.zoneLights]);
-const MB=[...ldkS.boxes,...washS.boxes],MO=[...ldkS.obs,...washS.obs];   // 移動範囲と通れない所（全部屋）
+const MBA=[...ldkS.boxes,...washS.boxes],MOA=[...ldkS.obs,...washS.obs];let MB,MO;   // 移動範囲と通れない所（全部屋）。MB・MOはドアの開閉に合わせて絞ったもの
+function updMove(){MB=MBA.filter(b=>!b.door||DS[b.door]);MO=MOA.filter(b=>!b.shut||!DS[b.shut]);}
+const inB=(b,q,m)=>q.x>=b[0]-m&&q.x<=b[1]+m&&q.y>=b[2]&&q.y<=b[3]&&q.z>=b[4]-m&&q.z<=b[5]+m;
+const okPos=q=>MB.some(b=>inB(b,q,0))&&!MO.some(b=>inB(b,q,0.15));
+// ドアの開閉：表示・移動範囲・光の範囲（寝室の入口越し）を切り替える。閉じると立っている場所から動けなくなるとき（開口の中にいるとき）は閉じない
+const ZBASE=lightZones();
+function showDoor(k){DOORS[k].gO.visible=DS[k];DOORS[k].gC.visible=!DS[k];}
+function doorZones(){['hallNearBed','bedNearHall'].forEach(n=>{const z=ZONES[n],b=ZBASE[n];z[0]=DS.sg311?b[0]:[1,0,0];z[1]=DS.sg311?b[1]:[0,0,0];});}
+function toggleDoor(k){const was=okPos(cam.position);DS[k]=!DS[k];updMove();if(was&&!okPos(cam.position)){DS[k]=!DS[k];updMove();return;}
+ showDoor(k);if(k==='sg311'){doorZones();updateLights();}draw();}
+Object.keys(DOORS).forEach(showDoor);updMove();doorZones();
+const DOORM=[];scene.traverse(o=>{if(o.isMesh&&o.userData.door)DOORM.push(o);});   // 扉の本体（タップの対象）
+const rcast=new THREE.Raycaster();
+function tapAt(x,y){cam.rotation.set(pitch,yaw,0);cam.updateMatrixWorld();rcast.setFromCamera({x:x/window.innerWidth*2-1,y:-(y/window.innerHeight)*2+1},cam);rcast.far=80;
+ const vis=o=>{for(;o;o=o.parent)if(!o.visible)return false;return true;};
+ const h=rcast.intersectObjects(DOORM,false).find(i=>vis(i.object));if(!h)return;const k=h.object.userData.door;
+ rcast.far=h.distance-0.003;   // 手前に壁などがあれば開閉しない（透明なアクリル板は除く）
+ if(rcast.intersectObjects(scene.children,true).some(i=>vis(i.object)&&i.object.userData.dk!==k&&!(i.object.material.transparent&&i.object.material.opacity<0.5)))return;
+ toggleDoor(k);}
 ready=true;
 function applyEnvAll(){glassMat.color.set(night?0x141c28:0xcfdfec);fabMat.emissive.set(night?0x0c0a08:0x5a5650);bedS.applyEnv(night);ldkS.applyEnv(night);washS.applyEnv(night);updateLights();draw();}
 function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100)+'%閉';}
@@ -1052,8 +1086,7 @@ function step(t){const dt=clamp((t-last)/1000,0,0.05);last=t;const mf=keys.f-key
 const p=cam.position,o=p.clone();
 if(mf||mr){const h=Math.hypot(mf,mr),n=h/Math.min(1,h),fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw),sp=(joy.f||joy.r)?JSPEED:SPEED;p.x+=(fx*mf+rx*mr)/n*sp*dt;p.z+=(fz*mf+rz*mr)/n*sp*dt;}
 p.y+=mu*VSPEED*dt;
-const inB=(b,q,m)=>q.x>=b[0]-m&&q.x<=b[1]+m&&q.y>=b[2]&&q.y<=b[3]&&q.z>=b[4]-m&&q.z<=b[5]+m;
-const ok=q=>MB.some(b=>inB(b,q,0))&&!MO.some(b=>inB(b,q,0.15));
+const ok=okPos;
 if(ok(o)&&!ok(p)){const d=p.clone().sub(o);p.copy(o);['x','z','y'].forEach(k=>{const v=p[k];p[k]+=d[k];if(!ok(p))p[k]=v;});}
 draw();requestAnimationFrame(step);}
 function startMove(){clearView();if(!moving){moving=true;last=performance.now();requestAnimationFrame(step);}}
@@ -1082,6 +1115,12 @@ window.addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});
 // ドラッグで見回し、ピンチ・ホイールで拡大縮小
 const cvs=r.domElement,pts=new Map();let pinch=0;
 function setFov(f){cam.fov=Math.max(40,Math.min(100,f));cam.updateProjectionMatrix();draw();}
+// タップ（指・マウスがほぼ動かずに離れた）でドアを開閉。移動中は反応しない
+let tap=null;
+cvs.addEventListener('pointerdown',e=>{tap=(pts.size===0&&e.button===0)?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;});
+cvs.addEventListener('pointermove',e=>{if(tap&&e.pointerId===tap.id&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>8)tap=null;});
+cvs.addEventListener('pointerup',e=>{if(tap&&e.pointerId===tap.id&&!moving)tapAt(e.clientX,e.clientY);tap=null;});
+cvs.addEventListener('pointercancel',()=>{tap=null;});
 cvs.addEventListener('pointerdown',e=>{pts.set(e.pointerId,[e.clientX,e.clientY]);cvs.setPointerCapture(e.pointerId);if(pts.size===2){const [a,b]=[...pts.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}});
 cvs.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;clearView();const prev=pts.get(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);if(pts.size===1){yaw+=(e.clientX-prev[0])*0.004;pitch=Math.max(-1.3,Math.min(1.3,pitch+(e.clientY-prev[1])*0.004));draw();}else if(pts.size===2){const [a,b]=[...pts.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]);setFov(cam.fov-(d-pinch)*0.1);pinch=d;}});
 const end=e=>{pts.delete(e.pointerId);};
