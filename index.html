@@ -291,15 +291,21 @@ function addSwingOpen(g,a,b,h,uw){const w=b-a,lw=w-0.01,n0=uw-0.0675;
 lbox(g,0.05,h+0.025,0.02,a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,(a+b)/2,h,0.01,FIT);
 lbox(g,0.035,h-0.01,lw,n0,(h-0.01)/2,0.025+lw/2,0xf6f5f2);
 [-1,1].forEach(k=>lbox(g,0.03,0.02,0.12,n0+k*0.0325,1.0,0.025+lw-0.1,0x8f8b85));}
-// 浴室のドア（システムバス、閉じた状態）：白い枠、中央に型板の樹脂パネル、下部に換気ガラリ、縦長の取っ手（吊元はb側）
-function addBathDoor(g,a,b,h){const w=b-a,um=(a+b)/2,BW=0xf2f2f0,z=-0.03;
-lbox(g,0.05,h+0.025,0.02,a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,um,h,0.01,FIT);   // 額縁
-lbox(g,0.03,h,0.05,a+0.015,h/2,z,BW);lbox(g,0.03,h,0.05,b-0.015,h/2,z,BW);lbox(g,w,0.03,0.05,um,h-0.015,z,BW);lbox(g,w,0.015,0.05,um,0.0075,z,BW);   // ドア枠
-const l0=a+0.03,l1=b-0.03,lw=l1-l0,lc=(l0+l1)/2,y0=0.015,y1=h-0.03;
-lbox(g,0.045,y1-y0,0.03,l0+0.0225,(y0+y1)/2,z,BW);lbox(g,0.045,y1-y0,0.03,l1-0.0225,(y0+y1)/2,z,BW);lbox(g,lw,0.06,0.03,lc,y1-0.03,z,BW);lbox(g,lw,0.16,0.03,lc,y0+0.08,z,BW);   // 縦框・上框・下框（ガラリ部）
-lbox(g,lw-0.09,y1-y0-0.22,0.01,lc,(y0+0.16+y1-0.06)/2,z,frostMat);   // 樹脂パネル
-for(let i=0;i<5;i++)lbox(g,lw-0.14,0.006,0.002,lc,y0+0.04+i*0.02,z+0.0155,0x9c9b98);   // 換気ガラリのすき間
-lbox(g,0.022,0.32,0.03,a+0.085,1.0,z+0.03,0xe4e4e2);}   // 取っ手
+// 浴室のドア（システムバスの開き戸、閉じた状態。実例写真から）：シルバーのアルミ枠と框、すりガラス調の大きなパネル1枚、横一本のタオル掛け、戸先側の框にチャイルドロック（吊元はb側）
+const bathFrM=P({color:0xa9a69f,specular:0x5a5a58,shininess:45}),bathLtM=P({color:0xd9d7d1,specular:0x333333,shininess:30}),bathGlM=P({color:0xc6ccc9,emissive:0x1b1e1d,specular:0x404040,shininess:60});
+function addBathDoor(g,a,b,h){const w=b-a,um=(a+b)/2,GR=0x75736d;
+lbox(g,0.05,h+0.025,0.02,a,(h+0.025)/2,0.01,FIT);lbox(g,0.05,h+0.025,0.02,b,(h+0.025)/2,0.01,FIT);lbox(g,w+0.05,0.05,0.02,um,h,0.01,FIT);   // 額縁（白）
+lbox(g,0.03,h,0.06,a+0.015,h/2,-0.035,bathFrM);lbox(g,0.03,h,0.06,b-0.015,h/2,-0.035,bathFrM);lbox(g,w,0.035,0.06,um,h-0.0175,-0.035,bathFrM);lbox(g,w,0.02,0.066,um,0.01,-0.033,bathFrM);   // ドア枠（縦枠・上枠・下枠）
+lbox(g,0.004,h-0.035,0.002,a+0.015,(h-0.035)/2,-0.004,GR);lbox(g,0.004,h-0.035,0.002,b-0.015,(h-0.035)/2,-0.004,GR);   // 縦枠の溝
+const l0=a+0.03,l1=b-0.03,y0=0.02,y1=h-0.035,z=-0.03,SL=0.065,SH=0.04,RT=0.05,RB=0.06;   // 扉の範囲。戸先側（a側）の框は太め
+const g0=l0+SL,g1=l1-SH,gc=(g0+g1)/2,gw=g1-g0;
+lbox(g,SL,y1-y0,0.035,l0+SL/2,(y0+y1)/2,z,bathFrM);lbox(g,SH,y1-y0,0.035,l1-SH/2,(y0+y1)/2,z,bathFrM);lbox(g,gw,RT,0.035,gc,y1-RT/2,z,bathFrM);lbox(g,gw,RB,0.035,gc,y0+RB/2,z,bathFrM);   // 縦框・上框・下框
+lbox(g,gw,0.022,0.002,gc,y1-RT-0.011,z+0.0185,bathLtM);lbox(g,gw,0.018,0.002,gc,y0+RB+0.009,z+0.0185,bathLtM);   // パネル上下の明るい押縁
+const p0=y0+RB+0.018,p1=y1-RT-0.022;lbox(g,gw,p1-p0,0.006,gc,(p0+p1)/2,z,bathGlM);   // すりガラス調のパネル
+lbox(g,0.003,p1-p0+0.04,0.002,g0-0.008,(p0+p1)/2,z+0.0185,GR);lbox(g,0.003,p1-p0+0.04,0.002,g1+0.008,(p0+p1)/2,z+0.0185,GR);   // 框の溝
+{const ty=0.95,tz=z+0.0175+0.03,tl=gw+0.03,c=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,tl,16),bathFrM);c.rotation.z=Math.PI/2;c.position.set(gc,ty,tz);g.add(c);
+ [g0-0.015,g1+0.015].forEach(x=>{const k=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.03,16),bathFrM);k.rotation.x=Math.PI/2;k.position.set(x,ty,z+0.0175+0.015);g.add(k);const q=new THREE.Mesh(new THREE.SphereGeometry(0.01,16,12),bathFrM);q.position.set(x,ty,tz);g.add(q);});}   // タオル掛け（両端は框へ折れ曲がって固定）
+lbox(g,0.02,0.06,0.008,l0+0.03,1.27,z+0.0215,0x8e8b84);lbox(g,0.008,0.022,0.006,l0+0.03,1.275,z+0.0275,0x5f5d58);}   // チャイルドロック
 // 床暖房のヘッダーボックス（壁に埋め込み、白。上・中・下に横長のガラリ、左寄りに小さなつまみ）
 function addHB(g,a,b,h){const w=b-a,um=(a+b)/2,HW=0xf5f4f1;
 lbox(g,w,h,0.006,um,h/2,-0.06,0xcfcdc8);lbox(g,0.008,h,0.06,a+0.004,h/2,-0.03,FIT);lbox(g,0.008,h,0.06,b-0.004,h/2,-0.03,FIT);lbox(g,w,0.008,0.06,um,h-0.004,-0.03,FIT);   // 奥の面・見込み
