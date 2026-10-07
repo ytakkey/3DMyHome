@@ -1098,23 +1098,30 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
   [0,1,2].forEach(k=>lbox(tg,0.003,0.0025,0.05,TW/2+0.0012,0.405+k*0.005,0.09,dk));   // 吹出口（横のすじ）
   [1,-1].forEach(k=>{lbox(tg,0.0015,0.0015,0.213,k*(TW/2+0.0004),0.392,0.1365,0xcfcfcd);const v=lbox(tg,0.0015,0.3875,0.0015,k*(0.1695+0.0005),YR/2,0.243,0xcfcfcd);v.rotation.z=-k*Math.atan(0.044/YR);});   // 側面の板の継ぎ目（横・縦）
  }
- // カウンター収納（奥の壁＝西の壁）：建具なので白（他の建具と同じ）。南の壁から北の壁まで通しのカウンターと、北端に床からの収納（扉1枚、取っ手なし）。形は写真から、寸法は仮
- // 寸法（仮）：カウンターは奥行160・高さ800（上面）・厚さ40、収納は幅400で、扉の面はカウンターの前の面から5mm奥
- const CT=0.8,CTH=0.04;   // カウンターの上面の高さ・厚さ（仮。ペーパーホルダーの高さもこれに合わせる）
- {const tw=P({color:0xf6f5f2,specular:0x222222,shininess:20}),CD=0.16,KW=0.4,ky=CT-CTH;
-  box(CD,CTH,TZ1-EZ0,X0+CD/2,CT-CTH/2,(EZ0+TZ1)/2,tw);   // カウンター
-  box(CD-0.023,ky,KW,X0+(CD-0.023)/2,ky/2,EZ0+KW/2,tw);   // 収納の本体
-  box(0.018,ky-0.006,KW-0.004,X0+CD-0.005-0.009,(ky-0.006)/2+0.003,EZ0+KW/2,tw);}   // 収納の扉（周りに細いすき間）
- // ペーパーホルダー：カワジュン SC-473-XK（ブラストブラック）×1。カウンターの下の壁、カバーの上がカウンターの下面に付く位置。南北の位置は芯が南の壁から800（仮）。寸法は写真からの仮（カバー巾140・出120）
- // 形：壁から出る曲がったカバー（前で下へ曲がる）、左（南）端の側板（壁から斜めに下りる）、そこから右（北）へ伸びて先が上がる腕。ペーパー1巻（φ110・巾114）付き
- {const g=new THREE.Group();g.position.set(X0,CT-CTH-0.001,TZ1-0.8);g.rotation.y=Math.PI/2;s.add(g);   // 子の座標：z＝壁から室内（東）、x＝壁に沿って北が正、y＝カバーの上端から上
-  const bk=P({color:0x1c1c1c,specular:0x1a1a1a,shininess:12}),HW=0.14;
-  const ext=(pts,d,x0)=>{const geo=new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([z,y])=>new THREE.Vector2(z,y))),{depth:d,bevelEnabled:false});geo.rotateY(-Math.PI/2);const o=new THREE.Mesh(geo,bk);o.position.x=x0;g.add(o);return o;};   // 横から見た形（z,y）を壁に沿って（x）押し出す
-  {const up=[],dn=[];for(let i=0;i<=16;i++){const z=0.12*i/16,y=-0.03*Math.pow(i/16,2.4);up.push([z,y]);dn.push([z,y-0.003]);}ext([...up,...dn.reverse()],HW,HW/2);}   // カバー（厚さ3。前で下へ曲がる）
-  ext([[0,-0.004],[0.028,-0.004],[0.072,-0.072],[0.072,-0.084],[0.052,-0.084],[0,-0.03]],0.004,-HW/2+0.004);   // 側板（左端）
-  lbox(g,0.115,0.012,0.004,-HW/2+0.004+0.0575,-0.078,0.062,bk);lbox(g,0.004,0.028,0.004,-HW/2+0.004+0.113,-0.066,0.062,bk);   // 腕と、先の立ち上がり
-  const roll=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.114,40),L(0xf2f1ee));roll.rotation.z=Math.PI/2;roll.position.set(0.004,-0.078,0.062);g.add(roll);   // ペーパー
-  [-1,1].forEach(k=>{const c=new THREE.Mesh(new THREE.RingGeometry(0.018,0.021,32),L(0xb3a690));c.rotation.y=k*Math.PI/2;c.position.set(0.004+k*0.0575,-0.078,0.062);g.add(c);const h=new THREE.Mesh(new THREE.CircleGeometry(0.018,32),L(0x2a2826));h.rotation.y=k*Math.PI/2;h.position.set(0.004+k*0.0574,-0.078,0.062);g.add(h);});}   // ペーパーの芯（紙管の縁と穴）
+ // カウンター収納（奥の壁＝西の壁）：カウンターと収納の扉の面材はドレッサー・シューズボックスと同じグレイス・シリーズのグレージュの木目（grM：面、grE：小口。木目は横）、収納の箱は白。南の壁から北の壁まで通しのカウンターと、北寄りに床からの収納（扉1枚、取っ手なし。北の壁から100あける）。形は写真から、寸法は仮
+ // 寸法（仮）：カウンターは奥行160・高さ800（上面）・厚さ35、収納は幅400で、扉の面はカウンターの前の面から5mm奥
+ {const CD=0.16,CT=0.8,CTH=0.035,KW=0.4,KZ0=EZ0+0.1,KZ1=KZ0+KW,ky=CT-CTH,len=TZ1-EZ0,KF=X0+CD-0.005;
+  const gp=(w,h,x,y,z,f)=>{const geo=uvPlane(w,h,R()*2,R()*2,0.7,0.7);f(geo);const p=new THREE.Mesh(geo,grM);p.position.set(x,y,z);s.add(p);return p;};   // 木目の面（f：向きを変える）
+  box(CD,CTH,len,X0+CD/2,CT-CTH/2,(EZ0+TZ1)/2,grE);   // カウンター（小口の色の芯）
+  gp(len,CD,X0+CD/2,CT+0.0005,(EZ0+TZ1)/2,g=>{g.rotateZ(Math.PI/2);g.rotateX(-Math.PI/2);});gp(len,CD,X0+CD/2,ky-0.0005,(EZ0+TZ1)/2,g=>{g.rotateZ(Math.PI/2);g.rotateX(Math.PI/2);});gp(len,CTH,X0+CD+0.0005,CT-CTH/2,(EZ0+TZ1)/2,g=>g.rotateY(Math.PI/2));   // 上面・下面・前の面
+  box(CD-0.023,ky,KW,X0+(CD-0.023)/2,ky/2,(KZ0+KZ1)/2,P({color:0xf6f5f2,specular:0x222222,shininess:20}));   // 収納の本体（白。他の建具と同じ）
+  box(0.018,ky-0.006,KW-0.004,KF-0.009,(ky-0.006)/2+0.003,(KZ0+KZ1)/2,grE);gp(KW-0.004,ky-0.006,KF+0.0005,(ky-0.006)/2+0.003,(KZ0+KZ1)/2,g=>g.rotateY(Math.PI/2));}   // 収納の扉（周りに細いすき間）
+ // ペーパーホルダー：カワジュン SC-473-XK（ブラストブラック）×1。カウンターの下の壁、カバーの上端は床から709、芯は南の壁から750
+ // 寸法は寸法図から：巾144・出109、壁の座（巾41×高30、ネジのピッチ28。カバーの下に隠れる）、カバーは厚さ3の板で、壁ぎわは平らで前で下へ28下がる
+ // 紙を掛ける枠は厚さ3の平らな板1枚（写真から）：座から斜め（約42°）に下りる面の中で、上の縁（座につながる）・左（南）の脚・紙管を通す下の棒（全巾）がひと続きで、右（北）は開いている（右差し）。下の棒の右端に小さな立ち上がり。内側の角は丸い
+ {const g=new THREE.Group();g.position.set(X0,0.709,TZ1-0.75);g.rotation.y=Math.PI/2;s.add(g);   // 子の座標：z＝壁から室内（東）、x＝壁に沿って北が正、y＝カバーの上端から上（mm で指定して m に直す）
+  const bk=P({color:0x1c1c1c,specular:0x1a1a1a,shininess:12}),HW=0.144,mm=v=>v/1000;
+  {const C=[[0,-6],[6,-1.5],[14,0],[52,-3.5],[78,-8],[94,-14],[103,-20],[109,-28]],sh=new THREE.Shape([...C.map(([z,y])=>new THREE.Vector2(mm(z),mm(y))),...C.slice().reverse().map(([z,y])=>new THREE.Vector2(mm(z),mm(y-3)))]);   // カバー：横から見た形（z,y）
+   const geo=new THREE.ExtrudeGeometry(sh,{depth:HW,bevelEnabled:false,curveSegments:8});geo.rotateY(-Math.PI/2);const o=new THREE.Mesh(geo,bk);o.position.x=HW/2;g.add(o);}
+  lbox(g,mm(41),mm(30),mm(6),0,mm(-18),mm(3),bk);   // 壁の座
+  {const f=new THREE.Group();f.position.set(0,mm(-11),mm(16));f.rotation.x=THREE.MathUtils.degToRad(42);g.add(f);   // 枠の面：座の上から斜めに下りる（子の座標：x＝壁に沿って、z＝面に沿って下へ、y＝面の上側）
+   const sh=new THREE.Shape(),r=4,V=(x,y)=>new THREE.Vector2(mm(x),mm(y));   // 枠の形（x, 面に沿った距離。mm）
+   sh.moveTo(mm(-72),0);sh.lineTo(mm(18),0);sh.lineTo(mm(18),mm(10));sh.lineTo(mm(-59+r),mm(10));sh.quadraticCurveTo(mm(-59),mm(10),mm(-59),mm(10+r));sh.lineTo(mm(-59),mm(67-r));sh.quadraticCurveTo(mm(-59),mm(67),mm(-59+r),mm(67));
+   sh.lineTo(mm(72),mm(67));sh.lineTo(mm(72),mm(85));sh.lineTo(mm(-72+2),mm(85));sh.quadraticCurveTo(mm(-72),mm(85),mm(-72),mm(85-2));sh.lineTo(mm(-72),0);
+   const geo=new THREE.ExtrudeGeometry(sh,{depth:mm(3),bevelEnabled:false,curveSegments:6});geo.rotateX(Math.PI/2);f.add(new THREE.Mesh(geo,bk));   // 板（厚さ3。面の上側から下へ）
+   lbox(f,mm(10),mm(14),mm(3),mm(67),mm(7),mm(83.5),bk);}   // 下の棒の右端の立ち上がり（紙が抜けないように）
+  const roll=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.114,40),L(0xf2f1ee));roll.rotation.z=Math.PI/2;roll.position.set(0,mm(-72),mm(66));g.add(roll);   // ペーパー（中心は寸法図の点線の円から）
+  [-1,1].forEach(k=>{const c=new THREE.Mesh(new THREE.RingGeometry(0.017,0.02,32),L(0xb3a690));c.rotation.y=k*Math.PI/2;c.position.set(k*0.0575,mm(-72),mm(66));g.add(c);const h=new THREE.Mesh(new THREE.CircleGeometry(0.017,32),L(0x2a2826));h.rotation.y=k*Math.PI/2;h.position.set(k*0.0574,mm(-72),mm(66));g.add(h);});}   // ペーパーの芯（紙管の縁と穴）
  // G1：ペンダント オーデリック OP252988LR（スモークグレーの波打ったガラスφ130、下は開いている。LED電球クリアミニクリプトン形4W E17・電球色2700K・312lm）。引掛シーリングにコード収納フランジ（黒）
  // 位置：芯が南の壁から300・西の壁から150（仮）。高さは全高（天井からガラスの下端）800（仮。全高507〜1307で調整できる。ショールームの写真から）
  // 寸法：ガラスはφ136・高さ142（カタログのφ130より少し膨らませて丸みを出した（ユーザーの指示）。最も太いのは上から52%、上の口と下の口φ114は写真から）。上に黒いキャップ（φ28）とパイプ（φ7。キャップと合わせて85、ガラスと合わせて高227）。フランジはφ60×H92（仮。写真の比率から）
