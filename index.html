@@ -740,7 +740,7 @@ function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）
  box(SW-0.01,0.2,0.025,x,0.72,bz,chairSeat);}
 const chairs=[[TX0+0.375,TZ0+0.175,1],[TX0+1.125,TZ0+0.175,1],[TX0+0.375,TZ1-0.175,-1],[TX0+1.125,TZ1-0.175,-1]];
 chairs.forEach(([x,z,d])=>chair(x,z,d));
-// カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
+// カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション（背もたれなし）、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
 const shellMat=P({color:0x1b1b1b,specular:0x1a1a1a,shininess:14,side:THREE.DoubleSide}),cushMat=P({color:0x2b2b2b,specular:0x2a2a2a,shininess:30}),barBlk=P({color:0x161616,specular:0x333333,shininess:30});
 function counterStool(x,z){const SH=0.64;
  const cy=(rt,rb,h,y,m,seg)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg||32),m);c.position.set(x,y,z);s.add(c);return c;};
@@ -753,10 +753,9 @@ function counterStool(x,z){const SH=0.64;
  box(0.33,0.018,0.018,x,0.3,z,barBlk);
  // ガス圧レバー
  box(0.012,0.012,0.12,x+0.09,SH-0.08,z+0.02,barBlk).rotation.y=0.6;
- // 座面（シェル＋クッション）と、座面と一体の背もたれ（後ろ＝南側を包むカーブ）
+ // 座面（シェル＋クッション）。背もたれなし
  cy(0.21,0.2,0.035,SH-0.035,shellMat,40);                 // シェル座面（丸型）
- {const cu=cy(0.185,0.185,0.025,SH-0.005,cushMat,40);cu.position.z=z-0.012;}   // クッション
- const back=new THREE.Mesh(new THREE.CylinderGeometry(0.215,0.205,0.33,32,1,true,-1.2,2.4),shellMat);back.position.set(x,SH+0.13,z+0.005);back.rotation.x=0.12;s.add(back);}
+ {const cu=cy(0.185,0.185,0.025,SH-0.005,cushMat,40);cu.position.z=z-0.012;}}   // クッション
 [3.23,3.83].forEach(x=>counterStool(x,2.69));
 
 
@@ -1028,11 +1027,13 @@ buildWall(wallGroup(CX0,0,EN.Z0,Math.PI/2),EN.Z0-PZ1,H1,[{a:EN.Z0-s33B,b:EN.Z0-s
  // トイレ（中は未実装。扉の向こうが空かないよう、壁・床・天井だけ）
  wallAB(X0,EZ0,TX1,EZ0,0,H1,[],wm,true);wallAB(X0,TZ1,X0,EZ0,0,H1,[],wm,true);wallAB(TX1,TZ1,X0,TZ1,0,H1,[],wm,true);
  wallAB(TX1,EZ0,TX1,TZ1,0,H1,[{a:gA-EZ0,b:gB-EZ0,y1:0,y2:2.0,door:'outset',T:X1-TX1,toggle:'sg500'}],wm,true);   // 東：SG500（アウトセットの引き戸。扉はトイレ側の面を南へ引く）
- // 手摺（I型、框の位置のトイレの壁。高さは仮）：白い丸棒（他の建具と同じ白）、両端はマットブラックのくさび形の受け（形は写真から）。受けは棒の端を上下から包み、壁へ向かって太くなる
- {const hx=X1+0.07,hz=6.08,y0=0.5,y1=1.1,hw=P({color:0xf6f5f2,specular:0x222222,shininess:20}),mt=P({color:0x1b1b1b,specular:0x121212,shininess:7});
+ // 手摺（I型、框の位置のトイレの壁。高さは仮）：白い丸棒（他の建具と同じ白）、両端はシルバーの受け（形は写真から）。受けは棒の端にかぶせる筒（棒より少し太い）と、そこから壁へ向かう腕。腕の幅は棒の径くらいで、棒の端側の面が壁へ向かって斜めに上がる（下の受けは上下反転）
+ {const hx=X1+0.07,hz=6.08,y0=0.5,y1=1.1,hw=P({color:0xf6f5f2,specular:0x222222,shininess:20}),mt=P({color:0xbcbfc2,specular:0x6a6c6e,shininess:38});   // mt：受け（シルバー）
   const c=new THREE.Mesh(new THREE.CylinderGeometry(0.0175,0.0175,y1-y0,24),hw);c.position.set(hx,(y0+y1)/2,hz);s.add(c);
-  [[y1,1],[y0,-1]].forEach(([ye,k])=>{const sh=new THREE.Shape([[0,-0.04],[0,0.035],[0.09,0.012],[0.09,0],[0.055,0]].map(([dx,dy])=>new THREE.Vector2(dx,ye+k*dy)));   // 横から見た形（壁からの距離, 高さ）。上の受けを上下反転して下の受けに
-   const m=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:0.04,bevelEnabled:true,bevelThickness:0.004,bevelSize:0.004,bevelSegments:2}),mt);m.position.set(X1,0,hz-0.02);s.add(m);});}
+  [[y1,1],[y0,-1]].forEach(([ye,k])=>{const sh=new THREE.Shape([[0,-0.009],[0,0.027],[0.067,0.0105],[0.067,-0.001]].map(([dx,dy])=>new THREE.Vector2(dx,ye+k*dy)));   // 腕を横から見た形（壁からの距離, 高さ。面取りで外へ3mm広がる）
+   const m=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:0.026,bevelEnabled:true,bevelThickness:0.003,bevelSize:0.003,bevelSegments:2}),mt);m.position.set(X1,0,hz-0.013);s.add(m);
+   const cg=new THREE.CylinderGeometry(0.019,0.019,0.04,24),ps=cg.attributes.position;for(let i=0;i<ps.count;i++){const lx=ps.getX(i),ly=ps.getY(i);ps.setY(i,ly>0?0.03-0.247*(0.07+k*lx):-0.02);}cg.computeVertexNormals();   // 棒の端にかぶせる筒（棒の端から20下から）。上面は腕の斜めの面とひと続き（下の受けは180°回すので、xの向きを反転して計算）
+   const cp=new THREE.Mesh(cg,mt);cp.position.set(hx,ye,hz);if(k<0)cp.rotation.z=Math.PI;s.add(cp);});}
  // 土間収納：西の壁に棚板（奥行410は平面図から、高さは土間から1820）、その下に南北方向のハンガーパイプ（高さは仮）
  {const sy=DY+1.82-0.01,py=DY+1.72,sd=0.41,px=X0+0.25,pipeM=P({color:0xc9c9c7,specular:0x888888,shininess:60});
   box(sd,0.02,EZ1-KZ0,X0+sd/2,sy,(KZ0+EZ1)/2,FIT);
@@ -1063,13 +1064,13 @@ buildWall(wallGroup(CX0,0,EN.Z0,Math.PI/2),EN.Z0-PZ1,H1,[{a:EN.Z0-s33B,b:EN.Z0-s
   box(drM-a0-0.003,yt-yb,0.05,(a0+drM-0.003)/2,(yb+yt)/2,zd,lf);box(b0-drM-0.003,yt-yb,0.05,(drM+0.003+b0)/2,(yb+yt)/2,zd,lf);box(w-0.08,drH-0.05,0.004,(drA+drB)/2,DY+(drH-0.05)/2,zd+0.03,fr);   // 親扉・子扉（後ろに板を置き、扉どうしのすき間から外が見えないように）
   box(0.025,0.8,0.025,drM+0.075,DY+1.05,zd-0.07,hm);[-1,1].forEach(k=>box(0.015,0.015,0.045,drM+0.075,DY+1.05+k*0.36,zd-0.0475,hm));   // 親扉の縦長の取っ手
   box(0.04,0.09,0.012,drM+0.075,DY+1.6,zd-0.031,hm);}}   // サムターン
-// D1：洗面所のダウンライト パナソニック RMN(P1)（LEDフラットランプφ70・昼白色5000K・440lm・白枠・埋込穴φ100）。電気図面の位置
-const d1Em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),D1X=-1.32,D1Z=3.855;
+// D1：洗面所のダウンライト パナソニック RMN(P1)（LEDフラットランプφ70・昼白色5000K・440lm・白枠・埋込穴φ100）。東西は電気図面の位置、南北は洗面所の南北の壁の中心
+const d1Em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),D1X=-1.32,D1Z=(SZ0+SZ1)/2;
 {const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(D1X,H1-0.002,D1Z);s.add(ring);
  const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),d1Em);lamp.position.set(D1X,H1-0.003,D1Z);s.add(lamp);}
 const d1=new THREE.SpotLight(0xfff3e8,0,5,THREE.MathUtils.degToRad(62),0.8,1.3);d1.position.set(D1X,H1-0.02,D1Z);d1.target.position.set(D1X,0,D1Z);s.add(d1);s.add(d1.target);
-// E1：脱衣室のシーリング サーキュライト Mega R（引掛シーリング、φ250×H150、1520lm、調光可能なので温白色で実装）。ファンは真下向き、光るのは周りのリング。電気図面の位置
-const e1Em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),E1X=-1.385,E1Z=2.50;
+// E1：脱衣室のシーリング サーキュライト Mega R（引掛シーリング、φ250×H150、1520lm、調光可能なので温白色で実装）。ファンは真下向き、光るのは周りのリング。東西は電気図面の位置、南北は脱衣室の南北の壁の中心
+const e1Em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),E1X=-1.385,E1Z=(DZ0+DZ1)/2;
 {const g=new THREE.Group();g.position.set(E1X,H1,E1Z);s.add(g);const wt=L(0xf3f3f1),gy=L(0xdcdcda),dk=L(0x55575a);
  const cyl=(r0,r1,h,y,m,seg)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||40),m);c.position.y=y;g.add(c);return c;};
  cyl(0.042,0.042,0.012,-0.006,wt);cyl(0.055,0.055,0.04,-0.032,wt);cyl(0.058,0.058,0.05,-0.077,wt);   // 引掛シーリングのアダプター・上の筒（約50）・本体
