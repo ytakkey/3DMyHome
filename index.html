@@ -441,16 +441,16 @@ buildWall(wallGroup(W,0,0,-Math.PI/2),D,H,[{a:0.487,b:1.248,y1:0,y2:2.0,door:1},
 buildWall(wallGroup(W,0,D,Math.PI),W,H,[{a:0.9215,b:1.6645,y1:0.969,y2:2.144,win:1},{a:0.1215,b:0.8645,y1:0.969,y2:2.144,win:1}],wallM,1,true);   // FK2442×2（2枚の中心はX=-0.553、平面図から）
 // コンセント（Sプレート・ブラック）
 [[D-0.62-0.13,D-0.62],[0.62,0.75]].forEach(([a,b])=>box(0.008,0.075,b-a,0.004,1.05+0.0375,(a+b)/2,0x1f1f1f));
-// ブラケットライト：OB255280LR（黒いキューブ型、上下に光る、電球色）。外側の端が両端の壁から620mm、下端1600
-const BR_S=0.1,BR_Y=1.65,BRI=1.15,BRGLOW=0xffd9a8;
+// ブラケットライト O2：OB255280LR（黒い樹脂の箱型、巾□75・出90、上下に光る、電球色2700K・318lm（上下に半分ずつ））。外側の端が両端の壁から620mm、下端1600
+const BR_W=0.075,BR_D=0.09,BR_Y=1.6+0.075/2,BRI=1.15,BRGLOW=0xffd9a8;
 const brHouse=P({color:0x1a1a1a,specular:0x2a2a2a,shininess:30});
 const brGlow=new THREE.MeshBasicMaterial({color:BRGLOW,side:THREE.DoubleSide});
 const brs=[];
-[D-0.62-BR_S/2,0.62+BR_S/2].forEach(z=>{
- box(0.006,BR_S,BR_S,BR_S-0.003,BR_Y,z,brHouse);box(BR_S,BR_S,0.006,BR_S/2,BR_Y,z-BR_S/2+0.003,brHouse);
- box(BR_S,BR_S,0.006,BR_S/2,BR_Y,z+BR_S/2-0.003,brHouse);box(0.006,BR_S,BR_S,0.003,BR_Y,z,brHouse);
- const gp=new THREE.Mesh(new THREE.PlaneGeometry(BR_S-0.02,BR_S-0.02),brGlow);gp.rotation.x=Math.PI/2;gp.position.set(BR_S/2,BR_Y,z);s.add(gp);
- [1,-1].forEach(dir=>{const sp=new THREE.SpotLight(WARM,BRI,3,THREE.MathUtils.degToRad(65),0.9,1.1);sp.position.set(BR_S,BR_Y+dir*0.02,z);sp.target.position.set(BR_S-0.25,BR_Y+dir*2,z);s.add(sp);s.add(sp.target);brs.push(sp);});});
+[D-0.62-BR_W/2,0.62+BR_W/2].forEach(z=>{
+ box(0.006,BR_W,BR_W,BR_D-0.003,BR_Y,z,brHouse);box(BR_D,BR_W,0.006,BR_D/2,BR_Y,z-BR_W/2+0.003,brHouse);
+ box(BR_D,BR_W,0.006,BR_D/2,BR_Y,z+BR_W/2-0.003,brHouse);box(0.006,BR_W,BR_W,0.003,BR_Y,z,brHouse);
+ const gp=new THREE.Mesh(new THREE.PlaneGeometry(BR_D-0.02,BR_W-0.02),brGlow);gp.rotation.x=Math.PI/2;gp.position.set(BR_D/2,BR_Y,z);s.add(gp);
+ [1,-1].forEach(dir=>{const sp=new THREE.SpotLight(WARM,BRI,3,THREE.MathUtils.degToRad(65),0.9,1.1);sp.position.set(BR_D,BR_Y+dir*0.02,z);sp.target.position.set(BR_D-0.25,BR_Y+dir*2,z);s.add(sp);s.add(sp.target);brs.push(sp);});});
 // ダウンライト O1×3：RML(P1)（電球色2700K。器具・配光・明るさは2階廊下のJ1・玄関のB1/B2/F1と同じ）
 const DLON=0xffe2b8,DLI=0.8;
 const dlMat=new THREE.MeshBasicMaterial({color:DLON});
@@ -773,23 +773,23 @@ function counterStool(x,z){const SH=0.64;
 [3.23,3.83].forEach(x=>counterStool(x,2.69));
 
 
-// ダクトレール（黒・1.2m、天井付け）とペンダントライト A5：オーデリック OP252618LC ×3
-// 真鍮古美の器具（フランジΦ120）＋フィラメント形ボール球Φ95（電球色2400K・350lm）。電球の下端はテーブル天板から約75cm
-const RX0=0.815,RX1=2.015,RZ=(TZ0+TZ1)/2,railBlk=0x161616;
+// ダクトレール（黒）とペンダントライト A5：レール LD0211BT（1m、天井付け、中心はテーブルの中心）＋フィードインキャップ LD0231BT（西端）＋エンドキャップ LD0232BT（東端）、ペンダント オーデリック OP252618LC ×3（レールの両端から150mmと中央。仮）
+// 真鍮古美の器具（フランジΦ120、高199＝上のキャップから電球の下端まで）＋フィラメント形ボール球Φ95（電球色2400K・350lm）。電球の下端はテーブル天板から約75cm
+const RX0=(TX0+TX1)/2-0.5,RX1=RX0+1.0,RZ=(TZ0+TZ1)/2,railBlk=0x161616;
 box(RX1-RX0,0.018,0.035,(RX0+RX1)/2,H1-0.009,RZ,railBlk);
-box(0.06,0.03,0.045,RX0+0.03,H1-0.015,RZ,railBlk);
+box(0.06,0.03,0.045,RX0+0.03,H1-0.015,RZ,railBlk);box(0.006,0.02,0.037,RX1+0.003,H1-0.01,RZ,railBlk);   // フィードインキャップ（寸法は仮）・エンドキャップ（仮）
 const brass=P({color:0x8a7650,specular:0x6b5a3a,shininess:40});
 const bulbMat=new THREE.MeshPhongMaterial({color:0xd08a3a,transparent:true,opacity:0.6,specular:0xffffff,shininess:90,emissive:0x000000});
 const filMat=new THREE.MeshBasicMaterial({color:0x8a6a3a});
 const pends=[];
 [RX0+0.15,(RX0+RX1)/2,RX1-0.15].forEach(x=>{
- const bc=TH+0.75+0.0475,top=bc+0.04+0.10+0.03;   // 電球の中心、器具の上端
+ const bc=TH+0.75+0.0475,top=bc+0.199-0.0475;   // 電球の中心、器具の上端（高199）
  const cyl=(r,h,y,m)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,24),m);c.position.set(x,y,RZ);s.add(c);return c;};
  cyl(0.018,0.11,H1-0.018-0.055,L(railBlk));                 // プラグ（コード収納フランジ）
  cyl(0.0025,(H1-0.128)-top,(H1-0.128+top)/2,L(0x111111));   // コード
  cyl(0.024,0.03,top-0.015,brass);                           // 上部キャップ
  cyl(0.06,0.003,top-0.022,brass);                           // フランジ（Φ120）
- cyl(0.024,0.10,top-0.08,brass);                            // 本体
+ cyl(0.024,0.074,top-0.067,brass);                          // 本体（ソケット。電球の上端まで）
  const bulb=new THREE.Mesh(new THREE.SphereGeometry(0.0475,24,16),bulbMat);bulb.position.set(x,bc,RZ);s.add(bulb);
  [-0.008,0.008].forEach(dx=>{const f=new THREE.Mesh(new THREE.BoxGeometry(0.002,0.05,0.002),filMat);f.position.set(x+dx,bc+0.005,RZ);s.add(f);});
  const pl=new THREE.PointLight(0xffb066,0,4.5,1.5);pl.position.set(x,bc,RZ);s.add(pl);pends.push(pl);});
@@ -803,7 +803,7 @@ box(0.006,0.023,2.0,TVX+0.298,0.2115,TVC,bdWood);box(0.006,0.023,2.0,TVX+0.298,0
 box(0.006,0.2,0.0196,TVX+0.298,0.30,TVC-0.9902,bdWood);box(0.006,0.2,0.0196,TVX+0.298,0.30,TVC+0.9902,bdWood);
 box(0.04,0.962,1.672,TVX+0.055,0.61+0.481,TVC,0x121212);
 {const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.94),P({color:0x07070a,specular:0x555555,shininess:90}));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0755,1.091,TVC);s.add(sc);}
-// テレビ前のウォールウォッシャダウンライト A6（SLD1310V LB1×2、温白色3500K。光の色は他の3500Kと同じ）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm
+// テレビ前のウォールウォッシャダウンライト A6：パナソニック SLD1310VLB1 ×2（拡散タイプのウォールウォッシャ。LEDが壁向きに傾いていて壁面を照らす・温白色3500K・320lm・埋込穴φ75）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm
 const a6Mat=new THREE.MeshBasicMaterial({color:0xd9d8d4});
 const a6=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.006,32),L(0xffffff));ring.position.set(x,H1-0.003,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.008,32),a6Mat);disc.position.set(x,H1-0.004,z);s.add(disc);lbox(s,0.004,0.012,0.07,x+0.03,H1-0.01,z,0x9a9a9a);const sp=new THREE.SpotLight(0xffd9b4,0,5,THREE.MathUtils.degToRad(55),0.8,1.1);sp.position.set(x,H1-0.02,z);sp.target.position.set(TVX-0.2,0.5,z);s.add(sp);s.add(sp.target);return sp;});
 
@@ -888,7 +888,7 @@ const S={shadeP:0,
  setShade(p){S.shadeP=p;applyShades(myShades,p);},
  mats:{plasterMat,accentMat,stoneMat,stoneKMat,oakFloorMat},
  lights(f){const off=f===1?0x2a2927:0xa8a6a1,on=k=>LS[k];   // 照明のグループごとに点灯・消灯（LS：全体の照明の状態）
-  a6.forEach(p=>p.intensity=on('a6')?1.0*f:0);a6Mat.color.set(on('a6')?0xfff2e0:off);                                        // リビング：ウォールライト（A6）
+  a6.forEach(p=>p.intensity=on('a6')?1.0*f:0);a6Mat.color.set(on('a6')?0xfff1e0:off);                                        // リビング：ウォールライト（A6）
   rmw.forEach((p,i)=>p.intensity=on(i<3?'a1':'a4')?0.8*f:0);rmwEm4.color.set(on('a4')?0xfff1e0:off);rmwEm.color.set(on('a1')?0xfff1e0:off);   // リビング：ダウンライト（A4）、キッチン：ダウンライト（A1）
   a2.forEach(p=>p.intensity=on('a2')?0.8*620/440*f:0);a2Em.color.set(on('a2')?0xfff1e0:off);                                 // リビング：スポット（A2）
   hallDL.forEach((p,i)=>p.intensity=on(i<2?'j1':'h1')?0.8*f:0);hlEmW.color.set(on('h1')?0xfff1e0:off);hlEmL.color.set(on('j1')?0xffe2b8:off);   // リビング：階段（H1）、寝室：廊下（J1）
@@ -1138,7 +1138,7 @@ const entDL=[[-0.675,5.558,'eh'],[-0.675,6.12,'eh'],[(CX0+CX1)/2,4.03,'ec'],[-1.
  const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);
  const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),entEm[k]);lamp.position.set(x,y-0.003,z);s.add(lamp);
  const sp=new THREE.SpotLight(0xffc68e,0,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,-1,z);s.add(sp);s.add(sp.target);return {sp,k};});   // 配光はJ1と同じ
-// B3：ブラケットライト オーデリック OB255205LC（真鍮古味、LED電球フィラメント形3W・2400K・350lm）。玄関ホールの北の壁（アクセント面）、取付け高さ（フランジの中心）2000、東西は壁の中心
+// B3：ブラケットライト オーデリック OB255205LC（真鍮古味、LED電球フィラメント形4.2W No.271C・2400K・350lm）。玄関ホールの北の壁（アクセント面）、取付け高さ（フランジの中心）2000、東西は壁の中心
 // 寸法：巾110（フランジφ110）・高238・出209。形は寸法図（斜めから見た線画）を、フランジの楕円から求めた縮尺で横から見た形に直したもの。ネジ・つまみの細部はデフォルメ
 // 構成：フランジ（外周の段・ふくらみ・平らな面・中央の座）と左右の飾りビス、座から出て上へ曲がり、山なりに曲がって下へ降りるアーム（φ9）、ソケット（上のキャップ・肩・筒・ビス付きのリング）、口金、ST形のアンバーの電球（φ61）とW形のフィラメント
 const b3Glass=new THREE.MeshPhongMaterial({color:0xc98734,transparent:true,opacity:0.55,specular:0xffffff,shininess:90,emissive:0x000000,side:THREE.DoubleSide}),b3Fil=new THREE.MeshBasicMaterial({color:0x8a6a3a});   // 電球のガラス（点灯で光る）・フィラメント
