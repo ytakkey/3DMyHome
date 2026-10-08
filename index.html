@@ -542,28 +542,41 @@ buildWall(wallGroup(VX,FL2,PZ0,Math.PI),VX-HALLX,HCH-FL2,[{a:VX-(B.X0+B.doorB),b
 floor2F(walnutMat);   // 2階の床（寝室・廊下で一枚）
 hRect(HALLX,W,HALLZ,VZ,HCH,ceilMat,0.4,0.4,true);
 hRect(VX,W,VZ,D,H2,ceilMat,0.4,0.4,true);
-// 2階廊下の手すり（黒い支柱＋木の笠木＋透明アクリル板）
-{const x0=VX+0.025,x1=3.965,zr=VZ-0.03;
- [x0,(x0+x1)/2,x1].forEach(x=>box(0.035,1.12,0.035,x,FL2+0.56,zr,0x1c1c1c));
- const ac=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0,1.0),acrylMat);ac.position.set((x0+x1)/2,FL2+0.55,zr);s.add(ac);
- box(x1-VX+0.02,0.04,0.07,(VX+x1)/2,FL2+1.12,zr,railWood);}
-
-// オープンステア（東の壁沿いに北へ上る、14段）：中央の鉄骨に木の踏板、吹抜け側は手すり＋アクリル板
+// オープンステア（東の壁沿いに北へ上る、14段）：黒いスチールのササラ桁2本（まっすぐな角の鉄骨の上に、踏板を受ける三角の受け金物）に木の踏板（裏に黒い鉄板）。吹抜け側はファイン手すり。形は写真から
 const SX0=3.985,SX1=4.875,SZ0=6.36,NST=14,RS=FL2/NST,TR=(SZ0-VZ)/(NST-1),SXC=(SX0+SX1)/2;
 const ny=z=>RS+(SZ0-z)*RS/TR;      // 踏板の先端を結んだ線の高さ
 const treadMat=P({color:0xc48c56,specular:0x1c1813,shininess:20});
-const steel=0x1c1c1c,ang=Math.atan2(RS,TR);
-for(let i=1;i<NST;i++){const zf=SZ0-(i-1)*TR;box(SX1-SX0,0.05,TR+0.03,SXC,i*RS-0.025,zf-TR/2+0.015,treadMat);box(0.12,0.08,TR*0.6,SXC,i*RS-0.09,zf-TR/2,steel);}
-{const Ls=Math.hypot(FL2,SZ0-VZ);box(0.1,0.2,Ls,SXC,FL2/2-0.2,(SZ0+VZ)/2,steel).rotation.x=ang;}
-// 壁側の手すり（木＋黒い金物）
-{const z0=6.5,z1=VZ,zm=(z0+z1)/2,Lh=(z0-z1)/Math.cos(ang);box(0.04,0.04,Lh,W-0.065,ny(zm)+0.8,zm,railWood).rotation.x=ang;
- [6.2,5.3,4.4,3.7].forEach(z=>box(0.045,0.02,0.02,W-0.022,ny(z)+0.77,z,steel));}
-// 吹抜け側の手すり（支柱・笠木・アクリル板）
-{const xr=SX0-0.02,za=SZ0,zb=VZ+0.02;
- const sh=new THREE.Shape();sh.moveTo(za,ny(za)+0.05);sh.lineTo(zb,ny(zb)+0.05);sh.lineTo(zb,ny(zb)+0.85);sh.lineTo(za,ny(za)+0.85);sh.lineTo(za,ny(za)+0.05);
- const ac=new THREE.Mesh(new THREE.ShapeGeometry(sh),acrylMat);ac.rotation.y=-Math.PI/2;ac.position.x=xr;s.add(ac);
- [6.3,5.4,4.5,3.62].forEach(z=>box(0.035,1.0,0.035,xr,ny(z)+0.4,z,steel));
- const zm=(za+zb)/2,Lh=(za-zb)/Math.cos(ang);box(0.05,0.04,Lh,xr,ny(zm)+0.88,zm,railWood).rotation.x=ang;}
+const steel=0x1c1c1c,ang=Math.atan2(RS,TR),SL=RS/TR;
+const STT=0.05,TD=TR+0.03,zfI=i=>SZ0-(i-1)*TR;   // 踏板の厚さ・奥行（上下の段と3cm重なる）、i段目の踏板の先端
+for(let i=1;i<NST;i++){box(SX1-SX0,STT,TD,SXC,i*RS-STT/2,zfI(i)-TD/2,treadMat);box(SX1-SX0-0.08,0.006,TD-0.06,SXC,i*RS-STT-0.003,zfI(i)-TD/2,steel);}   // 踏板（木）と裏の鉄板（縁から40・30内側）
+// ササラ桁×2：踏板の幅の中央から左右へ170。角の鉄骨（幅90・せい200）がまっすぐ斜めに通り、上面は踏板の先端を結んだ線と平行で、各段の踏板の奥の端の近くで踏板の下面に接する。下端は床で水平に、上端は2階の床の端で垂直に切る
+// 受け金物：鉄骨の上に立つ三角の板（幅70）。上の辺は踏板の下面（先端から50下がった所から奥の端の20手前まで）、前の辺は下へ少し奥へ傾けて鉄骨の上面まで
+{const BW=0.09,BD=0.2/Math.cos(ang),KW=0.07,off=STT+(TD-0.02)*SL,yt=z=>ny(z)-off;   // yt：鉄骨の上面の高さ、BD：鉄骨のせい（鉛直方向）
+ const zAt=y=>SZ0-(y+off-RS)/SL,shp=pts=>{const sh=new THREE.Shape();pts.forEach(([z,y],k)=>k?sh.lineTo(-z,y):sh.moveTo(-z,y));return sh;};   // zAt：鉄骨の上面が高さyになる位置。shp：側面の形（z,y）
+ const beam=shp([[zAt(0),0],[VZ,yt(VZ)],[VZ,yt(VZ)-BD],[zAt(BD),0]]);
+ const brs=[];for(let i=1;i<NST;i++){const zf=zfI(i),y=i*RS-STT,za=zf-0.05,zb=zf-TD+0.02,zc=zf-0.09;brs.push(shp([[za,y],[zb,y],[zb,Math.max(0,yt(zb))],[zc,Math.max(0,yt(zc))]]));}
+ [-0.17,0.17].forEach(dx=>{const x=SXC+dx,ex=(sh,w)=>{const g=new THREE.ExtrudeGeometry(sh,{depth:w,bevelEnabled:false});g.rotateY(Math.PI/2);const m=new THREE.Mesh(g,L(steel));m.position.x=x-w/2;s.add(m);};
+  ex(beam,BW);brs.forEach(b=>ex(b,KW));});}
+// 壁側の手すり（東の壁、写真から）：木の丸い笠木（楕円の断面 幅40×高さ36、壁から芯まで65）、高さは踏板の先端を結んだ線から芯まで800。両端は黒いエンドキャップで壁へ折り返す。黒いブラケット×4（壁の座金から出て下から笠木を受けるJ字の腕）
+{const xc=W-0.065,HW=0.8,RX=0.02,RY=0.018,zA=SZ0+0.03,zB=VZ-0.02,yc=z=>ny(z)+HW,c=Math.cos(ang),el=(rx,ry)=>{const sh=new THREE.Shape();sh.absellipse(0,0,rx,ry,0,Math.PI*2,false,0);return sh;};   // yc：笠木の芯の高さ
+ {const Lh=(zA-zB)/c,g=new THREE.ExtrudeGeometry(el(RX,RY),{depth:Lh,bevelEnabled:false,curveSegments:24});g.translate(0,0,-Lh/2);const m=new THREE.Mesh(g,railWood);m.position.set(xc,yc((zA+zB)/2),(zA+zB)/2);m.rotation.x=ang;s.add(m);}   // 笠木（木）
+ [zA,zB].forEach(z=>{const g=new THREE.ExtrudeGeometry(el(0.021,0.019),{depth:W-xc+0.021,bevelEnabled:false,curveSegments:24});g.rotateY(Math.PI/2);const m=new THREE.Mesh(g,L(steel));m.position.set(xc-0.021,yc(z),z);s.add(m);});   // エンドキャップ（黒、笠木の端を覆って壁まで折り返す）
+ [6.0,5.15,4.3,3.75].forEach(z=>{const yr=yc(z)-RY/c;box(0.008,0.06,0.034,W-0.004,yr-0.05,z,steel);   // ブラケット：壁の座金
+  const cur=new THREE.CatmullRomCurve3([[W-0.008,yr-0.05],[W-0.028,yr-0.054],[W-0.05,yr-0.042],[xc,yr-0.016],[xc,yr+0.004]].map(([x,y])=>new THREE.Vector3(x,y,z)));s.add(new THREE.Mesh(new THREE.TubeGeometry(cur,24,0.0055,10,false),L(steel)));});}   // ブラケット：座金から出て下から笠木に刺さる腕
+// ファイン手すり（吹抜け側の階段と2階廊下）：黒い角の支柱（35角）、その上に黒い平らな金物（幅30・厚さ12）、上に木の笠木（幅70・厚さ40）、支柱の間に透明のアクリル板
+// 階段の支柱×6：1・4・7・10・13段目は踏板の上に立てる（踏板の奥の端＝上の段の先端の3mm手前、吹抜け側の縁から25内側、下端は踏板に10刺さる）。6本目は2階の手すりとの接続部（2階の床の上、2階廊下の手すりの角の支柱を兼ねる）
+{const PS=0.035,HR=0.85,xr=SX0+0.025,zr=VZ-0.03,yb=z=>ny(z)+HR,WT=0.04,WW=0.07,MT=0.012,MW=0.03,Y2=1.14-WT-MT;   // yb：階段の金物の下面（踏板の先端を結んだ線から850）、Y2：2階の金物の下面の床からの高さ（笠木の上面は今までどおり床から1140）
+ const tp=[1,4,7,10,13].map(i=>({i,z:zfI(i)-TR+0.003+PS/2}));
+ tp.forEach(({i,z})=>{const y0=i*RS-0.01,y1=yb(z);box(PS,y1-y0,PS,xr,(y0+y1)/2,z,steel);});
+ box(PS,Y2,PS,xr,FL2+Y2/2,zr,steel);   // 接続部の支柱（2階の床から2階の金物の下面まで）
+ const za=tp[0].z+0.05,zb=zr,zm=(za+zb)/2,c=Math.cos(ang),Lh=(za-zb)/c;
+ box(MW,MT,Lh,xr,yb(zm)+MT/2/c,zm,steel).rotation.x=ang;box(WW,WT,Lh,xr,yb(zm)+(MT+WT/2)/c,zm,railWood).rotation.x=ang;   // 階段の金物と笠木（下端は1段目の支柱から50延ばす、上端は接続部の支柱）
+ const p0=tp[0].z,sh=new THREE.Shape();sh.moveTo(p0,ny(p0)+0.06);sh.lineTo(zb,ny(zb)+0.06);sh.lineTo(zb,yb(zb)-0.03);sh.lineTo(p0,yb(p0)-0.03);sh.lineTo(p0,ny(p0)+0.06);
+ const ac=new THREE.Mesh(new THREE.ShapeGeometry(sh),acrylMat);ac.rotation.y=-Math.PI/2;ac.position.x=xr;s.add(ac);   // 階段のアクリル板（支柱の中心の面）
+ // 2階廊下：吹抜けの北の縁、西端から接続部の支柱まで。支柱は西端・中央・接続部
+ const x0=VX+0.025;[x0,(x0+xr)/2].forEach(x=>box(PS,Y2,PS,x,FL2+Y2/2,zr,steel));
+ const a2=new THREE.Mesh(new THREE.PlaneGeometry(xr-x0,1.0),acrylMat);a2.position.set((x0+xr)/2,FL2+0.55,zr);s.add(a2);
+ box(xr-x0+PS,MT,MW,(x0+xr)/2,FL2+Y2+MT/2,zr,steel);box(xr-VX+0.02,WT,WW,(VX+xr)/2+0.01,FL2+Y2+MT+WT/2,zr,railWood);}   // 2階の金物と笠木
 
 // キッチン：一条 グレイスキッチン ナイトストーン KG19-27WDR（扉はチャコールの石目調、天板は黒のみかげ調）
 // 調理側は引出し、ダイニング側は両端に引出し＋中央がカウンター（足元が空いている）
