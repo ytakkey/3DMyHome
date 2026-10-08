@@ -147,7 +147,7 @@ const L=c=>MC[c]||(MC[c]=P({color:c}));
 let s=null,shades=null,winLights=null;
 // 開閉できるドア（両側の部屋が再現されているもの）。DS：開閉状態（true＝開、ページを開いたときはすべて閉）、DOORS：開いた形と閉じた形の部品
 const DS={sg300l:false,sg300w:false,sg33:false,sg11h:false,sg311:false,sg500:false,bath:false},DOORS={};   // bath：浴室のドア（脱衣室との間）、sg300l：脱衣室とLDK、sg300w：脱衣室と洗面所、sg33：洗面所と廊下、sg11h：廊下とLDK、sg311：寝室と2階廊下、sg500：玄関ホールとトイレ
-const ifOpen=(k,b)=>(b.door=k,b),ifShut=(k,b)=>(b.shut=k,b);   // 移動範囲の箱：開いているときだけ通れる開口／閉じているときだけ通れない所
+const ifOpen=(k,b)=>(b.door=k,b),ifShut=(k,b)=>(b.shut=k,b),ifOpenObs=(k,b)=>(b.opn=k,b);   // 移動範囲の箱：開いているときだけ通れる開口／閉じているときだけ通れない所／開いているときだけ通れない所（開いた扉）
 // 開いた形（gO）と閉じた形（gC）を登録。部品はまとめる対象から外し、枠・戸袋・壁（skipの素材）以外を扉の本体（タップで開閉）にする
 function regDoor(k,gO,gC,skip){[gO,gC].forEach(x=>x.traverse(c=>{if(!c.isMesh)return;c.userData.dyn=true;c.userData.dk=k;if(!skip.includes(c.material))c.userData.door=k;}));DOORS[k]={gO,gC};}   // 部品を追加する先（作成中の部屋）と、その部屋のシェード一覧・窓の自然光一覧
 function cv(draw,w,h){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);return c;}
@@ -1285,10 +1285,66 @@ const S={zoneLights:[[myWins.map(w=>w.light),['wash']],[[d1],['sen','senNE']],[[
   entDL.forEach(o=>o.sp.intensity=LS[o.k]?0.8*f:0);['eh','ec','ek'].forEach(k=>entEm[k].color.set(LS[k]?0xffe2b8:off));   // 玄関：ホール（B2）・廊下（B1）・収納（F1）
   b3L.intensity=LS.eh?0.35*f:0;b3Glass.emissive.set(LS.eh?0xff8c2e:0x000000);b3Fil.color.set(LS.eh?0xffe08a:0x8a6a3a);   // 玄関：ホール（B3のブラケット。B2と同じスイッチ）
   g1L.intensity=LS.g1?0.35*312/350*f:0;g1M.glass.emissive.set(LS.g1?0x3a2c20:0x000000);g1M.bulb.emissive.set(LS.g1?0xffd8a8:0x000000);g1M.led.color.set(LS.g1?0xfff4e0:0x8a8478);},   // トイレ：ペンダント（G1）。明るさはB3（350lm）と同じ換算で312lm
- viewWash(){look(-0.75,EYE,4.2,-3.02,1.1,2.24,80);},   // 洗面所の中、SG33の開口のすぐ内側から北西（ドレッサーと脱衣室の入口）を見る
+ viewWash(){look(SX1-WM,EYE,SZ1-WM,SX1-WM-2.16,0.9,SZ1-WM-2.08,85);},   // 水まわり：洗面所の南東の角（入口SG33の前。移動で近づける限界＝壁から WM）から北西を見る。ドアが開いていれば、洗面所・脱衣室・浴室がすべて入る
  viewEntry(){look(-0.75,EYE,6.95,-0.6,0.85,4.0,80);},   // 玄関（仮）：土間の玄関ドアの前から北（ホール・廊下）を見る
  viewToilet(){look(-1.6,EYE,4.68,-1.95,0.5,6.1,85);}};   // トイレ（仮）：北東の角から南西（便器・カウンター収納）を見る
 return S;}
+
+// ハンドシャワー：KVK hadamo ウルトラファインバブルシャワーヘッド PZS370（メッキの本体＋濃いグレーの散水板。寸法図と製品写真から）
+// 子の座標：原点＝本体の下端（ねじの付け根）の中心、+y＝握りの軸の上、+z＝散水面の側。形は寸法図の側面図の輪郭（u＝前、v＝下端からの高さ、mm）を、断面をつないで作る
+// 寸法図の数字：頭の幅83・散水面の中心は軸から73・下端から156、ねじM22×2・長さ12。図の頭は幅約88.6に描かれているので、頭だけ散水面の中心を基準に83/88.6に縮める（握りは図のまま）
+function buildHadamo(g,cm,opt){opt=opt||{};   // opt.raw：縮小・移動をせず図のとおりに作る（図との照合用）
+const K=opt.raw?1:83/88.6,DU=opt.raw?0:1.2,mm=0.001,S4=0.6423,C4=0.7665;   // K：頭の縮小、DU：散水面の中心を73に合わせる前への移動、S4・C4：散水面の傾き40°（握りの軸から前へ）のsin・cos
+const pl=a=>{const r=[];for(let i=0;i<a.length;i+=2)r.push([a[i],a[i+1]]);return r;};
+const BK=pl([-15.4,0.3,-16.1,3.2,-16.4,6.2,-16.7,9.2,-17.0,12.2,-17.3,15.3,-17.5,18.3,-17.7,21.3,-17.9,24.3,-18.1,27.3,-18.3,30.3,-18.5,33.3,-18.6,36.4,-18.7,39.4,-18.8,42.4,-18.9,45.4,-18.9,48.5,-19.0,51.5,-19.0,54.5,-19.0,57.5,-19.0,60.6,-19.0,63.6,-18.9,66.6,-18.9,69.7,-18.8,72.7,-18.7,75.7,-18.5,78.7,-18.3,81.7,-18.1,84.7,-17.9,87.8,-17.7,90.8,-17.4,93.8,-17.0,96.8,-16.6,99.8,-16.2,102.8,-15.7,105.8,-15.1,108.7,-14.5,111.7,-13.7,114.6,-12.9,117.5,-12.0,120.4,-11.0,123.3,-10.0,126.1,-9.0,129.0,-7.9,131.8,-6.7,134.6,-5.5,137.3,-4.2,140.1,-2.9,142.8,-1.5,145.5,-0.1,148.1,1.4,150.7,2.9,153.3,4.5,155.9,6.2,158.4,8.0,160.9,9.7,163.4,11.5,165.8,13.4,168.1,15.3,170.5,17.3,172.8,19.3,175.0,21.4,177.2,23.5,179.4,25.7,181.5,27.9,183.5,30.2,185.5,32.5,187.5,34.8,189.4,37.2,191.3,39.6,193.2,42.0,195.0,44.5,196.7,47.0,198.4,49.6,200.0,52.2,201.5,54.9,202.9,57.7,204.0,60.6,205.0,63.5,205.7,66.5,206.0,69.5,206.0,72.6,205.9,75.5,205.4,78.5,204.8,81.3,203.8,84.1,202.6,86.7,201.0,89.2,199.3]);   // 背中の輪郭（下端から頭の上を回って散水板の裏の上端まで）
+const FR=pl([13.0,0.3,13.5,2.8,13.7,5.3,13.8,7.8,13.9,10.3,14.0,12.8,14.2,15.3,14.3,17.8,14.4,20.3,14.5,22.9,14.5,25.4,14.6,27.9,14.7,30.4,14.8,32.9,14.8,35.4,14.9,37.9,14.9,40.4,14.9,43.0,15.0,45.5,15.0,48.0,15.0,50.5,15.0,53.0,15.0,55.5,15.0,58.1,15.0,60.6,15.0,63.1,15.0,65.6,15.0,68.1,14.9,70.6,14.9,73.1,14.8,75.7,14.8,78.2,14.7,80.7,14.7,83.2,14.6,85.7,14.5,88.2,14.4,90.7,14.3,93.3,14.2,95.8,14.2,98.3,14.0,100.8,13.9,103.3,13.8,105.8,13.9,108.3,14.1,110.8,14.6,113.3,15.3,115.7,16.3,118.0,17.6,120.2,19.0,122.3,20.7,124.1,22.6,125.8,24.6,127.3,26.7,128.6,29.0,129.7,31.4,130.6,33.4,131.9]);   // 握りの前の輪郭（下端から散水板の下端の裏まで）
+const GW=[16.0,16.5,16.9,17.2,17.6,17.9,18.2,18.4,18.6,18.9,19.0,19.1,19.2,19.3,19.3,19.3,19.2,19.1,19.0,19.0,19.2,19.5,19.9,20.6,21.4,22.6,24.0];   // 正面図の握りの半幅（v＝0〜130、5ごと）
+const BC=[61.1,165.1],RC=44.2,TP=9.95,F=[BC[0]+TP*C4,BC[1]-TP*S4];   // BC：散水板の裏の中心、RC：頭の半径（図）、TP：散水板の厚さ、F：散水面の中心
+const sOf=p=>(p[0]-BC[0])*S4+(p[1]-BC[1])*C4,lerp=(a,b,t)=>a+(b-a)*t,sst=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);};   // sOf：散水面にそった上向きの位置
+const atV=(P,v)=>{for(let i=1;i<P.length;i++)if(P[i][1]>=v){const a=P[i-1],b=P[i],t=(v-a[1])/(b[1]-a[1]||1);return a[0]+(b[0]-a[0])*t;}return P[P.length-1][0];};
+const gw=v=>v<=130?(i=>{const j=Math.min(25,Math.floor(i));return lerp(GW[j],GW[j+1],i-j);})(Math.max(0,v)/5):24+5*(1-Math.exp(-(v-130)/12));   // 握りの半幅（隠れた部分は少しずつ広げる）
+const hw=(u,v)=>{const s=sOf([u,v]),gg=gw(v)*(1-sst(150,178,v)),hh=s>=0?Math.sqrt(Math.max(0,RC*RC-s*s)):RC*Math.pow(Math.max(0,1-s*s/3844),1.23),k=16,h=Math.max(0,k-Math.abs(gg-hh))/k;return Math.max(gg,hh)+h*h*k/4;};   // 横の半幅：握りと頭のなめらかな大きい方。頭の下半分は円のままだと首との境に折れ目が出るので、s＝−62で0になるなめらかな曲線にする
+const hit=p=>{const d=[-C4,S4];let best=null;for(let i=1;i<BK.length;i++){const a=BK[i-1],b=BK[i],ex=b[0]-a[0],ey=b[1]-a[1],den=d[0]*ey-d[1]*ex;if(Math.abs(den)<1e-9)continue;const wx=a[0]-p[0],wy=a[1]-p[1],t=(wx*ey-wy*ex)/den,q=(wx*d[1]-wy*d[0])/den;if(t>0&&q>=0&&q<=1&&(best===null||t<best))best=t;}return best===null?null:[p[0]+d[0]*best,p[1]+d[1]*best];};   // 散水板の裏から奥へ（散水面と逆向き）の線と背中の輪郭の交点
+const path=P=>{const L=[0];for(let i=1;i<P.length;i++)L.push(L[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));return t=>{const x=t*L[L.length-1];let i=1;while(i<L.length-1&&L[i]<x)i++;const r=(x-L[i-1])/(L[i]-L[i-1]||1);return [lerp(P[i-1][0],P[i][0],r),lerp(P[i-1][1],P[i][1],r)];};};
+// 断面（側面図での前の点f・奥の点b・tau：0＝握りの楕円、1＝頭の形）
+const V1=100,S1=-22,SJ=sOf(FR[FR.length-1]),sec=[];
+for(let v=0.3;v<V1;v+=2.5)sec.push({f:[atV(FR,v),v],b:[atV(BK,v),v],t:0});
+{const fp=FR.filter(p=>p[1]>V1);fp.unshift([atV(FR,V1),V1]);for(let s=SJ+2;s<S1;s+=2)fp.push([BC[0]+s*S4,BC[1]+s*C4]);fp.push([BC[0]+S1*S4,BC[1]+S1*C4]);
+ const bh=hit([BC[0]+S1*S4,BC[1]+S1*C4]),bp=BK.filter(p=>p[1]>V1&&sOf(p)<sOf(bh)-0.3&&p[1]<bh[1]);bp.unshift([atV(BK,V1),V1]);bp.push(bh);
+ const pf=path(fp),pb=path(bp),NF=26;for(let i=0;i<NF;i++){const l=i/NF;sec.push({f:pf(l),b:pb(l),t:sst(0,1,l)});}}
+{const NH=44;for(let i=0;i<NH;i++){const s=S1+(RC-S1)*Math.sin(i/NH*Math.PI/2),p=[BC[0]+s*S4,BC[1]+s*C4],b=hit(p);if(!b||Math.hypot(b[0]-p[0],b[1]-p[1])<0.2)break;sec.push({f:p,b,t:1});}}
+// 断面の形：横の半幅（hw）に、前と奥の丸め（前の丸めの深さrf・奥の丸めの深さrb、指数ex）をかける。周の点は弧長で等分
+const HM=24,M=2*HM,pos=[],T=(u,v,x)=>{const w=sst(-62,-40,sOf([u,v])),k=1-w*(1-K);return [x*k,F[1]+(v-F[1])*k,F[0]+(u-F[0])*k+w*DU];};   // T：頭の部分だけ散水面の中心を基準に縮める（握りへなめらかにつなぐ）
+sec.forEach(o=>{const dx=o.b[0]-o.f[0],dy=o.b[1]-o.f[1],D=Math.hypot(dx,dy),rf=lerp(D/2,2.2,o.t),rb=lerp(D/2,0.88*D,o.t),ex=lerp(2.4,2,o.t),N=240,cur=[];
+ for(let j=0;j<=N;j++){const q=(1-Math.cos(j/N*Math.PI))/2,d=q*D,e1=Math.min(1,d/rf),e2=Math.min(1,(D-d)/rb),E=Math.pow(Math.max(0,1-Math.pow(1-e1,ex)),1/ex)*Math.pow(Math.max(0,1-Math.pow(1-e2,ex)),1/ex);cur.push([d,hw(o.f[0]+dx*q,o.f[1]+dy*q)*E]);}
+ const cl=[0];for(let j=1;j<=N;j++)cl.push(cl[j-1]+Math.hypot(cur[j][0]-cur[j-1][0],cur[j][1]-cur[j-1][1]));
+ const half=[];for(let k=0,j=1;k<=HM;k++){const x=k/HM*cl[N];while(j<N&&cl[j]<x)j++;const r=(x-cl[j-1])/(cl[j]-cl[j-1]||1);half.push([lerp(cur[j-1][0],cur[j][0],r),lerp(cur[j-1][1],cur[j][1],r)]);}
+ const ring=half.concat(half.slice(1,HM).reverse().map(([d,w])=>[d,-w]));ring.forEach(([d,w])=>{pos.push(...T(o.f[0]+dx/D*d,o.f[1]+dy/D*d,w));});});
+const NS=sec.length,idx=[];for(let i=0;i<NS-1;i++)for(let j=0;j<M;j++){const a=i*M+j,b=i*M+(j+1)%M,c=a+M,d=b+M;idx.push(a,b,c,b,d,c);}
+{const ap=sec[NS-1],cx=(ap.f[0]+ap.b[0])/2,cy=(ap.f[1]+ap.b[1])/2,top=pos.length/3;pos.push(...T(cx,cy,0));for(let j=0;j<M;j++)idx.push((NS-1)*M+j,(NS-1)*M+(j+1)%M,top);}   // 頭の上の端を閉じる
+const bgeo=new THREE.BufferGeometry();bgeo.setAttribute('position',new THREE.Float32BufferAttribute(pos.map(x=>x*mm),3));bgeo.setIndex(idx);bgeo.computeVertexNormals();
+const body=new THREE.Mesh(bgeo,cm);g.add(body);
+{const sh=new THREE.Shape();for(let j=0;j<M;j++){const p=pos.slice(j*3,j*3+3);j?sh.lineTo(p[0]*mm,p[2]*mm):sh.moveTo(p[0]*mm,p[2]*mm);}const c=new THREE.Mesh(new THREE.ShapeGeometry(sh),cm);c.rotation.x=Math.PI/2;c.position.y=pos[1]*mm;g.add(c);}   // 下端の平らな面（ねじの付け根）
+// 散水板（濃いグレー）と散水部：散水面の中心を原点にした子の座標で作る（単位は図のmm。頭と同じ縮小をかける）。+y＝散水面の向き、−z＝散水面にそって上、x＝横
+const hd=new THREE.Group(),hp=T(BC[0],BC[1],0);hd.position.set(hp[0]*mm,hp[1]*mm,hp[2]*mm);hd.rotation.x=Math.PI-Math.acos(S4);hd.scale.setScalar(K*mm);g.add(hd);
+const plM=L(0x3a3b3e),nzM=L(0x1c1d1f),Y0=TP,pol=(r,a)=>[r*Math.cos(a*Math.PI/180),-r*Math.sin(a*Math.PI/180)];   // pol：散水面の上の位置（a＝横から上へ測った角度）
+{const pr=[[0,0],[42.6,0],[43,0.5],[43,6.8],[42.2,8],[41,8.6],[40.4,Y0]].map(([x,y])=>new THREE.Vector2(x,y));hd.add(new THREE.Mesh(new THREE.LatheGeometry(pr,96),plM));}   // 散水板の本体（外周の段は正面図の2本の円から）
+const LN=[];for(let i=0;i<16;i++)LN.push(pol(22.5,i*22.5));   // 大きい散水孔×16（中央の部の周り。平らなゴムの口）
+const LB=[0,90,180,270];
+{const c=cv((x,W)=>{const sc=W/80.8,P=(u,v)=>[(u+40.4)*sc,(40.4+v)*sc];x.fillStyle='#3a3b3e';x.fillRect(0,0,W,W);   // 散水面の模様（平らなもの：切替の4つの部分の縁取り・大きい散水孔）。キャンバスの上＝散水面の上
+  LB.forEach(a=>{x.save();x.translate(W/2,W/2);x.rotate(-(a-90)*Math.PI/180);x.beginPath();x.arc(0,-37.4*sc,7.7*sc,0,Math.PI);x.lineTo(-7.7*sc,-39.66*sc);x.arc(0,0,40.4*sc,Math.atan2(-39.66,-7.7),Math.atan2(-39.66,7.7));x.closePath();x.fillStyle='#424346';x.fill();x.lineWidth=1.2;x.strokeStyle='#262729';x.stroke();x.restore();});
+  LN.forEach(([u,v])=>{const [px,py]=P(u,v);x.beginPath();x.arc(px,py,2.55*sc,0,7);x.fillStyle='#2b2c2f';x.fill();x.lineWidth=1;x.strokeStyle='#4a4b4e';x.stroke();x.beginPath();x.arc(px,py,0.75*sc,0,7);x.fillStyle='#0e0e0f';x.fill();});},512,512);
+ const fc=new THREE.Mesh(new THREE.CircleGeometry(40.4,96),P({map:new THREE.CanvasTexture(c)}));fc.rotation.x=-Math.PI/2;fc.position.y=Y0;hd.add(fc);}
+{const pr=[[13.4,11],[13.4,13.2],[14,14.2],[15.5,14.2],[16.7,12.2],[17.1,Y0],[17.1,Y0-0.5]].map(([x,y])=>new THREE.Vector2(x,y));hd.add(new THREE.Mesh(new THREE.LatheGeometry(pr,64),plM));   // 中央の盛り上がった輪（散水面の中心から約4出る。図の寸法の点）
+ const c=cv((x,W)=>{const R=W/2,gr=x.createRadialGradient(R*0.8,R*0.7,R*0.1,R,R,R);gr.addColorStop(0,'#d6d9db');gr.addColorStop(1,'#b3b6b9');x.fillStyle=gr;x.fillRect(0,0,W,W);x.fillStyle='#8c9093';for(let rr=6;rr<R-3;rr+=8){const n=Math.round(2*Math.PI*rr/7);for(let i=0;i<n;i++){const a=i/n*Math.PI*2;x.beginPath();x.arc(R+rr*Math.cos(a),R+rr*Math.sin(a),1.1,0,7);x.fill();}}},256,256);   // ウルトラファインバブルの散水部（銀色、細かい孔が同心円に並ぶ）
+ const ds=new THREE.Mesh(new THREE.CircleGeometry(13.4,64),P({map:new THREE.CanvasTexture(c),specular:0x555555,shininess:40}));ds.rotation.x=-Math.PI/2;ds.position.y=13.5;hd.add(ds);}
+{const add=(x,z)=>{const n=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.5,2,14),nzM);n.position.set(x,Y0+1,z);hd.add(n);};   // 小さい散水孔（突き出たゴムの口、出は2）：4つの区画に14ずつ＋切替の4つの部分に2ずつ（正面図の位置から）
+ [[29.5,[20,32.5,45,57.5,70]],[32.9,[25.5,38.5,51.5,64.5]],[36.3,[19,32,45,58,71]]].forEach(([r,as])=>as.forEach(a=>[[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([sx,sz])=>{const [x,z]=pol(r,a);add(sx*x,sz*z);})));
+ LB.forEach(a=>[-6.5,6.5].forEach(d=>add(...pol(36.5,a+d))));}
+{const sh=new THREE.Shape();sh.moveTo(38,1.1);sh.lineTo(50.5,1.1);sh.quadraticCurveTo(53.5,1.1,53.5,4.6);sh.quadraticCurveTo(53.5,8.4,50.5,8.4);sh.lineTo(38,8.4);sh.lineTo(38,1.1);   // 切替のつまみ（散水板の下の端から出る薄い板。正面図で幅約3、側面図で先が丸い）
+ const tg=new THREE.ExtrudeGeometry(sh,{depth:2.1,bevelEnabled:true,bevelThickness:0.5,bevelSize:0.5,bevelSegments:3,curveSegments:10});tg.rotateY(-Math.PI/2);tg.translate(1.05,0,0);hd.add(new THREE.Mesh(tg,plM));}
+{const n=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.02,32),cm);n.position.y=-0.01;g.add(n);}   // ホースのナット（下端のねじM22にかぶさる）
+}
 
 // ===== 浴室（1階。グレイスバス 1.25坪、カラー：ジャポネ。座標はLDKと同じ） =====
 // 公式画像（奥＝北）から：北の壁はベージュの木目調パネル（中央に継ぎ目）、ほかの壁は明るいグレーのパネル、天井は木目調（中央に継ぎ目）、床はグレーがかった茶色の石目調
@@ -1303,15 +1359,16 @@ const pix=(N,f)=>cv((x,W,H)=>{const im=x.createImageData(W,H),D=im.data;for(let 
 const wdN=pix(512,(u,v)=>{const w=vn(u*2,v*3,2,3),n1=vn(u*3,v*140+w*1.5,3,140),n2=vn(u*14,v*420+w*3,14,420),k=0.95+0.04*n1+0.045*n2-(n2>0.78?0.025:0);return [222*k,214*k,200*k];});
 // 天井：木目調（筋は南北。色は写真から）
 const wdC=pix(512,(u,v)=>{const w=vn(u*5,v*2,5,2),n1=vn(u*90+w*6,v*3,90,3),n2=vn(u*260+w*14,v*12,260,12),n3=vn(u*7,v*2,7,2),k=0.88+0.12*n1+0.07*n2+0.06*n3-(n2>0.72?0.07:0);return [151*k,120*k,90*k];});
-// 床：グレーがかった茶色の石目調（細かい明るい筋の網目とムラ。0.6m四方）
-const flC=pix(512,(u,v,i,y)=>{const w=vn(u*8,v*8,8,8),n=vn(u*30+w*1.5,v*30+w*1.5,30,30),cr=Math.exp(-(((n-0.5)/0.05)**2)),k=0.9+0.1*vn(u*5,v*5,5,5)+0.08*cr+(hs(i,y)-0.5)*0.09;return [128*k,120*k,111*k];});
-// カウンター：濃いグレーの石目調（細かい明るい模様を薄く）
-const ctC=pix(512,(u,v,i,y)=>{const w=vn(u*10,v*10,10,10),n=vn(u*40+w*2,v*40+w*2,40,40),cr=Math.exp(-(((n-0.5)/0.06)**2)),k=0.9+0.07*vn(u*6,v*6,6,6)+0.1*cr+(hs(i,y)-0.5)*0.12;return [102*k,108*k,118*k];});
-const grayM=P({color:0xe2e3e4,specular:0x2a2a2a,shininess:30}),woodNM=tmat(wdN,{specular:0x1e1c1a,shininess:20}),ceilBM=tmat(wdC,{specular:0x141210,shininess:14}),floorBM=tmat(flC,{specular:0x141414,shininess:12}),ctrM=tmat(ctC,{specular:0x2a2a2a,shininess:24});
+// 床：ベージュの地に茶色の粒がまばらに散る砂利調（写真から。0.6m四方）。周期つきのボロノイ2段（大きめの粒約5〜9mm・小さい粒約2〜4mm）でセルごとに色を決め、ベージュどうしはつながって地になる。境はノイズで不規則にゆがめる
+const vor=(x,y,C,sd)=>{const cx=Math.floor(x),cy=Math.floor(y);let bd=9,id=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const gx=cx+a,gy=cy+b,mx=((gx%C)+C)%C,my=((gy%C)+C)%C,px=gx+0.1+0.8*hs(mx+sd,my),py=gy+0.1+0.8*hs(my+911,mx+sd),d=(px-x)**2+(py-y)**2;if(d<bd){bd=d;id=hs(mx+313+sd,my+7171);}}return id;};   // vor：セル（周期C）ごとの乱数
+const flC=pix(1024,(u,v,i,y)=>{const w1=vn(u*20,v*20,20,20)-0.5,w2=vn(u*20+5.7,v*20+2.3,20,20)-0.5,f1=vn(u*90,v*90,90,90)-0.5,f2=vn(u*90+3.3,v*90+8.1,90,90)-0.5,
+ A=vor(u*80+w1*1.4+f1*0.5,v*80+w2*1.4+f2*0.5,80,0),B=vor(u*190+w1*2+f1*1.2,v*190+w2*2+f2*1.2,190,57),
+ c=A<0.13?[146,122,98]:A<0.17?[110,90,72]:B<0.2?[152,128,104]:B<0.25?[118,97,78]:B<0.31?[226,216,201]:[212,197,175],k=0.97+0.05*vn(u*6,v*6,6,6)+(hs(i,y)-0.5)*0.05;return [c[0]*k,c[1]*k,c[2]*k];});
+const grayM=P({color:0xe2e3e4,specular:0x2a2a2a,shininess:30}),woodNM=tmat(wdN,{specular:0x1e1c1a,shininess:20}),ceilBM=tmat(wdC,{specular:0x141210,shininess:14}),floorBM=tmat(flC,{specular:0x141414,shininess:12}),ctrM=tmat(nsTopC,{specular:0x3a3a3a,shininess:45});   // ctrM：カウンター（キッチンの天板と同じ黒のみかげ調 nsTopC）
 // メッキの映り込み：浴室の中を大まかに描いた周りの景色（天井・壁・カウンター・床の明暗と、明るい窓のような面）を映す。映り込みは照明に関係なく見えるので、明るさ（reflectivity）は昼夜と照明で変える（applyEnv）
 const envT=(()=>{const f=(side)=>cv((x,W,H)=>{if(side==='py'){x.fillStyle='#f4f2ee';x.fillRect(0,0,W,H);const gr=x.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.3);gr.addColorStop(0,'#ffffff');gr.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=gr;x.fillRect(0,0,W,H);return;}
-  if(side==='ny'){x.fillStyle='#5e5a55';x.fillRect(0,0,W,H);return;}
-  const gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#fbfaf8');gr.addColorStop(0.4,'#e6e6e4');gr.addColorStop(0.52,'#c9c8c4');gr.addColorStop(0.55,'#4a4c50');gr.addColorStop(0.6,'#4a4c50');gr.addColorStop(0.63,'#a9a7a2');gr.addColorStop(1,'#5a5651');x.fillStyle=gr;x.fillRect(0,0,W,H);   // 上から：明るい天井側・壁・濃いカウンター・床
+  if(side==='ny'){x.fillStyle='#a39684';x.fillRect(0,0,W,H);return;}
+  const gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#fbfaf8');gr.addColorStop(0.4,'#e6e6e4');gr.addColorStop(0.52,'#c9c8c4');gr.addColorStop(0.55,'#2c2c2e');gr.addColorStop(0.6,'#2c2c2e');gr.addColorStop(0.63,'#a9a7a2');gr.addColorStop(1,'#9c8f7e');x.fillStyle=gr;x.fillRect(0,0,W,H);   // 上から：明るい天井側・壁・濃いカウンター・床
   if(side==='pz'||side==='px'){const g2=x.createLinearGradient(W*0.3,0,W*0.7,0);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(0.5,'rgba(255,255,255,0.95)');g2.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g2;x.fillRect(W*0.3,H*0.08,W*0.4,H*0.4);}   // 明るい面（照りの筋）
   if(side==='nx'||side==='nz'){x.fillStyle='rgba(60,60,62,0.55)';x.fillRect(W*0.62,H*0.1,W*0.06,H*0.45);}},128,128);   // 暗い縦の筋
  const t=new THREE.CubeTexture(['px','nx','py','ny','pz','nz'].map(f));t.needsUpdate=true;return t;})();
@@ -1350,7 +1407,7 @@ ceilRect(X0,X1,Z0,Z1,BH,ceilBM,1.0);box(0.002,0.001,Z1-Z0,X0+BW/2,BH-0.0006,(Z0+
  cyl(0.034,0.006,bx,YB+0.003,Z0+0.6,P({color:0x7b7d80,specular:0x777777,shininess:50}));[-1,0,1].forEach(k=>box(0.04,0.002,0.004,bx,YB+0.0065,Z0+0.6+k*0.012,0x55575a));   // 排水口（底。仮）
  cyl(0.015,0.006,TX1-0.045,TY+0.003,Z0+0.05,cm);   // 縁の小さなボタン（北東）
  cyl(0.034,0.012,TX1-0.07,TY+0.006,Z1-0.085,wtM,40);{const t=new THREE.Mesh(new THREE.TorusGeometry(0.034,0.0015,6,48),L(0xc9c9c7));t.rotation.x=Math.PI/2;t.position.set(TX1-0.07,TY+0.0105,Z1-0.085);s.add(t);}}   // 縁の白い丸いボタン（南東。表示は描かない）
-// カウンター（濃いグレーの石目調）：北の壁いっぱい、上面700・厚さ100・奥行130（写真の比率から、仮）
+// カウンター（黒のみかげ調。キッチンの天板と同じ柄）：北の壁いっぱい、上面700・厚さ100・奥行130（写真の比率から、仮）
 const CT=0.69,CD=0.13,CZ=Z0+CD;wbox(BW,0.1,CD,X0+BW/2,CT-0.05,Z0+CD/2,ctrM,0.5);
 // 水栓（カウンターの前面）：メッキの丸いつまみ2つ（左は左へ、右は右へレバー）、両端に小さな留めネジ
 {const ky=CT-0.055,knob=(x,dir)=>{const c=(r,l,xx,z,m)=>{const k=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,32),m);k.rotation.x=Math.PI/2;k.position.set(xx,ky,z);s.add(k);};
@@ -1363,22 +1420,10 @@ const CT=0.69,CD=0.13,CZ=Z0+CD;wbox(BW,0.1,CD,X0+BW/2,CT-0.05,Z0+CD/2,ctrM,0.5);
   const sh=new THREE.Shape();sh.moveTo(-0.0185,RZ-Z0-0.01);sh.lineTo(-0.0185,-0.012);sh.lineTo(-0.0135,-0.012);sh.lineTo(-0.0135,0);sh.absarc(0,0,0.0135,Math.PI,0,true);sh.lineTo(0.0135,-0.012);sh.lineTo(0.0185,-0.012);sh.lineTo(0.0185,RZ-Z0-0.01);sh.lineTo(-0.0185,RZ-Z0-0.01);   // 上から見た形（y＝壁の向き。受けの中心が原点）
   const fg=new THREE.ExtrudeGeometry(sh,{depth:0.016,bevelEnabled:true,bevelThickness:0.002,bevelSize:0.0015,bevelSegments:2,curveSegments:16});fg.rotateX(-Math.PI/2);const t=new THREE.Mesh(fg,cm);t.position.set(XS,yb-0.008,RZ);s.add(t);};   // 受け：板から出た台に、手前が開いたU字の切り欠き（握り・ホースを手前から差し込んで掛け外しできる）
  hook(1.48);hook(1.055);   // 上（ハンドシャワー）・下（ホース）
-  {const g=new THREE.Group();g.position.set(XS,1.48,RZ);g.rotation.x=0.18;s.add(g);   // ハンドシャワー（実物の写真から。全長約240、散水面φ70）。子の座標：原点＝上のフックの受け、+y＝握りの軸の上、+z＝壁と反対側（散水面の向き）。頭を少し手前へ倒す
-  const Y0=-0.05,sec=[[0,0.0115,0.0115,0],[0.05,0.012,0.012,0],[0.09,0.0125,0.013,0.001],[0.12,0.014,0.0155,0.004],[0.145,0.019,0.02,0.008],[0.165,0.027,0.024,0.011],[0.185,0.033,0.026,0.012],[0.205,0.034,0.026,0.012],[0.222,0.03,0.023,0.011],[0.233,0.021,0.016,0.009],[0.239,0.01,0.008,0.008],[0.241,0.002,0.002,0.008]];   // 握りの断面（下端からの高さ・横の半幅・前後の半幅・中心の前へのずれ）：下は細い丸、上へ広がって頭になる
-  {const NR=28,pos=[],idx=[];sec.forEach(([y,a,b,c])=>{for(let k=0;k<NR;k++){const t=k/NR*Math.PI*2;pos.push(a*Math.cos(t),Y0+y,c+b*Math.sin(t));}});
-   for(let l=0;l<sec.length-1;l++)for(let k=0;k<NR;k++){const p=l*NR+k,q=l*NR+(k+1)%NR;idx.push(p,p+NR,q,q,p+NR,q+NR);}
-   const c0=pos.length/3;pos.push(0,Y0,0);for(let k=0;k<NR;k++)idx.push(c0,k,(k+1)%NR);   // 下端のふた
-   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();g.add(new THREE.Mesh(geo,cm));}
-  {const n=new THREE.Mesh(new THREE.CylinderGeometry(0.0115,0.0115,0.022,24),cm);n.position.y=Y0-0.011;g.add(n);}   // ホースのナット（下端のねじにかぶさる）
-  {const cl=new THREE.Mesh(new THREE.CylinderGeometry(0.0145,0.0155,0.012,28),cm);cl.rotation.x=Math.PI/2;cl.position.set(0,Y0+0.142,0.025);g.add(cl);const bt=new THREE.Mesh(new THREE.CylinderGeometry(0.0115,0.0115,0.008,28),L(0x2e2f32));bt.rotation.x=Math.PI/2;bt.position.set(0,Y0+0.142,0.033);g.add(bt);}   // 止水ボタン（握りの前、メッキの座に濃いグレーの丸ボタン）
-  const hd=new THREE.Group();hd.position.set(0,Y0+0.195,0.03);hd.rotation.x=Math.PI/2;g.add(hd);   // 散水面（頭の前。握りの軸に直角＝本体と同じ角度）。子の座標：+y＝散水面の向き
-  {const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.036,0.037,0.026,48),L(0x3c3d40));rim.position.y=0.001;hd.add(rim);   // 濃いグレーの散水板（φ70〜74、縁は少し丸い）
-   const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.0145,0.008,32),L(0x37383b));hub.position.y=0.018;hd.add(hub);   // 中央の盛り上がった散水部
-   for(let r=0;r<2;r++)for(let i=0;i<(r?18:12);i++){const a=i/(r?18:12)*Math.PI*2,rr=r?0.029:0.021,d=new THREE.Mesh(new THREE.CylinderGeometry(0.0013,0.0013,0.002,6),L(0x1f2022));d.position.set(Math.cos(a)*rr,0.0145,Math.sin(a)*rr);hd.add(d);}   // 散水孔（デフォルメ）
-   lbox(hd,0.022,0.012,0.014,0,0.016,-0.03,L(0x3c3d40));}}   // 切替のつまみ（散水板の上の縁）
+  {const g=new THREE.Group();g.position.set(XS,1.48,RZ);g.rotation.x=0.18;s.add(g);const gi=new THREE.Group();gi.position.y=0.013;g.add(gi);buildHadamo(gi,cm);}   // ハンドシャワー（KVK hadamo PZS370、形は buildHadamo）。原点＝上のフックの受け、頭を少し手前へ倒す。握りの下端（幅約32）は受けのU字より太いので、下端を受けの上に載せ、ホースのナットがU字を通る（傾けても下端が受けに食い込まない高さ）
  {const k=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.06,16),cm);k.rotation.x=Math.PI/2;k.position.set(X0+1.165,0.55,Z0+0.03);s.add(k);   // ホースの口（壁から出て西へ曲がる）
   const f=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.075,16),cm);f.rotation.z=Math.PI/2;f.position.set(X0+1.13,0.55,Z0+0.06);s.add(f);const n=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,0.02,6),cm);n.rotation.z=Math.PI/2;n.position.set(X0+1.1,0.55,Z0+0.06);s.add(n);}
- const hy=1.48-0.072*Math.cos(0.18),hz=RZ-0.072*Math.sin(0.18);   // ホースの始まり（握りの下のナット）
+ const hy=1.48-0.007*Math.cos(0.18),hz=RZ-0.007*Math.sin(0.18);   // ホースの始まり（握りの下のナットの下端）
  tube([[XS,hy,hz],[XS,1.23,RZ-0.004],[XS,1.055,RZ],[X0+0.955,0.9,Z0+0.09],[X0+0.925,0.75,Z0+0.145],[X0+0.885,0.6,Z0+0.17],[X0+0.85,0.46,Z0+0.18],[X0+0.84,0.34,Z0+0.175],[X0+0.86,0.26,Z0+0.16],[X0+0.91,0.23,Z0+0.14],[X0+0.97,0.255,Z0+0.115],[X0+1.01,0.33,Z0+0.09],[X0+1.035,0.42,Z0+0.072],[X0+1.05,0.495,Z0+0.064],[X0+1.066,0.538,Z0+0.0605],[X0+1.09,0.55,Z0+0.06]],0.006,hoseM);}   // ホース（銀色。下のフックの受けを通り、カウンターの前を通って下で大きくゆるくたるみ、口へ戻る。口の金具からは西へ少しまっすぐ出て、やわらかく曲がって下へ）
 // 鏡（枠なし）：北の壁、西の壁から1048〜1759、床から783〜1083（写真の比率から）
 {const mc=cv((x,W,H)=>{const gr=x.createLinearGradient(0,0,W,H*0.4);gr.addColorStop(0,'#f2f5f6');gr.addColorStop(0.6,'#dfe5e8');gr.addColorStop(1,'#cfd6da');x.fillStyle=gr;x.fillRect(0,0,W,H);},256,64);   // 映り込みは計算しないので、明るいグラデーションで代用
@@ -1395,10 +1440,10 @@ const bls=[X0+0.5,X0+1.5].map(x=>{const z=Z0+0.45,ring=new THREE.Mesh(new THREE.
 return {zoneLights:[[bls,['bath']]],
  boxes:[[X0+WM,X1-WM,0.2,BH-0.08,Z0+WM,Z1-WM],                                            // 浴室（浴槽はすり抜ける）
   ifOpen('bath',[bathA+0.08,bathB-0.08,0.2,1.95,Z1-WM-0.01,DZ0+WM+0.01])],                 // 浴室のドア
- obs:[],
+ obs:[[X0,X1,0,9,Z0,Z0+CD],                                                                 // カウンター（壁から壁まで、床から天井まで）
+  ifOpenObs('bath',[bathB-0.095,bathB+0.065,0,9,DZ0-0.0475-0.77,DZ0-0.0475])],              // 浴室のドア（開）：吊元（東）の軸から浴室側へ95°開いた扉（長さ約0.77、タオル掛けを含む厚さ）
  applyEnv(night){const f=night?1:0.3,off=night?0x2a2927:0xa8a6a1;bls.forEach(l=>l.intensity=LS.bath?0.8*f:0);blEm.color.set(LS.bath?0xf6f8ff:off);   // ダウンライト（D1と同じ明るさ）
-  const k=night?(LS.bath?0.8:0.06):1;cm.reflectivity=0.75*k;waterM.reflectivity=0.12*k;},   // 映り込みの明るさ：昼・夜の点灯・夜の消灯
- viewBath(){look(-0.75,EYE,1.5,-1.3,0.85,0.05,85);}};}   // 浴室：入口のすぐ内側（南東）から北西（浴槽・カウンター・シャワー）を見る（仮）
+  const k=night?(LS.bath?0.8:0.06):1;cm.reflectivity=0.75*k;waterM.reflectivity=0.12*k;}};}   // 映り込みの明るさ：昼・夜の点灯・夜の消灯
 
 // ===== 動かない部品を素材ごとに1つの形にまとめる（描画の回数を減らす）。動く部品（userData.dyn）は除く =====
 function mergeStatic(scene){scene.updateMatrixWorld(true);const buckets=new Map(),olds=[];
@@ -1485,7 +1530,7 @@ const bedS=buildBedroom(scene),ldkS=buildLDK(scene),washS=buildWash(scene,ldkS.m
 mergeStatic(scene);
 setupZones(scene,[...bedS.zoneLights,...ldkS.zoneLights,...washS.zoneLights,...bathS.zoneLights]);
 const MBA=[...ldkS.boxes,...washS.boxes,...bathS.boxes],MOA=[...ldkS.obs,...washS.obs,...bathS.obs];let MB,MO;   // 移動範囲と通れない所（全部屋）。MB・MOはドアの開閉に合わせて絞ったもの
-function updMove(){MB=MBA.filter(b=>!b.door||DS[b.door]);MO=MOA.filter(b=>!b.shut||!DS[b.shut]);}
+function updMove(){MB=MBA.filter(b=>!b.door||DS[b.door]);MO=MOA.filter(b=>(!b.shut||!DS[b.shut])&&(!b.opn||DS[b.opn]));}
 const inB=(b,q,m)=>q.x>=b[0]-m&&q.x<=b[1]+m&&q.y>=b[2]&&q.y<=b[3]&&q.z>=b[4]-m&&q.z<=b[5]+m;
 const okPos=q=>MB.some(b=>inB(b,q,0))&&!MO.some(b=>inB(b,q,HOUSE.wallMargin));
 // ドアの開閉：表示・移動範囲・光の範囲（寝室の入口越し）を切り替える。閉じると立っている場所から動けなくなるとき（開口の中にいるとき）は閉じない
@@ -1506,14 +1551,14 @@ function tapAt(x,y){cam.rotation.set(pitch,yaw,0);cam.updateMatrixWorld();rcast.
 ready=true;
 function applyEnvAll(){glassMat.color.set(night?0x141c28:0xcfdfec);fabMat.emissive.set(night?0x0c0a08:0x5a5650);bedS.applyEnv(night);ldkS.applyEnv(night);washS.applyEnv(night);bathS.applyEnv(night);updateLights();draw();}
 function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100)+'%閉';}
-// 視点（リビング・キッチン・寝室・2F廊下・洗面・脱衣・玄関・トイレ・浴室）
-const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()],['洗面・脱衣',()=>washS.viewWash()],['玄関',()=>washS.viewEntry()],['トイレ',()=>washS.viewToilet()],['浴室',()=>bathS.viewBath()]];
+// 視点（リビング・キッチン・寝室・2F廊下・水まわり・玄関・トイレ）
+const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()],['水まわり',()=>washS.viewWash()],['玄関',()=>washS.viewEntry()],['トイレ',()=>washS.viewToilet()]];
 {const vr=$('viewRow');vr.innerHTML='';VIEWS.forEach(([lb,fn])=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});}   // 視点を選んだらパネルを閉じる
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}   // 動いたら、バーの視点の名前を消す
 function setView(lb){VIEWS.find(v=>v[0]===lb)[1]();$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 // 照明のパネル：上に全点灯・全消灯、その下に、いまいる部屋の照明だけ（「すべての部屋」で全部屋の一覧。キーは LS の名前、null は未実装）
 const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],
- ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['洗面・脱衣',[['洗面所','d1'],['脱衣室','e1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];
+ ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['水まわり',[['浴室','bath'],['脱衣室','e1'],['洗面所','d1']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];
 {const box=$('indList');LG.forEach(([rn,items])=>{const r=document.createElement('div');r.className='irow';r.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;r.appendChild(t);
  const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;
   if(k){b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();applyEnvAll();};}else b.disabled=true;c.appendChild(b);});r.appendChild(c);box.appendChild(r);});}
@@ -1523,18 +1568,17 @@ $('tAllOn').onclick=()=>setAll(true);$('tAllOff').onclick=()=>setAll(false);
 // いまいる部屋（カメラの位置から。照明のパネルの部屋分けと同じ名前。どこにも当てはまらなければ null＝全部屋を出す）。2階の廊下は寝室の組（廊下の照明J1が寝室の組にあるため）、吹抜けはリビング
 function curRoom(){const p=cam.position,{W,D,FL2,VX,VZ,PZ1}=HOUSE.ldk,{X0:WX,LW,DZ0,SZ1}=HOUSE.wash,{CX0,CX1}=HOUSE.wash,EN=HOUSE.entry,B=HOUSE.bath,in2=(x0,x1,z0,z1)=>p.x>=x0&&p.x<=x1&&p.z>=z0&&p.z<=z1;
  if(p.y>FL2)return (p.x>=VX&&p.z>=VZ)?'リビング':'寝室';
- if(in2(B.X0,B.X1,B.Z0,B.Z1))return '浴室';
  if(in2(WX,EN.TX1,EN.Z0,EN.TZ1))return 'トイレ';
  if(in2(CX0,CX1,PZ1,EN.Z1)||in2(EN.X1,CX1,EN.Z0,EN.Z1)||in2(WX,EN.X1,EN.KZ0,EN.Z1))return '玄関';
- if(in2(WX,LW,DZ0,SZ1))return '洗面・脱衣';
+ if(in2(B.X0,B.X1,B.Z0,B.Z1)||in2(WX,LW,DZ0,SZ1))return '水まわり';   // 浴室・脱衣室・洗面所
  if(in2(0,W,0,D))return p.z<VZ?'キッチン':'リビング';
  return null;}
-let allRooms=false;
+let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
 function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});}   // 1部屋のときは部屋名の列を出さない（上に部屋名を出す）
 $('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};   // 切替のボタン：1部屋のとき「すべての部屋」、全部屋のとき「（いまの部屋）だけ」
 // パネル（視点・照明・シェード）：同時に1つだけ開く。同じアイコンをもう一度押すか、画面をタップすると閉じる
 let openK=null;
-function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');if(k==='light')renderInd();}
+function openSheet(k){if(k&&openK===k)k=null;if(k==='light'&&openK!=='light')allRooms=false;openK=k;$('sheet').hidden=!k;['view','light','shade'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');if(k==='light')renderInd();}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');
 // 昼夜：押すたびに切り替える（アイコンは今の状態：太陽＝昼、月＝夜）
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');applyEnvAll();}
