@@ -169,7 +169,7 @@ box(0.72,0.004,0.42,2.69,CH+0.0315,1.93,0x1f1f20);
  const gg=P({color:0x0b0b0d,specular:0x666666,shininess:90});
  box(gx1-gd-0.004,gy1-gy0,0.012,(gd+gx1)/2+0.002,(gy0+gy1)/2,zf-0.026,gg);                  // グリル扉
  box(0.25,0.06,0.002,(gd+gx1)/2+0.002,gy0+0.075,zf-0.033,0x2a2218);                          // 窓
- box(0.25,0.004,0.002,(gd+gx1)/2+0.002,gy0+0.075,zf-0.0335,0x6b5636);
+ box(0.25,0.004,0.002,(gd+gx1)/2+0.002,gy0+0.075,zf-0.0335,decalMat(P({color:0x6b5636})));
  box(0.29,0.01,0.012,(gd+gx1)/2+0.002,gy1-0.018,zf-0.038,P({color:0x8e9093,specular:0xbbbbbb,shininess:60}));   // 取っ手
  box(gd-gx0-0.004,gy1-gy0,0.012,(gx0+gd)/2-0.002,(gy0+gy1)/2,zf-0.026,0x121214);           // 操作部
  box(0.09,0.022,0.002,(gx0+gd)/2,gy1-0.05,zf-0.033,0x34404c);                               // 表示
@@ -195,7 +195,7 @@ const kdlEm=new THREE.MeshBasicMaterial({color:0x6a665e});
 const kdl=[2.75,3.53].map(x=>{const y=2.3,z=2.22;
  const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.046,0.004,32),P({color:0xcdc6b6,specular:0x888888,shininess:60}));ring.position.set(x,y-0.002,z);s.add(ring);
  const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.005,32),L(0x2a2826));hole.position.set(x,y-0.004,z);s.add(hole);
- const src=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.006,24),kdlEm);src.position.set(x,y-0.0055,z);   // 枠・穴・光源の下面は2.5mmずつずらす（ちらつかない）s.add(src);
+ const src=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.006,24),kdlEm);src.position.set(x,y-0.0055,z);s.add(src);   // 枠・穴・光源の下面は2.5mmずつずらす（ちらつかない）
  const sp=new THREE.SpotLight(0xffc68e,0,4,THREE.MathUtils.degToRad(24),0.55,1.2);sp.position.set(x,y-0.02,z);sp.target.position.set(x,0,z);s.add(sp);s.add(sp.target);return sp;});
 
 // カップボード（CS19-B180DB、ナイトストーン）
@@ -290,7 +290,7 @@ wbox(0.06,H1,0.62,4.07,H1/2,0.31,plasterMat,1);
  const fd=(y0,y1)=>box(FW-0.004,y1-y0-0.006,0.025,FX,(y0+y1)/2,fz-0.0125,gls);
  fd(0.745,FH);fd(0.455,0.745);fd(0.05,0.455);                                            // 冷蔵室・野菜室・冷凍室
  [0.745,0.455].forEach(y=>box(FW-0.03,0.012,0.004,FX,y-0.012,fz+0.001,trim));            // 引出し上端の取っ手（シャンパン色）
- box(0.008,0.07,0.012,FX+FW/2-0.006,0.79,fz-0.008,trim);                                 // 冷蔵室の取っ手（右下）
+ box(0.008,0.07,0.012,FX+FW/2-0.008,0.79,fz-0.008,trim);                                 // 冷蔵室の取っ手（右下）
  box(0.05,0.008,0.002,FX-FW/2+0.06,FH-0.05,fz+0.001,0x9a9080);}                          // ロゴ
 
 // ダイニングテーブル（1500×850、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚
@@ -312,7 +312,7 @@ function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）
   box(t,0.86,t,xs,0.43,bz,blk);
   box(t,t,Math.abs(fz-bz)+t,xs,t/2,(fz+bz)/2,blk);
   box(t,t,Math.abs(fz-bz)+t,xs,SH-0.06,(fz+bz)/2,blk);});
- box(SW-0.01,0.2,0.025,x,0.72,bz,chairSeat);}
+ box(SW-0.014,0.2,0.025,x,0.72,bz,chairSeat);}   // 背板（左右の面は後ろ脚の外の面から2mm内側＝面をそろえない）
 const chairs=[[TX0+0.375,TZ0+0.175,1],[TX0+1.125,TZ0+0.175,1],[TX0+0.375,TZ1-0.175,-1],[TX0+1.125,TZ1-0.175,-1]];
 chairs.forEach(([x,z,d])=>chair(x,z,d));
 // カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション（背もたれなし）、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
@@ -361,7 +361,7 @@ const bdWood=tmat(tjC,{specular:0x222222,shininess:20}),bdDark=P({color:0x6e6a66
 box(0.295,0.2,2.0,TVX+0.1475,0.30,TVC,bdDark);
 [-1,0,1].forEach(k=>box(0.006,0.154,0.649,TVX+0.298,0.30,TVC+k*0.6536,bdWood));
 box(0.006,0.023,2.0,TVX+0.298,0.2115,TVC,bdWood);box(0.006,0.023,2.0,TVX+0.298,0.3885,TVC,bdWood);
-box(0.006,0.2,0.0196,TVX+0.298,0.30,TVC-0.9902,bdWood);box(0.006,0.2,0.0196,TVX+0.298,0.30,TVC+0.9902,bdWood);
+box(0.006,0.154,0.0196,TVX+0.298,0.30,TVC-0.9902,bdWood);box(0.006,0.154,0.0196,TVX+0.298,0.30,TVC+0.9902,bdWood);   // 両端の縦の帯は上下の帯の間だけ（角で重ねない）
 box(0.04,0.962,1.672,TVX+0.055,0.61+0.481,TVC,0x121212);
 {const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.94),P({color:0x07070a,specular:0x555555,shininess:90}));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0775,1.091,TVC);s.add(sc);}
 // テレビ前のウォールウォッシャダウンライト A6：パナソニック SLD1310VLB1 ×2（拡散タイプのウォールウォッシャ。LEDが壁向きに傾いていて壁面を照らす・温白色3500K・320lm・埋込穴φ75）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm

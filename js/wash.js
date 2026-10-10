@@ -170,7 +170,7 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
   const Tb=z=>z>=0.225?0.389:0.389+0.141*(1-Math.pow(Math.max(0,(z-0.1)/0.125),2.5));   // ふたの下の縁（側面図の、本体との境の線から）
   const ch=z=>0.437+0.1*Math.sqrt(Math.max(0,1-((ZL-z)/ZL)**2));   // 本体の後ろの上の角（丸い）
   const wt=P({color:0xf4f4f2,specular:0x3c3c3c,shininess:55}),gapM=L(0x6e6e6c),dk=L(0x3a3a3c);
-  const mk=(pos,idx,m)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();const o=new THREE.Mesh(g,m);tg.add(o);return o;};
+  const mk=(pos,idx,m)=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));{const P=(i,k)=>pos[idx[i]*3+k],ok=[];for(let i=0;i<idx.length;i+=3){const ax=P(i+1,0)-P(i,0),ay=P(i+1,1)-P(i,1),az=P(i+1,2)-P(i,2),bx=P(i+2,0)-P(i,0),by=P(i+2,1)-P(i,1),bz=P(i+2,2)-P(i,2),cx=ay*bz-az*by,cy=az*bx-ax*bz,cz=ax*by-ay*bx;if(cx*cx+cy*cy+cz*cz>1e-24)ok.push(idx[i],idx[i+1],idx[i+2]);}idx=ok;}g.setIndex(idx);g.computeVertexNormals();const o=new THREE.Mesh(g,m);tg.add(o);return o;};   // 面積0の三角形は除く
   {const M=112,NL=4,pos=[],idx=[];   // 下の胴：高さごとの平面の形（輪）をつなぐ。後ろは垂直
    for(let j=0;j<=NL;j++){const t=j/NL,y=YR*t,w=0.295+(TW-0.295)*t,d=0.61+(TD-0.61)*t,zc=TZC*d/TD,cz=d/2;
     for(let i=0;i<M;i++){const a=i/M*Math.PI*2,dx=Math.cos(a),dz=Math.sin(a);let lo=0,hi=d;for(let k=0;k<28;k++){const r=(lo+hi)/2,h=hwF(w,d,zc,cz+dz*r);if(h>=0&&Math.abs(dx*r)<=h)lo=r;else hi=r;}pos.push(dx*lo,y,cz+dz*lo);}}
@@ -252,7 +252,7 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
   side(W-T,W,0,H,0,D);side(0,0.004,YU,H,0,D);side(0,0.004,0,YC-TC,0,D);   // 右の側板（床から天井まで）、左の端の面（吊戸・下の扉の部分。薄い木目の板）
   lbox(g,W-T-0.004,H-YU,D-0.02,(W-T+0.004)/2,(YU+H)/2,(D-0.02)/2,grE);lbox(g,XM-0.014,YC-TC-B,D-0.02,(0.004+XM-0.01)/2,(B+YC-TC)/2,(D-0.02)/2,grE);lbox(g,W-T-XM-0.01,YU-B,D-0.02,(XM+0.01+W-T)/2,(B+YU)/2,(D-0.02)/2,grE);   // 本体（扉の奥）
   lbox(g,W-T-0.004,B,D-0.006,(W-T+0.004)/2,B/2,(D-0.006)/2,grE);   // 台輪（扉の下の帯。少し奥）
-  side(XM-0.01,XM+0.01,YC,YU,0,D);front(0,XM-0.01,YC,YU,0.02);   // ニッチの右の側板と奥の面（木目）
+  side(XM-0.01,XM+0.01,YC,YU,0,D-0.002);front(0,XM-0.01,YC,YU,0.02);   // ニッチの右の側板と奥の面（木目）
   lbox(g,XM-0.01,TC,D+0.005,(XM-0.01)/2,YC-TC/2,(D+0.005)/2,top);   // カウンター（黒の御影石。左端まで）
   lbox(g,XM-0.01,0.004,D,(XM-0.01)/2,YU-0.002,D/2,0x1c1c1c);   // 吊戸の下面（ニッチの天井）は黒
   [[0.004,XM],[XM,W-T]].forEach(([x0,x1])=>{const xm=(x0+x1)/2;front(x0+G,xm-G/2,YU+G,H-G,D);front(xm+G/2,x1-G,YU+G,H-G,D);knob(xm-0.033,YU+0.05);knob(xm+0.033,YU+0.05);});   // 吊戸（4枚、取っ手は下）
@@ -265,7 +265,7 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
   const snC=cv((x,W,H)=>{const im=x.createImageData(W,H),D=im.data;for(let y=0;y<H;y++)for(let i=0;i<W;i++){const u=i/W,v=y/H,wp=vn(u*4,v*2,4,2),n1=vn(u*90+wp*1.5,v*3,90,3),n2=vn(u*300+wp*3,v*6,300,6),n3=vn(u*5+wp,v*2,5,2);   // スモークナットの木目（縦の細かい筋。ピクセル単位で計算。色は見本の平均）
    const k=0.8+0.16*n1+0.14*n2+0.1*n3-(n2>0.75?0.1:0)-(n1>0.8?0.06:0),o=(y*W+i)*4;D[o]=Math.min(255,122*k);D[o+1]=Math.min(255,91*k);D[o+2]=Math.min(255,82*k);D[o+3]=255;}x.putImageData(im,0,0);},512,512);
   const snM=tmat(snC,{specular:0x1c1714,shininess:12,bumpMap:tex(snC),bumpScale:0.5}),snE=P({color:0x684d44,specular:0x1c1714,shininess:12}),fb=(bw,bh,bd,x,y,z)=>wbox(bw,bh,bd,x,y,z,snM,T);   // snM：木目（浮造り調の凹凸は木目の濃淡から）、snE：小口・扉の芯、fb：木目の箱
-  fb(0.04,drH,0.14,drA+0.02,(y0+y1)/2,zi+0.07);fb(0.04,drH,0.14,drB-0.02,(y0+y1)/2,zi+0.07);fb(w,0.04,0.14,(drA+drB)/2,y1-0.02,zi+0.07);fb(w,0.03,0.14,(drA+drB)/2,y0+0.015,zi+0.07);   // 枠（縦・上・下とも木目）
+  fb(0.04,y1-y0-0.07,0.14,drA+0.02,(y0+y1-0.01)/2,zi+0.07);fb(0.04,y1-y0-0.07,0.14,drB-0.02,(y0+y1-0.01)/2,zi+0.07);fb(w,0.04,0.14,(drA+drB)/2,y1-0.02,zi+0.07);fb(w,0.03,0.14,(drA+drB)/2,y0+0.015,zi+0.07);   // 枠（縦・上・下とも木目。縦は上と下の間だけ＝角で重ねない）
   const a0=drA+0.04,b0=drB-0.04,yt=y1-0.04,yb=y0+0.03,p0=drM+0.003,gx=p0+113.25*PX,gy=yt-151.5*PX;   // a0〜b0：枠の内側、p0：親扉の戸先、gx,gy：窓のガラスの中心（写真：戸先から113px、扉の上端から151px）
   const EX=px=>gx+(px-235.25)*PX,EY=py=>gy-(py-215.5)*PX,IX=px=>gx+(166.5-px)*PX,IY=py=>gy-(py-219.5)*PX;   // 写真の座標 → 家の座標（E：外の写真、I：内の写真。内は左右が逆）
   const face=(x0,x1,ya,yc,hole,z,dir)=>{const m=dir<0?-1:1,V=(u,v)=>new THREE.Vector2(m*u,v),sh=new THREE.Shape([V(x0,ya),V(x1,ya),V(x1,yc),V(x0,yc)]);if(hole)sh.holes.push(new THREE.Path([V(hole[0],hole[2]),V(hole[1],hole[2]),V(hole[1],hole[3]),V(hole[0],hole[3])]));
@@ -303,7 +303,7 @@ const e1Em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),E1X=-1.385,E1Z=(DZ0+DZ1
  const cyl=(r0,r1,h,y,m,seg)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||40),m);c.position.y=y;g.add(c);return c;};
  cyl(0.042,0.042,0.012,-0.006,wt);cyl(0.055,0.055,0.04,-0.032,wt);cyl(0.058,0.058,0.05,-0.077,wt);   // 引掛シーリングのアダプター・上の筒（約50）・本体
  lbox(g,0.022,0.012,0.004,0,-0.072,0.058,dk);   // 本体のセンサー窓
- const lathe=(pts,m)=>{const l=new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r,y])=>new THREE.Vector2(r,y)),64),m);g.add(l);return l;};
+ const lathe=(pts,m)=>{m.side=THREE.DoubleSide;const l=new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r,y])=>new THREE.Vector2(r,y)),64),m);g.add(l);return l;};   // 断面が閉じていないので両面に（内側から見ても透けない）
  lathe([[0.084,-0.104],[0.110,-0.104],[0.121,-0.108],[0.125,-0.116],[0.125,-0.121],[0.084,-0.121]],wt);   // リング（上の白い部分）
  lathe([[0.084,-0.121],[0.125,-0.121],[0.125,-0.134],[0.121,-0.144],[0.112,-0.150],[0.084,-0.150],[0.084,-0.121]],e1Em);   // リング（下の光る部分。周りと下面）
  cyl(0.084,0.084,0.03,-0.115,wt);   // ファンの胴（リングの内側）
