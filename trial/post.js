@@ -23,7 +23,7 @@ async function exportBake(){
  scene.children.forEach(o=>{if(o.isMesh&&!o.userData.dyn&&!bakeExcluded(o.material)&&o.visible)add(o,o.name,o.name.startsWith('bed:'),null);});
  Object.entries(DOORS).forEach(([k,d])=>[['O',d.gO],['C',d.gC]].forEach(([st,g])=>{const tgt=BAKE_DOORS.includes(k);if(!tgt&&!visibleChain(g))return;let i=0;
   g.traverse(o=>{if(!o.isMesh)return;const idx=i++;if(bakeExcluded(o.material))return;add(o,'door:'+k+':'+st+':'+idx,tgt,tgt?{door:k,open:st==='O'}:null);});}));
- const head={meshes,lamps,lampSpec:BAKE_LAMPS,room:{min:BAKE_ROOM.min.toArray(),max:BAKE_ROOM.max.toArray()},doors:BAKE_DOORS};
+ const head={meshes,lamps,windows:BAKE_WINDOWS,lampSpec:BAKE_LAMPS,room:{min:BAKE_ROOM.min.toArray(),max:BAKE_ROOM.max.toArray()},doors:BAKE_DOORS};
  const blob=new Blob(bufs.flatMap(b=>[b]));
  await fetch('/save?path=bake/work/scene.bin',{method:'POST',body:blob});await fetch('/save?path=bake/work/scene.json',{method:'POST',body:JSON.stringify(head)});
  return {meshes:meshes.length,targets:meshes.filter(m=>m.target).length,tris:off/18,lamps:lamps.length};}
@@ -50,7 +50,8 @@ vec3 zLM(){vec3 a=vec3(0.0);vec2 t=vec2(vLightMapUv.x,1.0-vLightMapUv.y);
    .replace('#if defined( RE_IndirectDiffuse )','#if defined( RE_IndirectDiffuse )\n\tiblIrradiance += zLM();'));}
 const LMMATS=new Map();   // 元の材質 → 焼き込み用の複製（昼夜などで変わる色は applyEnvAll のたびに元から写す）
 let envRT=null,pmrem=null,cubeRT=null,cubeCam=null,BAKE_LAYERS=[];
-function lmMat(m){let c=LMMATS.get(m);if(c)return c;c=m.clone();c.lightMap=LMDUMMY;c.onBeforeCompile=lmPatch;c.customProgramCacheKey=()=>'bakeLM';LMMATS.set(m,c);return c;}
+const UNBAKED_ENV=(()=>{const d=new Float32Array(4*4*4).fill(1);for(let i=3;i<d.length;i+=4)d[i]=1;const t=new THREE.DataTexture(d,4,4,THREE.RGBAFormat,THREE.FloatType);t.mapping=THREE.EquirectangularReflectionMapping;t.needsUpdate=true;return t;})();   // 焼いていない部屋の仮の明るさ（点灯・昼夜に関係なく一定）
+function lmMat(m){let c=LMMATS.get(m);if(c)return c;c=m.clone();c.lightMap=LMDUMMY;c.envMap=null;c.onBeforeCompile=lmPatch;c.customProgramCacheKey=()=>'bakeLM';LMMATS.set(m,c);return c;}
 const LMDUMMY=new THREE.DataTexture(new Uint8Array(4),1,1);LMDUMMY.channel=1;LMDUMMY.needsUpdate=true;
 function syncLM(){LMMATS.forEach((c,m)=>{['color','emissive'].forEach(k=>m[k]&&c[k].copy(m[k]));c.opacity=m.opacity;c.visible=m.visible;c.emissiveIntensity=m.emissiveIntensity;});}
 function lmWeights(){let n=0,key=0;
@@ -65,7 +66,7 @@ function lmWeights(){let n=0,key=0;
 function exposure(key){return Math.min(0.15,0.56/Math.pow(Math.max(key,1e-3),0.75));}   // 目の慣れ（明るいほど露出を下げる。暗い所では慣れきらない）
 function captureEnv(){if(!cubeRT){cubeRT=new THREE.WebGLCubeRenderTarget(128,{type:THREE.HalfFloatType});cubeCam=new THREE.CubeCamera(0.05,60,cubeRT);scene.add(cubeCam);pmrem=new THREE.PMREMGenerator(r);}
  const b=HOUSE.bed;cubeCam.position.set(b.X0+b.W/2,HOUSE.ldk.FL2+1.2,b.Z0+b.D/2);scene.environment=null;cubeCam.update(r,scene);
- if(envRT)envRT.dispose();envRT=pmrem.fromCubemap(cubeRT.texture);scene.environment=envRT.texture;}
+ if(envRT)envRT.dispose();envRT=pmrem.fromCubemap(cubeRT.texture);LMMATS.forEach(c=>c.envMap=envRT.texture);scene.environment=UNBAKED_ENV;}   // 寝室の景色は焼いた所の照り・映り込みだけに使う（焼いていない所は一定の仮の明るさ）
 async function applyBake(){const res=BAKE.res,N=BAKE.layers.length,data=new Uint8Array(res*res*4*N),cv=document.createElement('canvas');cv.width=cv.height=res;const g=cv.getContext('2d',{willReadFrequently:true});
  for(let i=0;i<N;i++){const im=new Image();await new Promise((ok,ng)=>{im.onload=ok;im.onerror=ng;im.src=BAKE.layers[i].img;});g.clearRect(0,0,res,res);g.drawImage(im,0,0);data.set(g.getImageData(0,0,res,res).data,i*res*res*4);}   // decode() は裏のタブで待たされることがあるので onload で待つ
  const tx=new THREE.DataArrayTexture(data,res,res,N);tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.generateMipmaps=true;tx.needsUpdate=true;LMU.lmTex.value=tx;BAKE_LAYERS=BAKE.layers;
@@ -78,5 +79,6 @@ async function applyBake(){const res=BAKE.res,N=BAKE.layers.length,data=new Uint
  ALL_LIGHTS.forEach(l=>l.visible=false);
  return n;}
 const _applyEnvAll=applyEnvAll;
-applyEnvAll=function(){envAll();syncLM();const key=lmWeights();r.toneMappingExposure=exposure(key);captureEnv();draw();};
+{const _td=toggleDoor;toggleDoor=function(k){_td(k);if(typeof BAKE!=='undefined')applyEnvAll();};}   // ドアを開け閉めしたら、焼いた層の「ドアを開けた分」を切り替える
+applyEnvAll=function(){envAll();syncLM();const key=lmWeights();r.toneMappingExposure=exposure(key);scene.environmentIntensity=0.25/r.toneMappingExposure;captureEnv();draw();};
 if(typeof BAKE!=='undefined')applyBake().then(n=>{console.log('焼き込みを適用',n,'個の形');applyEnvAll();});

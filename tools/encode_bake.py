@@ -12,8 +12,8 @@ def webp(a01):   # a01：[res,res,3] 0〜1（行は Blender の並び＝下か�
     im=bpy.data.images.new('E',res,res,alpha=False,float_buffer=False);im.colorspace_settings.name='Non-Color'
     px=np.ones((res,res,4),dtype=np.float32);px[:,:,:3]=a01;im.pixels.foreach_set(px.ravel())
     f=str(WORK/'_e.webp');im.filepath_raw=f;im.file_format='WEBP'
-    sc=bpy.context.scene;sc.render.image_settings.file_format='WEBP';sc.render.image_settings.quality=92;sc.render.image_settings.color_mode='RGB'
-    im.save(filepath=f,quality=92);bpy.data.images.remove(im)
+    sc=bpy.context.scene;sc.render.image_settings.file_format='WEBP';sc.render.image_settings.quality=95;sc.render.image_settings.color_mode='RGB'
+    im.save(filepath=f,quality=95);bpy.data.images.remove(im)
     b=pathlib.Path(f).read_bytes();return 'data:image/webp;base64,'+base64.b64encode(b).decode(),len(b)
 layers=[];total=0
 groups=sorted({k.split('@')[0] for k in L})

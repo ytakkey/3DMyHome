@@ -3,7 +3,7 @@
 #  入力：bake/work/scene.json・scene.bin（trial/bedroom.html の exportBake() が書き出す。座標は three.js の家全体の座標：X=東、Y=上、Z=南）
 #  出力：bake/work/layers/<層>.npy（線形の照度 lux、float32、[解像度,解像度,3]）・bake/work/uv.json（形ごとのライトマップのUV。頂点の順は書き出したとおり）
 # 層：照明の組（bdl など）・空（sky）・太陽（sun）を、ドアがすべて閉じた状態（base）と、1つだけ開けた状態（open_<ドア>）で焼く
-import bpy,bmesh,json,math,sys,time,pathlib
+import bpy,bmesh,json,math,sys,time,pathlib,os
 import numpy as np
 ROOT=pathlib.Path(__file__).resolve().parent.parent;WORK=ROOT/'bake'/'work';(WORK/'layers').mkdir(parents=True,exist_ok=True)
 argv=sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
@@ -22,10 +22,12 @@ def b3(v):return (v[0],-v[2],v[1])   # three（X東・Y上・Z南）→ Blender�
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc=bpy.context.scene;sc.render.engine='CYCLES'
 pref=bpy.context.preferences.addons['cycles'].preferences;pref.compute_device_type='HIP';pref.get_devices()
-for d in pref.devices:d.use=d.type in('HIP','CPU')   # GPU と CPU を両方使う
+DEV=os.environ.get('BAKE_DEVICES','HIP,CPU').split(',')   # 使う計算装置（既定は GPU と CPU の両方）
+for d in pref.devices:d.use=d.type in DEV
 sc.cycles.device='GPU' if any(d.use for d in pref.devices) else 'CPU'
+print('devices',[(d.name,d.type) for d in pref.devices if d.use],sc.cycles.device,flush=True)
 sc.cycles.samples=SAMPLES;sc.cycles.use_denoising=False;sc.cycles.max_bounces=8;sc.cycles.diffuse_bounces=6;sc.cycles.glossy_bounces=2;sc.cycles.transmission_bounces=0;sc.cycles.caustics_reflective=False;sc.cycles.caustics_refractive=False
-sc.cycles.sample_clamp_indirect=10.0;sc.render.use_persistent_data=True   # 焼くたびに形を読み直さない
+sc.cycles.sample_clamp_indirect=float(os.environ.get("BAKE_CLAMP","1.0"));sc.render.use_persistent_data=True   # 焼くたびに形を読み直さない
 
 def material(name,alb,img=None):
     m=bpy.data.materials.new(name);m.use_nodes=True;nt=m.node_tree;p=nt.nodes.get('Principled BSDF')
@@ -34,35 +36,42 @@ def material(name,alb,img=None):
         n=nt.nodes.new('ShaderNodeTexImage');n.image=img;nt.nodes.active=n
     return m
 
-objs={};targets=[];door_parts={}
-for mi,m in enumerate(head['meshes']):
-    n=m['count'];o3=m['off'];P=raw[o3:o3+n*3].reshape(-1,3);N=raw[o3+n*3:o3+n*6].reshape(-1,3)
-    # 同じ位置の頂点をつなぐ（UVの島を作るため）。三角形の並び・角の並びは書き出したとおり（UVを戻すときに使う）
-    key=np.round(P*1e5).astype(np.int64);uk,inv=np.unique(key,axis=0,return_inverse=True);inv=inv.reshape(-1)
-    verts=[None]*len(uk);
-    for i,u in enumerate(inv):
-        if verts[u] is None:verts[u]=P[i]
-    verts=[b3(v) for v in verts];faces=[]
+# 形はまとめて数個の物体にする（Blender は焼く物体を1つずつ処理するので、物体が多いと遅い）：焼く形（T）・ドアの状態ごとの扉（D:ドア:O/C）・遮るだけの形（OCC）
+groups={}
+for m in head['meshes']:
+    g='D:%s:%s'%(m['state']['door'],'O' if m['state']['open'] else 'C') if m['state'] else ('T' if m['target'] else 'OCC')
+    groups.setdefault(g,[]).append(m)
+img=None
+def build(name,entries,target):
+    P=np.concatenate([raw[m['off']:m['off']+m['count']*3].reshape(-1,3) for m in entries]);N=np.concatenate([raw[m['off']+m['count']*3:m['off']+m['count']*6].reshape(-1,3) for m in entries])
+    n=len(P);key=np.round(P*1e5).astype(np.int64);uk,first,inv=np.unique(key,axis=0,return_index=True,return_inverse=True);inv=inv.reshape(-1)   # 同じ位置の頂点をつなぐ（UVの島を作るため）
+    verts=[b3(v) for v in P[first]];faces=[]
     for t in range(n//3):
         f=[int(inv[3*t]),int(inv[3*t+1]),int(inv[3*t+2])]
         if len(set(f))<3:   # つぶれた三角形はつながない頂点で作る
-            f=[];[ (verts.append(b3(P[3*t+j])),f.append(len(verts)-1)) for j in range(3)]
+            f=[]
+            for j in range(3):verts.append(b3(P[3*t+j]));f.append(len(verts)-1)
         faces.append(f)
-    me=bpy.data.meshes.new(m['key']);me.from_pydata(verts,[],faces);me.update()
-    assert len(me.polygons)==n//3
-    me.normals_split_custom_set([b3(N[3*(p.index)+j]) for p in me.polygons for j in range(3)])
-    ob=bpy.data.objects.new(m['key'],me);sc.collection.objects.link(ob);objs[m['key']]=(ob,m)
-    if m['target']:targets.append(ob)
-    if m['state']:door_parts.setdefault(m['state']['door'],[]).append((ob,m['state']['open']))
-    elif m['key'].startswith('door:'):pass
-
+    me=bpy.data.meshes.new(name);me.from_pydata(verts,[],faces);me.update();assert len(me.polygons)==n//3
+    me.normals_split_custom_set([b3(N[i]) for i in range(n)])   # 角の並び＝書き出した頂点の並び
+    mi=np.zeros(n//3,dtype=np.int32);ranges={};f0=0
+    for k,m in enumerate(entries):
+        me.materials.append(material('m_%s_%d'%(name,k),m['albedo'],img if target else None));c=m['count']//3;mi[f0:f0+c]=k;ranges[m['key']]=(f0,f0+c);f0+=c
+    me.polygons.foreach_set('material_index',mi)
+    ob=bpy.data.objects.new(name,me);sc.collection.objects.link(ob);return ob,ranges
 # ===== ライトマップのUV（焼き込む形をまとめて1枚の画像に並べる） =====
-area=0.0
-for ob in targets:
-    me=ob.data;me.uv_layers.new(name='LM');me.uv_layers.active=me.uv_layers['LM']
-    area+=sum(p.area for p in me.polygons)
+tg=[k for k in groups if k!='OCC'];area=0.0
+for k in tg:
+    for m in groups[k]:
+        Q=raw[m['off']:m['off']+m['count']*3].reshape(-1,3,3);area+=float(0.5*np.linalg.norm(np.cross(Q[:,1]-Q[:,0],Q[:,2]-Q[:,0]),axis=1).sum())
 res=int(math.ceil(math.sqrt(area/TEXEL**2/0.55)/64)*64);res=max(512,min(2048,res))   # 画像の一辺（64の倍数）
 print('target area',round(area,2),'m2 -> res',res,flush=True)
+img=bpy.data.images.new('LM',res,res,alpha=False,float_buffer=True)
+objs={};targets=[];door_parts={};ranges={}
+for k,ents in groups.items():
+    ob,rg=build(k.replace(':','_'),ents,k!='OCC');objs[k]=ob;ranges[k]=rg
+    if k!='OCC':targets.append(ob);ob.data.uv_layers.new(name='LM');ob.data.uv_layers.active=ob.data.uv_layers['LM']
+    if k.startswith('D:'):_,d,st=k.split(':');door_parts.setdefault(d,[]).append((ob,st=='O'))
 bpy.ops.object.select_all(action='DESELECT')
 for ob in targets:ob.select_set(True)
 bpy.context.view_layer.objects.active=targets[0]
@@ -73,14 +82,25 @@ bpy.ops.uv.average_islands_scale()
 bpy.ops.uv.pack_islands(rotate=True,margin_method='FRACTION',margin=4/res,shape_method='CONCAVE')
 bpy.ops.object.mode_set(mode='OBJECT')
 uvout={}
-for ob in targets:
-    me=ob.data;uv=np.zeros(len(me.loops)*2,dtype=np.float32);me.uv_layers['LM'].data.foreach_get('uv',uv)
-    uvout[ob.name]=uv.round(6).tolist()
+for k in tg:
+    me=objs[k].data;uv=np.zeros(len(me.loops)*2,dtype=np.float32);me.uv_layers['LM'].data.foreach_get('uv',uv)
+    for key,(f0,f1) in ranges[k].items():uvout[key]=uv[f0*6:f1*6].round(6).tolist()
 (WORK/'uv.json').write_text(json.dumps({'res':res,'uv':uvout}),encoding='utf-8')
-
-# ===== 材質（焼き込む形には焼き込み先の画像を付ける） =====
-img=bpy.data.images.new('LM',res,res,alpha=False,float_buffer=True)
-for k,(ob,m) in objs.items():ob.data.materials.append(material('m_'+k,m['albedo'],img if m['target'] else None))
+# 焼く画素の範囲（UVの三角形を塗り、焼き込みの縁の延長分だけ広げる）。範囲の外は周りの値で埋める（ノイズ除去の縁のにじみ・縮小版の黒の混入を防ぐ）
+COVER=np.zeros((res,res),bool)
+for key,a in uvout.items():
+    for tri in np.array(a,dtype=np.float64).reshape(-1,3,2)*res:
+        x0,y0=np.floor(tri.min(0)).astype(int);x1,y1=np.ceil(tri.max(0)).astype(int);x0,y0=max(x0,0),max(y0,0);x1,y1=min(x1,res),min(y1,res)
+        if x1<=x0 or y1<=y0:continue
+        xs,ys=np.meshgrid(np.arange(x0,x1)+0.5,np.arange(y0,y1)+0.5);A,B,C=tri
+        d=lambda P,Q:(Q[0]-P[0])*(ys-P[1])-(Q[1]-P[1])*(xs-P[0]);w0,w1,w2=d(B,C),d(C,A),d(A,B)
+        COVER[y0:y1,x0:x1]|=((w0>=0)&(w1>=0)&(w2>=0))|((w0<=0)&(w1<=0)&(w2<=0))
+for _ in range(2):COVER=COVER|np.roll(COVER,1,0)|np.roll(COVER,-1,0)|np.roll(COVER,1,1)|np.roll(COVER,-1,1)
+def fill(a,m):   # 押し引き法：範囲の外を、範囲の中の値をなだらかに広げて埋める
+    if min(a.shape[:2])<=1 or m.all():return np.where(m[...,None],a,a[m].mean(0) if m.any() else 0)
+    h,w=a.shape[:2];H,Wd=(h+1)//2,(w+1)//2;pa=np.zeros((H*2,Wd*2,a.shape[2]));pm=np.zeros((H*2,Wd*2));pa[:h,:w]=a*m[...,None];pm[:h,:w]=m
+    sa=pa.reshape(H,2,Wd,2,-1).sum((1,3));sm=pm.reshape(H,2,Wd,2).sum((1,3));c=fill(sa/np.maximum(sm,1e-9)[...,None],sm>0)
+    up=np.repeat(np.repeat(c,2,0),2,1)[:h,:w];return np.where(m[...,None],a,up)
 
 # ===== 照明（器具の大きさの面光源。光束は1灯あたり） =====
 lamps={}
@@ -108,6 +128,13 @@ mix=nt.nodes.new('ShaderNodeMix');mix.data_type='FLOAT';mix.inputs['A'].default_
 bg=nt.nodes.new('ShaderNodeBackground');bg.inputs['Color'].default_value=(1,1,1,1);nt.links.new(mix.outputs['Result'],bg.inputs['Strength'])
 wo=nt.nodes.new('ShaderNodeOutputWorld');nt.links.new(bg.outputs[0],wo.inputs[0])
 sky_strength=bg.inputs['Strength']
+# 窓のポータル（空の光を窓から探させる。光は足さない）：窓の開口の大きさの面を、室内へ向けて窓の位置に置く
+for w in head.get('windows',[]):
+    ld=bpy.data.lights.new('portal',type='AREA');ld.shape='RECTANGLE';ld.size=w['w']+0.04;ld.size_y=w['h']+0.04;ld.cycles.is_portal=True
+    po=bpy.data.objects.new('portal',ld);c=w['c'];o=w['out'];po.location=b3([c[0]+o[0]*0.05,c[1]+o[1]*0.05,c[2]+o[2]*0.05]);sc.collection.objects.link(po)
+    z=mathutils.Vector(b3(o));x=mathutils.Vector(b3(w['u']));y=z.cross(x)
+    M=mathutils.Matrix.Identity(4);M.col[0][:3]=x;M.col[1][:3]=y;M.col[2][:3]=z;M.col[3][:3]=po.location;po.matrix_world=M   # 面光源は -Z へ光る＝室内向き（Z を外向きにする）
+print('portals',len(head.get('windows',[])),flush=True)
 
 # ===== 焼き込み =====
 def set_light(group):
@@ -122,7 +149,7 @@ def set_doors(open_door):
     for d,parts in door_parts.items():
         for ob,isopen in parts:ob.hide_render=(isopen!=(d==open_door))
 # ノイズ除去（Blender のコンポジターの Denoise＝OIDN を、焼いた画像にかける）
-DENOISE=True
+DENOISE=os.environ.get("NODENOISE")!="1"   # 環境変数 NODENOISE=1 でノイズ除去なし（確かめる用）
 def denoise(px):
     src=bpy.data.images.get('DN_IN') or bpy.data.images.new('DN_IN',res,res,alpha=True,float_buffer=True)
     src.pixels.foreach_set(px)
@@ -158,6 +185,7 @@ def bake(name,group,open_door):
     t=time.time()
     bpy.ops.object.bake(type='DIFFUSE',pass_filter={'DIRECT','INDIRECT'},margin=6,margin_type='EXTEND',use_clear=True,target='IMAGE_TEXTURES')
     px=np.empty(res*res*4,dtype=np.float32);img.pixels.foreach_get(px)
+    q=px.reshape(res,res,4);q[:,:,:3]=fill(q[:,:,:3].astype(np.float64),COVER).astype(np.float32);q[:,:,3]=1;px=q.ravel()
     if DENOISE:px=denoise(px)
     a=px.reshape(res,res,4)[:,:,:3]*math.pi/LM2W   # 拡散の光だけ（色なし）＝照度/π → 照度（lux）
     np.save(WORK/'layers'/(name+'.npy'),a.astype(np.float32))
