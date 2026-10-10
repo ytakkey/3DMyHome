@@ -2,7 +2,7 @@
 // 影：部品は動かないので、点灯・昼夜・ドア・割り当てが変わったときだけ描き直す。影を付ける光の数には上限（カメラの近くで効いている光から順に割り当て）
 r.toneMapping=THREE.NeutralToneMapping;
 r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFShadowMap;   // 影の縁のぼかしは光ごとの radius で（PCFSoft はぼかしの大きさを変えられず、縁が点々になる）
-const Q=new URLSearchParams(location.search),N_SPOT=+(Q.get('spots')||8),N_POINT=+(Q.get('points')||2);   // 影付きの光の数（影の画像1枚につきテクスチャの枠を1つ使う。枠は16まで（材質の柄の分を残す））
+const Q=new URLSearchParams(location.search),N_SPOT=+(Q.get('spots')||7),N_POINT=+(Q.get('points')||2);   // 影付きの光の数（影の画像1枚につきテクスチャの枠を1つ使う。枠は16まで（材質の柄の分を残す））
 
 // ===== 照明の仕様（LS のキーごと。lm：1灯の光束、K：色温度、kind：lamb＝拡散（中心が明るく周りへなだらか）、cone＝絞った光（α：中心から縁までの角度）、bracket＝箱の上下の開口、bulb＝電球（全方向）） =====
 const SPEC={a6:{lm:320,K:3500,kind:'cone',a:37.5},a4:{lm:440,K:3500,kind:'lamb'},a2:{lm:620,K:3500,kind:'cone',a:30},h1:{lm:440,K:3500,kind:'lamb'},a5:{lm:350,K:2400,kind:'bulb'},a3:{lm:326,K:2700,kind:'cone',a:20},a1:{lm:440,K:3500,kind:'lamb'},
@@ -47,14 +47,17 @@ const inBox=(p,R)=>p.x>=R.mn[0]&&p.x<=R.mx[0]&&p.y>=R.mn[1]&&p.y<=R.mx[1]&&p.z>=
 const roomOf=p=>{let best=null,vol=1e9;ROOMS.forEach(R=>{if(inBox(p,R)){const v=(R.mx[0]-R.mn[0])*(R.mx[1]-R.mn[1])*(R.mx[2]-R.mn[2]);if(v<vol){vol=v;best=R;}}});return best;};
 const LINKS=[['bed','hall','sg311',1.6],['bed','wic','sg500w',1.5],['bed','study','sg33s',1.5],['datsu','f1N','sg300l',1.6],['datsu','sen','sg300w',1.6],['sen','entC','sg33',1.6],['entC','f1S','sg11h',1.8],['ent','toi','sg500',1.5],['datsu','bath','bath',1.6],
  ['hall','void',null,6],['void','f1S',null,8],['void','f1N',null,4],['f1N','f1S',null,6],['entC','ent',null,2],['ent','entK',null,2]];   // 部屋のつながり（ドアのキー、null＝いつも開いている）と開口の面積（m²、目安）
-const AMB_MAX=16,AMBU={zAmbMin:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector4(1,1,1,0))},zAmbMax:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector4(0,0,0,0))},zAmbE:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector3())},zAmbN:{value:0}};
+const AMB_MAX=16,AMBU={zCauP:{value:Array.from({length:Math.max(1,N_POINT)},()=>new THREE.Vector4())},zCau:{value:ZU.zCau.value},zCauK:{value:ZU.zCauK.value},zAmbMin:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector4(1,1,1,0))},zAmbMax:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector4(0,0,0,0))},zAmbE:{value:Array.from({length:AMB_MAX},()=>new THREE.Vector3())},zAmbN:{value:0}};
 ROOMS.forEach((R,i)=>{AMBU.zAmbMin.value[i].set(R.mn[0],R.mn[1],R.mn[2],0.05);AMBU.zAmbMax.value[i].set(R.mx[0],R.mx[1],R.mx[2],0);});AMBU.zAmbN.value=ROOMS.length;
 function ambPatch(sh){Object.assign(sh.uniforms,AMBU);
  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vAmbP;').replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nvAmbP=(modelMatrix*vec4(transformed,1.0)).xyz;');
  sh.fragmentShader=sh.fragmentShader.replace('#include <common>',`#include <common>
 varying vec3 vAmbP;uniform vec4 zAmbMin[${AMB_MAX}];uniform vec4 zAmbMax[${AMB_MAX}];uniform vec3 zAmbE[${AMB_MAX}];uniform int zAmbN;
+uniform vec4 zCauP[${Math.max(1,N_POINT)}];uniform sampler2D zCau;uniform vec4 zCauK;
+float cauF(int li){vec4 c=zCauP[li];if(c.w<0.5)return 1.0;vec3 d=normalize(vAmbP-c.xyz);float p=texture2D(zCau,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;
+ float cd=-d.y,op=smoothstep(zCauK.x-0.015,zCauK.x+0.015,cd),gl=zCauK.z*(0.3+1.6*p)*(1.0-smoothstep(zCauK.y-0.02,zCauK.y+0.01,d.y)),rim=zCauK.w*exp(-pow((cd-zCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}
 vec3 zAmb(){vec3 a=vec3(0.0);float ws=0.0;for(int i=0;i<${AMB_MAX};i++){if(i>=zAmbN)break;vec4 mn=zAmbMin[i],mx=zAmbMax[i];vec3 d=max(mn.xyz-vAmbP,vAmbP-mx.xyz);float w=1.0-smoothstep(0.0,mn.w,max(max(d.x,d.y),d.z));if(w>0.0){a+=zAmbE[i]*w;ws+=w;}}return ws>0.0?a/max(ws,1.0):vec3(0.0);}`)
-  .replace('#include <lights_fragment_maps>','#include <lights_fragment_maps>\n\tirradiance += zAmb();');}   // 部屋の箱の中では部屋の明るさ、境目（5cm。壁の厚さを越えて隣の部屋へ混ざらないように）ではなだらかに混ぜる
+  .replace('#include <lights_fragment_maps>',THREE.ShaderChunk.lights_fragment_maps.replace('iblIrradiance += getIBLIrradiance( geometryNormal );','')+'\n\tirradiance += zAmb();').replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace(/(pointLight = pointLights\[ i \];[\s\S]*?)(RE_Direct\()/,'$1directLight.color *= cauF( UNROLLED_LOOP_INDEX );\n\t\t$2'));}   // 部屋の箱の中では部屋の明るさ、境目（5cm。壁の厚さを越えて隣の部屋へ混ざらないように）ではなだらかに混ぜる
 scene.traverse(o=>{if(o.isMesh&&o.material.isMeshStandardMaterial&&!o.material.userData.amb){o.material.userData.amb=1;o.material.onBeforeCompile=ambPatch;o.material.customProgramCacheKey=()=>'amb';o.material.needsUpdate=true;}});
 function updateAmbient(lit){ROOMS.forEach(R=>R.E.setRGB(0,0,0));
  lit.forEach(c=>{const R=roomOf(c.pos)||(c.win&&roomOf(c.pos.clone().addScaledVector(c.dir,0.6)));if(!R)return;R.E.add(c.color.clone().multiplyScalar(c.flux/R.S));});
@@ -65,6 +68,7 @@ function updateAmbient(lit){ROOMS.forEach(R=>R.E.setRGB(0,0,0));
 
 // 開いたドアの開口から隣の部屋へ漏れる光：開口を、向こうの部屋の明るさ（照り返しの輝度＝反射率×照度÷π）で光る面として、こちら向きの拡散の光にする（影付き）
 const SPILL=[];Object.entries(typeof DOORWAYS!=='undefined'?DOORWAYS:{}).forEach(([k,d])=>{const c=new THREE.Vector3(...d.c),n=new THREE.Vector3(...d.n);[1,-1].forEach(sg=>{const dir=n.clone().multiplyScalar(sg);SPILL.push({group:'spill',door:k,type:'spot',pos:c.clone().addScaledVector(dir,-0.05),dir,angle:THREE.MathUtils.degToRad(85),penumbra:1,area:d.w*d.h,src:null,from:c.clone().addScaledVector(dir,-0.4)});});});
+// G1（userData.caustic の電球）は、光源からの向きで明るさを変える（揺らいだ光の模様。もとの cauF と同じ計算。zCauP：電球の枠ごとの位置と、G1かどうか）
 // ===== 点灯している光・昼夜から、影付きの枠へ割り当てる =====
 let litList=[],lastAssignPos=new THREE.Vector3(1e9,0,0),stateKey='';
 function litLights(){const L=[];const p=bedS.shadeP||0,tr=(1-p)+p*0.5;
@@ -76,13 +80,16 @@ function assign(force){const cp=cam.position;if(!force&&cp.distanceTo(lastAssign
  ['spot','point'].forEach(t=>{const want=litList.filter(c=>c.type===t).sort((a,b)=>score(b)-score(a)).slice(0,SLOTS[t].length);
   const keep=new Set(want);SLOTS[t].forEach(s=>{if(s.c&&!keep.has(s.c))s.c=null;});
   want.forEach(c=>{if(SLOTS[t].some(s=>s.c===c))return;const s=SLOTS[t].find(s=>!s.c);s.c=c;s.dirty=true;});
-  SLOTS[t].forEach(s=>{const l=s.l,c=s.c;if(!c){l.intensity=0;return;}l.position.copy(c.pos);l.color.copy(c.color);l.intensity=c.intensity;if(t==='spot'){l.target.position.copy(c.pos).add(c.dir);l.target.updateMatrixWorld();l.angle=c.angle;l.penumbra=c.penumbra;}if(s.dirty){l.shadow.needsUpdate=true;s.dirty=false;}});});}
+  SLOTS[t].forEach((s,i)=>{const l=s.l,c=s.c;if(t==='point')AMBU.zCauP.value[i].set(c?c.pos.x:0,c?c.pos.y:0,c?c.pos.z:0,c&&c.src&&c.src.userData.caustic?1:0);if(!c){l.intensity=0;return;}l.position.copy(c.pos);l.color.copy(c.color);l.intensity=c.intensity;if(t==='spot'){l.target.position.copy(c.pos).add(c.dir);l.target.updateMatrixWorld();l.angle=c.angle;l.penumbra=c.penumbra;}if(s.dirty){l.shadow.needsUpdate=true;s.dirty=false;}});});}
+// 照り・映り込み：いる部屋の中心（床から1.2m）から周りを撮った景色（部屋を移ったとき・状態が変わったときだけ撮り直す）。拡散の明るさは zAmb で足すので、景色は照りと映り込みにだけ使う
+let envRT=null,envRoom=null;const cubeRT=new THREE.WebGLCubeRenderTarget(128,{type:THREE.HalfFloatType}),cubeCam=new THREE.CubeCamera(0.05,40,cubeRT),pmrem=new THREE.PMREMGenerator(r);scene.add(cubeCam);
+function captureEnv(R){if(!R)return;envRoom=R;cubeCam.position.set((R.mn[0]+R.mx[0])/2,Math.min(R.mn[1]+1.2,R.mx[1]-0.1),(R.mn[2]+R.mx[2])/2);scene.environment=null;cubeCam.update(r,scene);if(envRT)envRT.dispose();envRT=pmrem.fromCubemap(cubeRT.texture);scene.environment=envRT.texture;}
 function relight(){envAll();litList=litLights();updateAmbient(litList);
  SPILL.forEach(c=>{const R=roomOf(c.from);if(!DS[c.door]||!R){return;}const E=R.E,Y=0.2126*E.r+0.7152*E.g+0.0722*E.b;if(Y<=0)return;c.color=E.clone().multiplyScalar(1/Y);c.intensity=0.5*Y/Math.PI*c.area;c.flux=0.5*Y*c.area;litList.push(c);});   // 向こうの部屋の照り返しの輝度（反射率0.5）×開口の面積
  SUN.intensity=night?0:SUN_LUX*((1-(bedS.shadeP||0))+(bedS.shadeP||0)*0.5);SUN.color.copy(lumColor(0xfff1dc));SUN.shadow.needsUpdate=true;
  SLOTS.spot.concat(SLOTS.point).forEach(s=>{s.c=null;s.l.shadow.needsUpdate=true;});assign(true);
- const R=roomOf(cam.position);const E=R?(0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b):10;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}   // 露出：いる部屋の明るさから（目の慣れ。暗い所では慣れきらない）
+ const R=roomOf(cam.position);captureEnv(R);const E=R?(0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b):10;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}   // 露出：いる部屋の明るさから（目の慣れ。暗い所では慣れきらない）
 applyEnvAll=function(){relight();draw();};
 {const _td=toggleDoor;toggleDoor=function(k){_td(k);relight();draw();};}
-{const _draw=draw;draw=function(){if(ready){assign(false);const R=roomOf(cam.position);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}}_draw();};}
+{const _draw=draw;draw=function(){if(ready){assign(false);const R=roomOf(cam.position);if(R&&R!==envRoom)captureEnv(R);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}}_draw();};}
 applyEnvAll();
