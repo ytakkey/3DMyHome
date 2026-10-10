@@ -1,5 +1,5 @@
 // 試作：焼き込む範囲（寝室）にかかる動かない部品を、ほかと分けて素材ごとにまとめる。まとめた形には「範囲:素材の番号」の名前を付ける（焼き込みの結果を形ごとに対応させるため。素材の番号は作られた順なので毎回同じ）
-const BAKE_ROOM=(()=>{const b=HOUSE.bed,y=HOUSE.ldk.FL2,e=0.03;return new THREE.Box3(new THREE.Vector3(b.X0-e,y-e,b.Z0-e),new THREE.Vector3(b.X0+b.W+e,y+b.H+e,b.Z0+b.D+e));})();
+const BAKE_ROOM=(()=>{const b=HOUSE.bed,y=HOUSE.ldk.FL2,e=0.03,x=0.3;return new THREE.Box3(new THREE.Vector3(b.X0-x,y-e,b.Z0-e),new THREE.Vector3(b.X0+b.W+e,y+b.H+e,b.Z0+b.D+x));})();   // 外壁の側（西・南）は窓枠が壁の外へ出ているので30cm広げる
 const BAKE_DOORS=['sg311','sg500w','sg33s'];   // 焼き込む範囲に面したドア（開いた形・閉じた形の両方を焼く）
 function mergeStatic(scene){scene.updateMatrixWorld(true);const buckets=new Map(),olds=[],mi=new Map(),bb=new THREE.Box3();
  scene.traverse(o=>{if(!o.isMesh||o.userData.dyn)return;if(!mi.has(o.material))mi.set(o.material,mi.size);bb.setFromObject(o);const rg=bb.intersectsBox(BAKE_ROOM)?'bed':'etc';

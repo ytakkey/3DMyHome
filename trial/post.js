@@ -36,13 +36,14 @@ if(typeof BAKE==='undefined'){ALL_LIGHTS.forEach(l=>l.visible=false);const amb=n
 const KCOL={2700:0xffc68e,3500:0xffd9b4,5000:0xfff3e8};   // 色温度ごとの光の色（全部屋共通の決まり）。明るさは光束で決めるので、色は明るさ1にそろえて使う
 const lumColor=hex=>{const c=new THREE.Color(hex),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return c.multiplyScalar(1/y);};
 const SKY_COL=lumColor(0xf4f8ff),SUN_COL=lumColor(0xfff1dc),MOON_COL=lumColor(0xa8bcff),MOON=4e-5;   // 昼の空・太陽、夜の月明かり（空の層を暗く青くして使う）
-const MAXL=32,LMU={lmTex:{value:null},lmN:{value:0},lmL:{value:new Int32Array(MAXL)},lmW:{value:Array.from({length:MAXL},()=>new THREE.Vector3())},lmP:{value:Array.from({length:MAXL},()=>new THREE.Vector3())}};
+const MAXL=32,LMU={lmTex:{value:null},lmC:{value:null},lmN:{value:0},lmL:{value:new Int32Array(MAXL)},lmW:{value:Array.from({length:MAXL},()=>new THREE.Vector3())},lmP:{value:Array.from({length:MAXL},()=>new THREE.Vector3())}};
 function lmPatch(sh){Object.assign(sh.uniforms,LMU);
  sh.fragmentShader=sh.fragmentShader.replace('#include <lightmap_pars_fragment>',`#include <lightmap_pars_fragment>
-uniform highp sampler2DArray lmTex;uniform int lmN;uniform int lmL[${MAXL}];uniform vec3 lmW[${MAXL}];uniform vec3 lmP[${MAXL}];
+uniform highp sampler2DArray lmTex;uniform highp sampler2DArray lmC;uniform int lmN;uniform int lmL[${MAXL}];uniform vec3 lmW[${MAXL}];uniform vec3 lmP[${MAXL}];
 vec3 zLM(){vec3 a=vec3(0.0);vec2 t=vec2(vLightMapUv.x,1.0-vLightMapUv.y);
- for(int i=0;i<${MAXL};i++){if(i>=lmN)break;vec3 e=texture(lmTex,vec3(t,float(lmL[i]))).rgb;vec3 p=lmP[i],v;
-  if(p.z>0.5){vec3 q=e*2.0-1.0;v=sign(q)*(exp2(abs(q)*p.y)-1.0)*p.x;}else v=(exp2(e*p.y)-1.0)*p.x;a+=v*lmW[i];}
+ for(int i=0;i<${MAXL};i++){if(i>=lmN)break;float e=texture(lmTex,vec3(t,float(lmL[i]))).r;vec3 p=lmP[i];float Y;
+  if(p.z>0.5){float q=e*2.0-1.0;Y=sign(q)*(exp2(abs(q)*p.y)-1.0)*p.x;}else Y=(exp2(e*p.y)-1.0)*p.x;
+  vec2 c=texture(lmC,vec3(t,float(lmL[i]))).rg*2.0;float R=c.x*Y,B=c.y*Y;a+=vec3(R,(Y-0.2126*R-0.0722*B)/0.7152,B)*lmW[i];}
  return max(a,vec3(0.0));}`)
   .replace('#include <lights_fragment_maps>',THREE.ShaderChunk.lights_fragment_maps
    .replace(/#ifdef USE_LIGHTMAP[\s\S]*?#endif/,'')
@@ -63,19 +64,24 @@ function lmWeights(){let n=0,key=0;
   if(w&&L.door&&!DS[L.door])w=null;
   if(!w)return;LMU.lmL.value[n]=i;LMU.lmW.value[n].set(w.r,w.g,w.b);LMU.lmP.value[n].set(L.s,L.k,L.signed?1:0);n++;key+=L.mean*(0.2126*w.r+0.7152*w.g+0.0722*w.b);});
  LMU.lmN.value=n;return key;}
-function exposure(key){return Math.min(0.15,0.56/Math.pow(Math.max(key,1e-3),0.75));}   // 目の慣れ（明るいほど露出を下げる。暗い所では慣れきらない）
+function exposure(key){return Math.min(0.08,0.3/Math.pow(Math.max(key,1e-3),0.75));}   // 目の慣れ（明るいほど露出を下げる。暗い所では慣れきらない）
 function captureEnv(){if(!cubeRT){cubeRT=new THREE.WebGLCubeRenderTarget(128,{type:THREE.HalfFloatType});cubeCam=new THREE.CubeCamera(0.05,60,cubeRT);scene.add(cubeCam);pmrem=new THREE.PMREMGenerator(r);}
  const b=HOUSE.bed;cubeCam.position.set(b.X0+b.W/2,HOUSE.ldk.FL2+1.2,b.Z0+b.D/2);scene.environment=null;cubeCam.update(r,scene);
  if(envRT)envRT.dispose();envRT=pmrem.fromCubemap(cubeRT.texture);LMMATS.forEach(c=>c.envMap=envRT.texture);scene.environment=UNBAKED_ENV;}   // 寝室の景色は焼いた所の照り・映り込みだけに使う（焼いていない所は一定の仮の明るさ）
-async function applyBake(){const res=BAKE.res,N=BAKE.layers.length,data=new Uint8Array(res*res*4*N),cv=document.createElement('canvas');cv.width=cv.height=res;const g=cv.getContext('2d',{willReadFrequently:true});
+async function applyBake(){const res=BAKE.res,cres=BAKE.cres,N=BAKE.layers.length,data=new Uint8Array(res*res*4*N),cdata=new Uint8Array(cres*cres*4*N).fill(128),cv=document.createElement('canvas');cv.width=cv.height=res;const g=cv.getContext('2d',{willReadFrequently:true});
+ const load=src=>new Promise((ok,ng)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=ng;im.src=src;});   // decode() は裏のタブで待たされることがあるので onload で待つ
+ for(let i=0;i<N;i++){const c=BAKE.layers[i].cimg;if(!c)continue;const im=await load(c);g.clearRect(0,0,res,res);g.drawImage(im,0,0);cdata.set(g.getImageData(0,0,cres,cres).data,i*cres*cres*4);}   // 色（明るさに対する赤・青の比）。無い層は白（128＝比1）
  for(let i=0;i<N;i++){const im=new Image();await new Promise((ok,ng)=>{im.onload=ok;im.onerror=ng;im.src=BAKE.layers[i].img;});g.clearRect(0,0,res,res);g.drawImage(im,0,0);data.set(g.getImageData(0,0,res,res).data,i*res*res*4);}   // decode() は裏のタブで待たされることがあるので onload で待つ
+ const ctx_=new THREE.DataArrayTexture(cdata,cres,cres,N);ctx_.minFilter=ctx_.magFilter=THREE.LinearFilter;ctx_.needsUpdate=true;LMU.lmC.value=ctx_;
  const tx=new THREE.DataArrayTexture(data,res,res,N);tx.minFilter=THREE.LinearMipmapLinearFilter;tx.magFilter=THREE.LinearFilter;tx.generateMipmaps=true;tx.needsUpdate=true;LMU.lmTex.value=tx;BAKE_LAYERS=BAKE.layers;
  const setUV=(o,key)=>{const b=BAKE.uv[key];if(!b)return false;const u=Uint8Array.from(atob(b),c=>c.charCodeAt(0)),a=new Uint16Array(u.buffer);
   if(o.geometry.index)o.geometry=o.geometry.toNonIndexed();if(o.geometry.attributes.position.count*2!==a.length){console.warn('UVの数が合わない',key);return false;}
   o.geometry.setAttribute('uv1',new THREE.BufferAttribute(a,2,true));o.material=lmMat(o.material);return true;};
  let n=0;scene.children.forEach(o=>{if(o.isMesh&&o.name.startsWith('bed:')&&setUV(o,o.name))n++;});
  Object.entries(DOORS).forEach(([k,d])=>[['O',d.gO],['C',d.gC]].forEach(([st,gr])=>{let i=0;gr.traverse(o=>{if(!o.isMesh)return;const idx=i++;if(setUV(o,'door:'+k+':'+st+':'+idx))n++;});}));
- scene.traverse(o=>{if(o.isMesh&&o.material.isMeshBasicMaterial)o.material.toneMapped=false;});   // 光る部品・ガラスは露出の影響を受けない（見た目の色のまま）
+ scene.traverse(o=>{if(o.isMesh&&o.material.isMeshBasicMaterial)o.material.toneMapped=false;});
+ const UNLIT=new Map();scene.traverse(o=>{if(!o.isMesh||o.material.isMeshBasicMaterial||LMMATS.has(o.material)||[...LMMATS.values()].includes(o.material))return;const m=o.material;let u=UNLIT.get(m);
+  if(!u){u=new THREE.MeshBasicMaterial({map:m.map||null,color:(m.color||new THREE.Color(1,1,1)).clone().multiplyScalar(0.55),side:m.side,transparent:m.transparent,opacity:m.opacity,toneMapped:false});UNLIT.set(m,u);}o.material=u;});   // 試作：焼いていない所は照明を使わない仮の表示（色と柄だけ）   // 光る部品・ガラスは露出の影響を受けない（見た目の色のまま）
  ALL_LIGHTS.forEach(l=>l.visible=false);
  return n;}
 const _applyEnvAll=applyEnvAll;

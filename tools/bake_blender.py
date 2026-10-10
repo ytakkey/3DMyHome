@@ -110,6 +110,8 @@ for L in head['lamps']:
     if s['kind']=='down':size,shape,lm,rot=0.07,'DISK',s['lm'],(0,0,0)   # 拡散タイプのダウンライト：φ70の光る面（真下向き）
     else:
         up=L['dir'][1]>0;size,shape,lm=0.055,'SQUARE',s['lm']/2;rot=(math.pi,0,0) if up else (0,0,0)   # ブラケット：箱の上下の開口（巾□75の内側）から半分ずつ
+        hx,hz=L['dir'][0],L['dir'][2];hl=math.hypot(hx,hz) or 1;cy=L['pos'][1]-(0.02 if up else -0.02)   # 実時間の光の位置（箱の手前の面・中心から上下2cm）→ 開口の中心（奥行きの中央・箱の上端と下端の少し外）
+        pos=b3([L['pos'][0]+hx/hl*0.045,cy+(0.0395 if up else -0.0395),L['pos'][2]+hz/hl*0.045])
     ld=bpy.data.lights.new('L',type='AREA');ld.shape=shape;ld.size=size;ld.energy=lm*LM2W;ld.color=(1,1,1)
     lo=bpy.data.objects.new('lamp_'+L['group'],ld);lo.location=pos;lo.rotation_euler=rot;sc.collection.objects.link(lo)
     lamps.setdefault(L['group'],[]).append(lo)
@@ -131,7 +133,7 @@ sky_strength=bg.inputs['Strength']
 # 窓のポータル（空の光を窓から探させる。光は足さない）：窓の開口の大きさの面を、室内へ向けて窓の位置に置く
 for w in head.get('windows',[]):
     ld=bpy.data.lights.new('portal',type='AREA');ld.shape='RECTANGLE';ld.size=w['w']+0.04;ld.size_y=w['h']+0.04;ld.cycles.is_portal=True
-    po=bpy.data.objects.new('portal',ld);c=w['c'];o=w['out'];po.location=b3([c[0]+o[0]*0.05,c[1]+o[1]*0.05,c[2]+o[2]*0.05]);sc.collection.objects.link(po)
+    po=bpy.data.objects.new('portal',ld);c=w['c'];o=w['out'];po.location=b3([c[0]+o[0]*0.3,c[1]+o[1]*0.3,c[2]+o[2]*0.3])   # 窓枠（壁の面から約14cm外まで）より外に置く（ポータルより外の面は空の光を探せず黒くなる）;sc.collection.objects.link(po)
     z=mathutils.Vector(b3(o));x=mathutils.Vector(b3(w['u']));y=z.cross(x)
     M=mathutils.Matrix.Identity(4);M.col[0][:3]=x;M.col[1][:3]=y;M.col[2][:3]=z;M.col[3][:3]=po.location;po.matrix_world=M   # 面光源は -Z へ光る＝室内向き（Z を外向きにする）
 print('portals',len(head.get('windows',[])),flush=True)
@@ -175,6 +177,25 @@ def denoise(px):
     rr=bpy.data.images['Render Result'];tmp=str(WORK/'_dn.exr');rr.save_render(tmp,scene=sc)
     im=bpy.data.images.load(tmp,check_existing=False);out=np.empty(res*res*4,dtype=np.float32);im.pixels.foreach_get(out);bpy.data.images.remove(im)
     return out
+# 部品の中に入っている画素（周りに部品の裏側＝内側が見える画素）を調べる：裏側だけが光る材質に入れ替えて焼く。値が大きい画素は焼いた値を使わず、周りの正しい画素の値で埋める
+def bake_validity():
+    vm=bpy.data.materials.new('VALID');vm.use_nodes=True;nt2=vm.node_tree;nt2.nodes.clear()
+    geo=nt2.nodes.new('ShaderNodeNewGeometry');em=nt2.nodes.new('ShaderNodeEmission');dif=nt2.nodes.new('ShaderNodeBsdfDiffuse');dif.inputs['Color'].default_value=(1,1,1,1)   # 表は白（「光だけ」の焼き込みは色で割るので黒だと0になる）。照り返しは止める
+    mx=nt2.nodes.new('ShaderNodeMixShader');out=nt2.nodes.new('ShaderNodeOutputMaterial');ti=nt2.nodes.new('ShaderNodeTexImage');ti.image=img;nt2.nodes.active=ti
+    nt2.links.new(geo.outputs['Backfacing'],em.inputs['Strength']);nt2.links.new(geo.outputs['Backfacing'],mx.inputs[0]);nt2.links.new(dif.outputs[0],mx.inputs[1]);nt2.links.new(em.outputs[0],mx.inputs[2]);nt2.links.new(mx.outputs[0],out.inputs[0])
+    saved={ob:list(ob.data.materials) for ob in objs.values()}
+    for ob in objs.values():
+        for i in range(len(ob.data.materials)):ob.data.materials[i]=vm
+    set_light('none');set_doors(None);sm=sc.cycles.samples;sc.cycles.samples=64;db=sc.cycles.diffuse_bounces;sc.cycles.diffuse_bounces=0
+    bpy.ops.object.select_all(action='DESELECT');sel=[ob for ob in targets if not ob.hide_render]
+    for ob in sel:ob.select_set(True)
+    bpy.context.view_layer.objects.active=sel[0];img.pixels.foreach_set(np.zeros(res*res*4,dtype=np.float32))
+    bpy.ops.object.bake(type='DIFFUSE',pass_filter={'DIRECT','INDIRECT'},margin=0,use_clear=True,target='IMAGE_TEXTURES')
+    px=np.empty(res*res*4,dtype=np.float32);img.pixels.foreach_get(px);sc.cycles.samples=sm;sc.cycles.diffuse_bounces=db
+    for ob,ms in saved.items():
+        for i,m in enumerate(ms):ob.data.materials[i]=m
+    return px.reshape(res,res,4)[:,:,:3].mean(axis=2)
+INVALID=None
 def bake(name,group,open_door):
     set_light(group);set_doors(open_door)
     bpy.ops.object.select_all(action='DESELECT')
@@ -185,11 +206,12 @@ def bake(name,group,open_door):
     t=time.time()
     bpy.ops.object.bake(type='DIFFUSE',pass_filter={'DIRECT','INDIRECT'},margin=6,margin_type='EXTEND',use_clear=True,target='IMAGE_TEXTURES')
     px=np.empty(res*res*4,dtype=np.float32);img.pixels.foreach_get(px)
-    q=px.reshape(res,res,4);q[:,:,:3]=fill(q[:,:,:3].astype(np.float64),COVER).astype(np.float32);q[:,:,3]=1;px=q.ravel()
+    q=px.reshape(res,res,4);q[:,:,:3]=fill(q[:,:,:3].astype(np.float64),COVER&~INVALID).astype(np.float32);q[:,:,3]=1;px=q.ravel()   # 範囲の外と、部品の中に入っている画素を埋める
     if DENOISE:px=denoise(px)
     a=px.reshape(res,res,4)[:,:,:3]*math.pi/LM2W   # 拡散の光だけ（色なし）＝照度/π → 照度（lux）
     np.save(WORK/'layers'/(name+'.npy'),a.astype(np.float32))
     print('baked',name,'%.1fs'%(time.time()-t),'max %.1f lux'%a.max(),flush=True)
+v=bake_validity();INVALID=v>0.25;print('invalid texels %.3f of covered'%(INVALID[COVER].mean()),flush=True)
 groups=list(lamps.keys())+['sky','sun']
 ONLY_DOOR={'j1':['sg311'],'l1':['sg500w'],'k1':['sg33s']}
 for open_door in [None]+head['doors']:
