@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>3Dマイホーム（試作：寝室の焼き込み）</title>
+<title>3Dマイホーム（stg：検証版）</title>
 <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
@@ -34,7 +34,7 @@
   </div>
 </div>
 <script>   // 読み込み：js のファイルを並べた順に1つずつ実行する（取得は preload で並行）。ファイルごとに画面を更新して進み具合を出し、最後（ui.js の最初の描画）が終わったら読み込み中の表示を消す
-(()=>{const FILES=['../lib/three.js','shim.js','../js/common.js','../js/bedroom.js','../js/study.js','../js/kitchen_panel.js','../js/ldk.js','../js/wash.js','../js/bath.js','../js/lighting.js','pre.js','../js/build.js','../js/ui.js','../bake/bedroom.js','post.js'];
+(()=>{const FILES=['../lib/three.js','../lib/three-addons.js','shim.js','../js/common.js','../js/bedroom.js','../js/study.js','../js/kitchen_panel.js','../js/ldk.js','../js/wash.js','../js/bath.js','../js/lighting.js','pre.js','../js/build.js','../js/ui.js','post.js'];
  const box=document.getElementById('loading'),bar=document.getElementById('ldBar');let i=0,failed=false;
  const fail=()=>{failed=true;box.querySelector('span').textContent='読み込みに失敗しました';box.querySelector('.spin').hidden=true;};
  const next=()=>{let go=false;const f=()=>{if(!go){go=true;setTimeout(load,0);}};requestAnimationFrame(f);setTimeout(f,100);};   // 画面の更新を待って次へ（裏のタブなどで画面の更新が止まっていても進むように、時間でも進める）
