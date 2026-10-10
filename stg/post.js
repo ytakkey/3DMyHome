@@ -1,4 +1,4 @@
-// 試作C：実時間の影付きの照明（照明仕様書の光束・色温度から物理的な明るさ）＋部屋ごとの照り返しの明るさ。光の範囲指定（lightZones）は使わない
+// 検証版（stg）：実時間の影付きの照明（照明仕様書の光束・色温度から物理的な明るさ）＋部屋ごとの照り返しの明るさ。光の範囲指定（lightZones）は使わない
 // 影：部品は動かないので、点灯・昼夜・ドア・割り当てが変わったときだけ描き直す。影を付ける光の数には上限（カメラの近くで効いている光から順に割り当て）
 r.toneMapping=THREE.NeutralToneMapping;
 r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFShadowMap;   // 影の縁のぼかしは光ごとの radius で（PCFSoft はぼかしの大きさを変えられず、縁が点々になる）
@@ -10,7 +10,7 @@ const SPEC={a6:{lm:320,K:3500,kind:'cone',a:37.5},a4:{lm:440,K:3500,kind:'lamb'}
  g1:{lm:312,K:2700,kind:'bulb'},bath:{lm:440,K:5000,kind:'lamb'},l1:{lm:440,K:5000,kind:'lamb'},k1:{lm:440,K:3500,kind:'lamb'}};
 const KCOL={2400:0xffb066,2700:0xffc68e,3500:0xffd9b4,5000:0xfff3e8};   // 色温度ごとの光の色（全部屋共通の決まり）。明るさは光束で決めるので、色は明るさ1にそろえて使う
 const lumColor=hex=>{const c=new THREE.Color(hex),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return c.multiplyScalar(1/y);};
-const SKY_LUX=15000,SUN_LUX=70000,SUN_AZ=150,SUN_EL=38,MOON=4e-5;   // 空（水平面の照度）・太陽（法線照度）・太陽の向き（方位：北から時計回り、高度）・夜の月明かり（空の何倍か）
+const SKY_LUX=15000,SUN_LUX=70000,SUN_AZ=150,SUN_EL=38,MOON=6e-4;   // 空（水平面の照度）・太陽（法線照度）・太陽の向き（方位：北から時計回り、高度）・夜の月明かり（空の何倍か）
 
 // ===== 元の照明を「仕様つきの光の候補」に置き換える（元の光は表示しない。点灯の判定は元の applyEnv の強さで行う） =====
 const ORIG=[];scene.traverse(o=>{if(o.isLight)ORIG.push(o);});
@@ -24,7 +24,7 @@ const CAND=[];   // 光の候補：{src（元の光）, group, type:'spot'|'poin
  else if(s.kind==='cone'){const a=THREE.MathUtils.degToRad(s.a);intensity=s.lm/(2*Math.PI*(1-Math.cos(a)));angle=a*1.35;pen=0.45;}
  else{const up=dir.y>0,hz=new THREE.Vector3(dir.x,0,dir.z).normalize();pos.addScaledVector(hz,0.045);pos.y+=(up?-0.02:0.02)+(up?0.0405:-0.0405);dir=new THREE.Vector3(0,up?1:-1,0);intensity=(s.lm/2)/Math.PI;angle=THREE.MathUtils.degToRad(85);}   // ブラケット：箱の上下の開口の中心（奥行の中央・箱の上端／下端の3mm外）から真上・真下へ
  CAND.push({src:l,group:g,type:'spot',pos,dir,intensity,angle,penumbra:pen,color:lumColor(KCOL[s.K]),lm:s.lm*(s.kind==='bracket'?0.5:1)});});}
-// 窓（空の光）：窓の外30cmから室内へ向けた拡散の光（明るさは空の輝度×窓の面積）。窓の情報は trial/pre.js が記録
+// 窓（空の光）：窓の外30cmから室内へ向けた拡散の光（明るさは空の輝度×窓の面積）。窓の情報は stg/pre.js が記録
 const WINC=(typeof BAKE_WINDOWS!=='undefined'?BAKE_WINDOWS:[]).map(wd=>{const c=new THREE.Vector3(...wd.c),o=new THREE.Vector3(...wd.out),A=wd.w*wd.h;return {group:'sky',type:'spot',pos:c.clone().addScaledVector(o,0.3),dir:o.clone().negate(),angle:THREE.MathUtils.degToRad(65),penumbra:1,area:A,win:wd};});   // 広がりは130°まで（広すぎると影の画像1枚が受け持つ範囲が広く、縁が粗くなる）
 ORIG.forEach(l=>l.visible=false);
 
@@ -61,7 +61,7 @@ vec3 zAmb(){vec3 a=vec3(0.0);float ws=0.0;for(int i=0;i<${AMB_MAX};i++){if(i>=zA
 scene.traverse(o=>{if(o.isMesh&&o.material.isMeshStandardMaterial&&!o.material.userData.amb){o.material.userData.amb=1;o.material.onBeforeCompile=ambPatch;o.material.customProgramCacheKey=()=>'amb';o.material.needsUpdate=true;}});
 function updateAmbient(lit){ROOMS.forEach(R=>R.E.setRGB(0,0,0));
  lit.forEach(c=>{const R=roomOf(c.pos)||(c.win&&roomOf(c.pos.clone().addScaledVector(c.dir,0.6)));if(!R)return;R.E.add(c.color.clone().multiplyScalar(c.flux/R.S));});
- for(let it=0;it<2;it++){const add=ROOMS.map(()=>new THREE.Color());LINKS.forEach(([a,b,k,A])=>{if(k)return;   // ドアの所は開口の光（SPILL）で分けるので、ここではいつも開いている所だけ
+ for(let it=0;it<2;it++){const add=ROOMS.map(()=>new THREE.Color(0,0,0));LINKS.forEach(([a,b,k,A])=>{if(k)return;   // ドアの所は開口の光（SPILL）で分けるので、ここではいつも開いている所だけ
  const ia=ROOMS.findIndex(R=>R.n===a),ib=ROOMS.findIndex(R=>R.n===b);if(ia<0||ib<0)return;const Ra=ROOMS[ia],Rb=ROOMS[ib];
   add[ib].add(Ra.E.clone().multiplyScalar(0.5*A/Rb.S));add[ia].add(Rb.E.clone().multiplyScalar(0.5*A/Ra.S));});ROOMS.forEach((R,i)=>R.E.add(add[i].multiplyScalar(0.5)));}
  ROOMS.forEach((R,i)=>AMBU.zAmbE.value[i].set(R.E.r,R.E.g,R.E.b));}
@@ -73,7 +73,7 @@ const SPILL=[];Object.entries(typeof DOORWAYS!=='undefined'?DOORWAYS:{}).forEach
 let litList=[],lastAssignPos=new THREE.Vector3(1e9,0,0),stateKey='';
 function litLights(){const L=[];const p=bedS.shadeP||0,tr=(1-p)+p*0.5;
  CAND.forEach(c=>{if(c.src.intensity>0)L.push(Object.assign(c,{power:1,flux:c.lm}));});
- WINC.forEach(c=>{const Lsky=SKY_LUX/Math.PI*(night?MOON:1)*tr,col=night?lumColor(0xa8bcff):lumColor(0xf4f8ff);c.intensity=Lsky*c.area;c.color=col;c.flux=SKY_LUX*0.5*c.area*tr*(night?MOON:1)+(!night?SUN_LUX*0.25*c.area*tr:0);L.push(c);});   // 窓の光束：空の鉛直面の照度（水平の約半分）×面積＋昼は窓に当たる日射の一部
+ WINC.forEach(c=>{const Lsky=SKY_LUX/Math.PI*(night?MOON:1)*tr,col=night?lumColor(0xdfe4f2):lumColor(0xf4f8ff);c.intensity=Lsky*c.area;c.color=col;c.flux=SKY_LUX*0.5*c.area*tr*(night?MOON:1)+(!night?SUN_LUX*0.25*c.area*tr:0);L.push(c);});   // 窓の光束：空の鉛直面の照度（水平の約半分）×面積＋昼は窓に当たる日射の一部
  return L;}
 function assign(force){const cp=cam.position;if(!force&&cp.distanceTo(lastAssignPos)<0.5)return;lastAssignPos.copy(cp);
  const score=c=>{const d=Math.max(0.5,c.pos.distanceTo(cp));return (c.intensity*(c.type==='point'?4*Math.PI:Math.PI))/(d*d);};   // カメラの近くで効いている光から
@@ -88,7 +88,7 @@ function relight(){envAll();litList=litLights();updateAmbient(litList);
  SPILL.forEach(c=>{const R=roomOf(c.from);if(!DS[c.door]||!R){return;}const E=R.E,Y=0.2126*E.r+0.7152*E.g+0.0722*E.b;if(Y<=0)return;c.color=E.clone().multiplyScalar(1/Y);c.intensity=0.5*Y/Math.PI*c.area;c.flux=0.5*Y*c.area;litList.push(c);});   // 向こうの部屋の照り返しの輝度（反射率0.5）×開口の面積
  SUN.intensity=night?0:SUN_LUX*((1-(bedS.shadeP||0))+(bedS.shadeP||0)*0.5);SUN.color.copy(lumColor(0xfff1dc));SUN.shadow.needsUpdate=true;
  SLOTS.spot.concat(SLOTS.point).forEach(s=>{s.c=null;s.l.shadow.needsUpdate=true;});assign(true);
- const R=roomOf(cam.position);captureEnv(R);const E=R?(0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b):10;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}   // 露出：いる部屋の明るさから（目の慣れ。暗い所では慣れきらない）
+ const R=roomOf(cam.position);captureEnv(R);const E=R?(0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b):10;r.toneMappingExposure=Math.min(1.5,0.9/Math.pow(Math.max(E*3,0.5),0.8));}   // 露出：いる部屋の明るさから（目の慣れ。暗い所では慣れきらない）
 applyEnvAll=function(){relight();draw();};
 {const _td=toggleDoor;toggleDoor=function(k){_td(k);relight();draw();};}
 // ===== 描画：場面 → 陰（GTAO：画面上で計算する、角・接地面のやわらかい陰）→ 色の仕上げ（トーンマッピング） =====
@@ -98,11 +98,12 @@ const aoPass=new THREE.GTAOPass(scene,cam,innerWidth,innerHeight);aoPass.blendIn
 composer.addPass(new THREE.OutputPass());
 // 光る部品・ガラス：色の仕上げで露出がかかるので、露出の分を先に打ち消す（見た目の色のまま）
 const GLOW=[];scene.traverse(o=>{if(o.isMesh&&o.material.isMeshBasicMaterial&&!o.userData.occ&&!GLOW.some(g=>g.m===o.material))GLOW.push({m:o.material,c:o.material.color.clone()});});
-const EMIT=[];scene.traverse(o=>{if(o.isMesh&&o.material.emissive&&!EMIT.includes(o.material))EMIT.push(o.material);});   // 光る色（emissive）を持つ材質も同じく露出を打ち消す（点灯した電球のガラスなど）
+const EMIT=[],FAKE=[];scene.traverse(o=>{const m=o.material;if(!o.isMesh||!m.emissive||EMIT.includes(m)||FAKE.includes(m))return;(m.transparent||m.emissiveMap?EMIT:FAKE).push(m);});   // 光る色（emissive）：電球のガラス・G1 のガラス（半透明か emissiveMap あり）は露出を打ち消す。それ以外（天井・布などの明るさの補い）は物理的な光で照らすので使わない
 let lastSize='',lastExp=-1;
-draw=function(){if(!ready)return;assign(false);const R=roomOf(cam.position);if(R&&R!==envRoom)captureEnv(R);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}
+draw=function(){if(!ready)return;assign(false);const R=roomOf(cam.position);if(R&&R!==envRoom)captureEnv(R);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(1.5,0.9/Math.pow(Math.max(E*3,0.5),0.8));}
  const sz=r.getSize(new THREE.Vector2()),key=sz.x+'x'+sz.y+'@'+r.getPixelRatio();if(key!==lastSize){lastSize=key;composer.setPixelRatio(r.getPixelRatio());composer.setSize(sz.x,sz.y);}
  if(r.toneMappingExposure!==lastExp){lastExp=r.toneMappingExposure;GLOW.forEach(g=>{g.m.color.copy(g.c).multiplyScalar(1/lastExp);});EMIT.forEach(m=>m.emissiveIntensity=1/lastExp);}
  cam.rotation.set(pitch,yaw,0);composer.render();};
-{const _e=envAll;envAll=function(){GLOW.forEach(g=>g.m.color.copy(g.c));_e();GLOW.forEach(g=>{g.c.copy(g.m.color);g.m.color.multiplyScalar(1/Math.max(lastExp,1e-6));});};}   // 点灯・昼夜で光る部品の色が変わるので、元の色を取り直す
+{const _e=envAll;envAll=function(){GLOW.forEach(g=>g.m.color.copy(g.c));_e();FAKE.forEach(m=>m.emissive.setRGB(0,0,0));GLOW.forEach(g=>{g.c.copy(g.m.color);g.m.color.multiplyScalar(1/Math.max(lastExp,1e-6));});};}   // 点灯・昼夜で光る部品の色が変わるので、元の色を取り直す
 applyEnvAll();
+{let n=0;const t=setInterval(()=>{draw();if(++n>=3)clearInterval(t);},400);}   // 読み込み中の表示が消えた後にも描き直す（開いた直後に画面が暗いままにならないように）
