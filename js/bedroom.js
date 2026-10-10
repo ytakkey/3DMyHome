@@ -46,7 +46,7 @@ rbox(s,BL-0.03,0.24,BW-0.03,0.06,bxc,by0+0.42,bzc,bedCloth);   // マットレ�
  [bz0-0.04,bz0+BW+0.04].forEach(z=>rbox(s,dl,0.24,0.036,0.017,dc,MT-0.075,z+(z<bzc?0.018:-0.018),bedDuvet));   // 左右の垂れ（布団の端から2mm外へ）
  rbox(s,0.036,0.24,BW+0.08,0.017,d1+0.005-0.018,MT-0.075,bzc,bedDuvet);   // 足元の垂れ
  rbox(s,0.18,0.09,BW+0.08,0.04,d0+0.08,MT+0.045,bzc,P({color:0xd6d9dd,specular:0x111111,shininess:4}));}   // 折り返し（少し明るい裏地）
-[bz0+0.6,bz0+BW-0.6].forEach(z=>rbox(s,0.43,0.15,0.63,0.07,bx0+0.05+0.215,MT+0.065,z,bedPillow));   // 枕×2（630×430、ふくらみを出す。マットレスへ1cm沈める）
+[bz0+0.6,bz0+BW-0.6].forEach(z=>rbox(s,0.43,0.15,0.8,0.07,bx0+0.05+0.215,MT+0.065,z,bedPillow));   // 枕×2（横幅800×430、ふくらみを出す。マットレスへ1cm沈める）
 // 状態・視点
 const S={shadeP:0,zoneLights:[[dls,['bed','hallNearBed']],[brs,['bed','hallNearBed']],[myWins.map(w=>w.light),['bed','hallNearBed']],[[BF.hemi,BF.sun,BF.up],['bedG']]],
  setShade(p){S.shadeP=p;applyShades(myShades,p);},
