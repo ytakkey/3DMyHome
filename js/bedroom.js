@@ -32,7 +32,7 @@ const brs=[];
 const DLON=0xffe2b8,DLI=0.8;
 const dlMat=new THREE.MeshBasicMaterial({color:DLON});
 const dls=[];
-[0.99,1.8,2.6].forEach(dz=>{const x=OX+1.8,y=OY+H,z=OZ+dz;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),dlMat);disc.position.set(x,y-0.003,z);s.add(disc);const sp=new THREE.SpotLight(0xffc68e,DLI,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,OY,z);s.add(sp);s.add(sp.target);dls.push(sp);});
+[0.99,1.8,2.6].forEach(dz=>{const x=OX+1.8,y=OY+H,z=OZ+dz;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.0025,32),dlMat);disc.position.set(x,y-0.00525,z);s.add(disc);const sp=new THREE.SpotLight(0xffc68e,DLI,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,OY,z);s.add(sp);s.add(sp.target);dls.push(sp);});
 // エアコン（ダイキン AXシリーズ、北の壁の西寄り・天井から約7cm下）
 acUnit(OX+0.6,OY+H-0.065-0.295,OZ,0);
 // ベッド（ダブル＋シングル、幅2400）

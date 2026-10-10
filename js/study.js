@@ -39,7 +39,7 @@ ceilRect(SX0,SX1,SZ0,SZ1,OY+H,stC,1);
   rbox(g,0.23,0.014,0.17,0.006,0,0.007,0.0,L(GR));   // 台座
   lbox(g,0.05,0.24,0.022,0,0.13,-0.045,GR);lbox(g,0.07,0.06,0.03,0,GY-0.02,-0.04,GR);   // 支柱と、背面への取り付け部
   rbox(g,MW,MH,CH,0.004,0,GY,0,L(0x1a1a1c));rbox(g,0.36,0.2,0.03,0.012,0,GY-0.01,-0.018,L(GR));   // 画面の枠と背面のふくらみ
-  const sc=new THREE.Mesh(new THREE.PlaneGeometry(0.531,0.299),dk);sc.position.set(0,GY+0.0035,CH/2+0.0006);g.add(sc);   // 画面（消えた状態の黒）
+  const sc=new THREE.Mesh(new THREE.PlaneGeometry(0.531,0.299),decalMat(dk.clone()));sc.position.set(0,GY+0.0035,CH/2+0.0006);g.add(sc);   // 画面（消えた状態の黒）
   lbox(g,0.004,0.002,0.001,0.24,GY-MH/2+0.004,CH/2+0.0006,0xe8e8e8);}   // 電源ランプ
 // キーボード：フルサイズ（440×135）、濃いグレー、奥が少し高い。キーの並びはデフォルメ（文字は描かない）
  {const g=new THREE.Group();g.position.set(cx-0.05,OY+DH,z0+DD-0.16);g.rotation.x=0.05;s.add(g);
@@ -94,25 +94,25 @@ ceilRect(SX0,SX1,SZ0,SZ1,OY+H,stC,1);
   {const k=rib(0.022,0.03,12);k.position.set(0,0.38,0.14);g.add(k);}   // 座面の前の下の張りのつまみ
   // 座面：レザー調のクッション（W470×D450×厚さ80、上面は床から470）。奥はキルティング、前はレザー
   rbox(g,SW,0.08,SD,0.03,0,ST-0.04,0,lth);
-  {const q=new THREE.Mesh(new THREE.PlaneGeometry(SW-0.07,0.27),qm(SW-0.07,0.27));q.rotation.x=-Math.PI/2;q.position.set(0,ST+0.0008,-0.07);g.add(q);lbox(g,SW-0.07,0.002,0.004,0,ST+0.0005,0.065,0x2c2c2e);}   // キルティングとレザーの境の縫い目
+  {const q=new THREE.Mesh(new THREE.PlaneGeometry(SW-0.07,0.27),decalMat(qm(SW-0.07,0.27)));q.rotation.x=-Math.PI/2;q.position.set(0,ST+0.0008,-0.07);g.add(q);lbox(g,SW-0.07,0.002,0.004,0,ST+0.0005,0.065,decalMat(P({color:0x2c2c2e})));}   // キルティングとレザーの境の縫い目
   // 背もたれ：幅470・高さ550・厚さ55、上の角を大きく丸めた板。座面の後ろに、座面に対して97°（少し後ろへ倒す）
   {const bk=new THREE.Group();bk.position.set(0,ST-0.06,-SD/2-0.03);bk.rotation.x=-0.12;g.add(bk);   // 子の座標：y＝背もたれの下端から上、+Z＝前
    const BW=SW,BH=0.55,R1=0.07,R0=0.02,TH=0.045,BV=0.005,sh=new THREE.Shape();sh.moveTo(-BW/2+R0,0);sh.lineTo(BW/2-R0,0);sh.absarc(BW/2-R0,R0,R0,-Math.PI/2,0);sh.lineTo(BW/2,BH-R1);sh.absarc(BW/2-R1,BH-R1,R1,0,Math.PI/2);sh.lineTo(-BW/2+R1,BH);sh.absarc(-BW/2+R1,BH-R1,R1,Math.PI/2,Math.PI);sh.lineTo(-BW/2,R0);sh.absarc(-BW/2+R0,R0,R0,Math.PI,Math.PI*1.5);
    const geo=new THREE.ExtrudeGeometry(sh,{depth:TH,bevelEnabled:true,bevelThickness:BV,bevelSize:BV,bevelSegments:3,curveSegments:12});geo.translate(0,0,-TH/2);const bm=lth.clone();bm.map=lth.map.clone();bm.map.repeat.set(4,4);bm.map.needsUpdate=true;bk.add(new THREE.Mesh(geo,bm));   // 本体（レザー調）
-   const Q0=0.03,Q1=BH-0.14,fz=TH/2+BV+0.0008,q=new THREE.Mesh(new THREE.PlaneGeometry(BW-0.03,Q1-Q0),qm(BW-0.03,Q1-Q0));q.position.set(0,(Q0+Q1)/2,fz);bk.add(q);   // 前：キルティング（上の約14cmはレザーのまま）
+   const Q0=0.03,Q1=BH-0.14,fz=TH/2+BV+0.0008,q=new THREE.Mesh(new THREE.PlaneGeometry(BW-0.03,Q1-Q0),decalMat(qm(BW-0.03,Q1-Q0)));q.position.set(0,(Q0+Q1)/2,fz);bk.add(q);   // 前：キルティング（上の約14cmはレザーのまま）
    lbox(bk,BW-0.03,0.003,0.002,0,Q1,fz,0x2c2c2e);   // レザーとキルティングの境の縫い目
-   const mm=P({map:tex(mC),specular:0x111111,shininess:8});texR(mm,BW/0.03,(Q1-0.02)/0.03);const rq=new THREE.Mesh(new THREE.PlaneGeometry(BW-0.05,Q1-0.04),mm);rq.rotation.y=Math.PI;rq.position.set(0,Q1/2+0.0,-fz);bk.add(rq);   // 裏：下側はメッシュ生地
+   const mm=decalMat(P({map:tex(mC),specular:0x111111,shininess:8}));texR(mm,BW/0.03,(Q1-0.02)/0.03);const rq=new THREE.Mesh(new THREE.PlaneGeometry(BW-0.05,Q1-0.04),mm);rq.rotation.y=Math.PI;rq.position.set(0,Q1/2+0.0,-fz);bk.add(rq);   // 裏：下側はメッシュ生地
    lbox(bk,0.16,0.12,0.03,0,0.02,-TH/2-0.012,BK);}   // 裏の下：座面の下の金具とつなぐ部分
   // 肘掛け：角の丸い四角い輪（長さ320・高さ260・太さ30・幅40）。前の端は座面の前にそろえ、下の辺は座面の横（座面の上面から60下）
   {const AL=0.32,AH=0.26,AT=0.03,ro=0.035,ri=0.008,rr=(p,u0,v0,u1,v1,r,hole)=>{p.moveTo(u0+r,v0);p.lineTo(u1-r,v0);p.absarc(u1-r,v0+r,r,-Math.PI/2,0);p.lineTo(u1,v1-r);p.absarc(u1-r,v1-r,r,0,Math.PI/2);p.lineTo(u0+r,v1);p.absarc(u0+r,v1-r,r,Math.PI/2,Math.PI);p.lineTo(u0,v0+r);p.absarc(u0+r,v0+r,r,Math.PI,Math.PI*1.5);};
    const sh=new THREE.Shape();rr(sh,-SD/2,0,-SD/2+AL,AH,ro);const hl=new THREE.Path();rr(hl,-SD/2+AT,AT,-SD/2+AL-AT,AH-AT,ri);sh.holes.push(hl);   // u＝−z（前が負）、v＝高さ
    const geo=new THREE.ExtrudeGeometry(sh,{depth:0.034,bevelEnabled:true,bevelThickness:0.003,bevelSize:0.003,bevelSegments:2,curveSegments:10});geo.rotateY(Math.PI/2);   // 押し出しの向きを +X に（u は −z へ）
    [-1,1].forEach(k=>{const m=new THREE.Mesh(geo,P({color:0x1a1a1c,specular:0x2a2a2a,shininess:24}));m.position.set(k>0?SW/2+0.008:-SW/2-0.045,ST-0.06,0);g.add(m);
-    [-0.11,0.05].forEach(z=>{const sc=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.004,12),L(0x0c0c0d));sc.rotation.z=Math.PI/2;sc.position.set(k*(SW/2+0.046),ST-0.045,z);g.add(sc);});});}}   // 下の辺のねじ（外側）
+    [-0.11,0.05].forEach(z=>{const sc=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.004,12),decalMat(P({color:0x0c0c0d})));sc.rotation.z=Math.PI/2;sc.position.set(k*(SW/2+0.046),ST-0.045,z);g.add(sc);});});}}   // 下の辺のねじ（外側）
 }
 // ダウンライト：L1（ウォークイン）RMN(P1) 昼白色5000K、K1（書斎）RMW(P1) 温白色3500K。器具・配光は洗面所のD1・キッチンのA1と同じ
 const dl=(x,z,c)=>{const y=OY+H,em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);
- const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),em);lamp.position.set(x,y-0.003,z);s.add(lamp);
+ const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.0025,32),em);lamp.position.set(x,y-0.00525,z);s.add(lamp);
  const sp=new THREE.SpotLight(c,0,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,y-0.02,z);sp.target.position.set(x,OY,z);s.add(sp);s.add(sp.target);return {sp,em};};
 const l1=dl((WX0+WX1)/2+0.12,(WZ0+WZ1)/2,0xfff3e8),k1=dl((SX0+SX1)/2,(SZ0+SZ1)/2,0xffd9b4);   // L1：南北は中央、東西は中央から東へ120。K1：天井の中心
 const S={shadeP:0,zoneLights:[[[l1.sp],['wic']],[[k1.sp],['study']],[myWins.map(w=>w.light),['study']]],

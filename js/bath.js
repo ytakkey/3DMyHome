@@ -58,7 +58,7 @@ ceilRect(X0,X1,Z0,Z1,BH,ceilBM,1.0);box(0.002,0.001,Z1-Z0,X0+BW/2,BH-0.0006,(Z0+
   const c1=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.006,28),P({color:0x6e7073,specular:0x888888,shininess:60}));c1.position.y=0.003;g.add(c1);const c2=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.012,28),P({color:0x8a8c8f,specular:0x999999,shininess:70}));c2.position.y=0.008;g.add(c2);}
  cyl(0.034,0.006,bx,YB+0.003,Z0+0.6,P({color:0x7b7d80,specular:0x777777,shininess:50}));[-1,0,1].forEach(k=>box(0.04,0.002,0.004,bx,YB+0.0065,Z0+0.6+k*0.012,0x55575a));   // 排水口（底。仮）
  cyl(0.015,0.006,TX1-0.045,TY+0.003,Z0+0.05,cm);   // 縁の小さなボタン（北東）
- cyl(0.034,0.012,TX1-0.07,TY+0.006,Z1-0.085,wtM,40);{const t=new THREE.Mesh(new THREE.TorusGeometry(0.034,0.0015,6,48),L(0xc9c9c7));t.rotation.x=Math.PI/2;t.position.set(TX1-0.07,TY+0.0105,Z1-0.085);s.add(t);}}   // 縁の白い丸いボタン（南東。表示は描かない）
+ cyl(0.034,0.012,TX1-0.07,TY+0.006,Z1-0.085,wtM,40);{const t=new THREE.Mesh(new THREE.TorusGeometry(0.034,0.0015,6,48),decalMat(P({color:0xc9c9c7})));t.rotation.x=Math.PI/2;t.position.set(TX1-0.07,TY+0.0105,Z1-0.085);s.add(t);}}   // 縁の白い丸いボタン（南東。表示は描かない）
 // カウンター（黒のみかげ調。キッチンの天板と同じ柄）：北の壁いっぱい、上面700・厚さ100・奥行130（写真の比率から、仮）
 const CT=0.69,CD=0.13,CZ=Z0+CD;wbox(BW,0.1,CD,X0+BW/2,CT-0.05,Z0+CD/2,ctrM,0.5);
 // 水栓（カウンターの前面）：メッキの丸いつまみ2つ（左は左へ、右は右へレバー）、両端に小さな留めネジ
@@ -87,7 +87,7 @@ const CT=0.69,CD=0.13,CZ=Z0+CD;wbox(BW,0.1,CD,X0+BW/2,CT-0.05,Z0+CD/2,ctrM,0.5);
 // 照明：ダウンライト×2（照明仕様書に記載がないので、洗面所のD1と同じ昼白色の RMN(P1) を流用）。東西は浴室の西から500・1500、南北は北の壁から450
 const blEm=new THREE.MeshBasicMaterial({color:0xd9d8d4});
 const bls=[X0+0.5,X0+1.5].map(x=>{const z=Z0+0.45,ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,BH-0.002,z);s.add(ring);
- const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.005,32),blEm);lamp.position.set(x,BH-0.003,z);s.add(lamp);
+ const lamp=new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.044,0.0025,32),blEm);lamp.position.set(x,BH-0.00525,z);s.add(lamp);
  const sp=new THREE.SpotLight(0xfff3e8,0,5,THREE.MathUtils.degToRad(62),0.8,1.3);sp.position.set(x,BH-0.02,z);sp.target.position.set(x,0,z);s.add(sp);s.add(sp.target);return sp;});   // 配光はD1と同じ
 return {zoneLights:[[bls,['bath']]],
  boxes:[[X0+WM,X1-WM,0.2,BH-0.08,Z0+WM,Z1-WM],                                            // 浴室（浴槽はすり抜ける）
