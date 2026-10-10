@@ -17,14 +17,14 @@ const flC=pix(1024,(u,v,i,y)=>{const w1=vn(u*20,v*20,20,20)-0.5,w2=vn(u*20+5.7,v
  A=vor(u*80+w1*1.4+f1*0.5,v*80+w2*1.4+f2*0.5,80,0),B=vor(u*190+w1*2+f1*1.2,v*190+w2*2+f2*1.2,190,57),
  c=A<0.13?[146,122,98]:A<0.17?[110,90,72]:B<0.2?[152,128,104]:B<0.25?[118,97,78]:B<0.31?[226,216,201]:[212,197,175],k=0.97+0.05*vn(u*6,v*6,6,6)+(hs(i,y)-0.5)*0.05;return [c[0]*k,c[1]*k,c[2]*k];});
 const grayM=P({color:0xe2e3e4,specular:0x2a2a2a,shininess:30}),woodNM=tmat(wdN,{specular:0x1e1c1a,shininess:20}),ceilBM=tmat(wdC,{specular:0x141210,shininess:14}),floorBM=tmat(flC,{specular:0x141414,shininess:12}),ctrM=tmat(nsTopC,{specular:0x3a3a3a,shininess:45});   // ctrM：カウンター（キッチンの天板と同じ黒のみかげ調 nsTopC）
-// メッキの映り込み：浴室の中を大まかに描いた周りの景色（天井・壁・カウンター・床の明暗と、明るい窓のような面）を映す。映り込みは照明に関係なく見えるので、明るさ（reflectivity）は昼夜と照明で変える（applyEnv）
+// 周りの景色（浴室の中を大まかに描いた天井・壁・カウンター・床の明暗と、明るい窓のような面）：お湯の映り込みに使う。映り込みは照明に関係なく見えるので、明るさ（reflectivity）は昼夜と照明で変える（applyEnv）。メッキには映さない（ユーザーの指定）
 const envT=(()=>{const f=(side)=>cv((x,W,H)=>{if(side==='py'){x.fillStyle='#f4f2ee';x.fillRect(0,0,W,H);const gr=x.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.3);gr.addColorStop(0,'#ffffff');gr.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=gr;x.fillRect(0,0,W,H);return;}
   if(side==='ny'){x.fillStyle='#a39684';x.fillRect(0,0,W,H);return;}
   const gr=x.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#fbfaf8');gr.addColorStop(0.4,'#e6e6e4');gr.addColorStop(0.52,'#c9c8c4');gr.addColorStop(0.55,'#2c2c2e');gr.addColorStop(0.6,'#2c2c2e');gr.addColorStop(0.63,'#a9a7a2');gr.addColorStop(1,'#9c8f7e');x.fillStyle=gr;x.fillRect(0,0,W,H);   // 上から：明るい天井側・壁・濃いカウンター・床
   if(side==='pz'||side==='px'){const g2=x.createLinearGradient(W*0.3,0,W*0.7,0);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(0.5,'rgba(255,255,255,0.95)');g2.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g2;x.fillRect(W*0.3,H*0.08,W*0.4,H*0.4);}   // 明るい面（照りの筋）
   if(side==='nx'||side==='nz'){x.fillStyle='rgba(60,60,62,0.55)';x.fillRect(W*0.62,H*0.1,W*0.06,H*0.45);}},128,128);   // 暗い縦の筋
  const t=new THREE.CubeTexture(['px','nx','py','ny','pz','nz'].map(f));t.needsUpdate=true;return t;})();
-const tubM=P({color:0xf6f6f4,specular:0x666666,shininess:60}),cm=new THREE.MeshPhongMaterial({color:0x8e9194,specular:0xffffff,shininess:140,envMap:envT,combine:THREE.MixOperation,reflectivity:0.75}),hoseM=P({color:0xb8babc,specular:0xffffff,shininess:80}),wtM=P({color:0xf5f5f3,specular:0x444444,shininess:40});   // cm：メッキ（ハンドシャワー・フック・ハンドル・ハンガーなど。周りの景色を映す）
+const tubM=P({color:0xf6f6f4,specular:0x666666,shininess:60}),cm=new THREE.MeshPhongMaterial({color:0x8e9194,specular:0xffffff,shininess:140,userData:{noEnv:1}}),hoseM=P({color:0xb8babc,specular:0xffffff,shininess:80}),wtM=P({color:0xf5f5f3,specular:0x444444,shininess:40});   // cm：メッキ（ハンドシャワー・フック・ハンドル・ハンガーなど。周りの景色を映す）
 // 壁・床・天井（壁の室内面。床と天井は浴室の内寸）
 buildWall(wallGroup(X0,0,Z0,0),BW,BH,[],woodNM,1,false);                                       // 北（木目調）
 buildWall(wallGroup(X0,0,Z1,Math.PI/2),Z1-Z0,BH,[],grayM,1,false);                              // 西
@@ -95,6 +95,6 @@ return {zoneLights:[[bls,['bath']]],
  obs:[[X0,X1,0,HOUSE.ldk.H1,Z0,Z0+CD],                                                                 // カウンター（壁から壁まで、床から天井まで）
   ifOpenObs('bath',[bathB-0.095,bathB+0.065,0,HOUSE.ldk.H1,DZ0-0.0475-0.77,DZ0-0.0475])],              // 浴室のドア（開）：吊元（東）の軸から浴室側へ95°開いた扉（長さ約0.77、タオル掛けを含む厚さ）
  applyEnv(night){const f=night?1:0.3,off=night?0x2a2927:0xa8a6a1;bls.forEach(l=>l.intensity=LS.bath?0.8*f:0);blEm.color.set(LS.bath?0xf6f8ff:off);   // ダウンライト（D1と同じ明るさ）
-  const k=night?(LS.bath?0.8:0.06):1;cm.reflectivity=0.75*k;waterM.reflectivity=0.12*k;},
+  const k=night?(LS.bath?0.8:0.06):1;waterM.reflectivity=0.12*k;},
  viewBath(){look(X0+1.15,EYE,Z1-WM,X0+0.55,1.05,Z0+0.15,85);}};}   // 浴室（仮）：南の壁ぎわ、浴槽とドアの間（開いたドアにかからない位置）から北西（浴槽・カウンター）を見る   // 映り込みの明るさ：昼・夜の点灯・夜の消灯
 

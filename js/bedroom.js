@@ -16,8 +16,8 @@ box(0.012,0.06,D,OX+0.106,OY+0.03,OZ+D/2,FIT);
 buildWall(wallGroup(OX,OY,OZ,0),W,H,[{a:doorA,b:doorB,y1:0,y2:2.0,door:'slide',open:1,T:OZ-HOUSE.ldk.PZ0,toggle:'sg311',dir:-1}],wallM,1,true);   // 北（廊下からの入口SG311：1階と同じインセットの引き戸。西へ引いて開ける。壁の厚さ115、廊下側の面はY4の壁芯-57.5）
 {const WC=(HOUSE.wic.Z0+HOUSE.wic.Z1)/2-OZ;buildWall(wallGroup(OX+W,OY,OZ,-Math.PI/2),D,H,[{a:WC-0.38,b:WC+0.38,y1:0,y2:2.0,door:'outset',T:HOUSE.wic.X0-OX-W,toggle:'sg500w',noWin:1},{a:D-0.795,b:D,y1:0,y2:2.0,door:'frame'}],wallM,1,true);}   // ウォークインのSG500（アウトセットの引き戸、寝室側、小窓なし。開口の中心はウォークインの南北の中央、南へ引く）、書斎のSG33（開口は南の壁の面から795。扉は書斎側）
 buildWall(wallGroup(OX+W,OY,OZ+D,Math.PI),W,H,[{a:0.9215,b:1.6645,y1:0.969,y2:2.144,win:1},{a:0.1215,b:0.8645,y1:0.969,y2:2.144,win:1}],wallM,1,true);   // FK2442×2（2枚の中心はX=-0.553、平面図から）
-// コンセント（Sプレート・ブラック）
-[[D-0.62-0.13,D-0.62],[0.62,0.75]].forEach(([a,b])=>box(0.008,0.075,b-a,OX+0.004,OY+1.05+0.0375,OZ+(a+b)/2,0x1f1f1f));
+// コンセント（薄型のプレート・ブラック）：下端は腰壁の天板の上端から50、プレートの高さ45（仮）
+{const ph=0.045,py=OY+1.025+0.05+ph/2;[[D-0.62-0.13,D-0.62],[0.62,0.75]].forEach(([a,b])=>box(0.008,ph,b-a,OX+0.004,py,OZ+(a+b)/2,0x1f1f1f));}
 // ブラケットライト O2：OB255280LR（黒い樹脂の箱型、巾□75・出90、上下に光る、電球色2700K・318lm（上下に半分ずつ））。外側の端が両端の壁から620mm、下端1600
 const BR_W=0.075,BR_D=0.09,BR_Y=OY+1.6+0.075/2,BRI=1.15,BRGLOW=0xffd9a8;
 const brHouse=P({color:0x1a1a1a,specular:0x2a2a2a,shininess:30});

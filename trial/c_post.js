@@ -38,7 +38,7 @@ const SUN=new THREE.DirectionalLight(0xffffff,0);{const az=THREE.MathUtils.degTo
 // 天井と壁の境目から光が漏れないための「影だけを落とす板」（画面には描かない）
 {const occ=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});(typeof CEILS!=='undefined'?CEILS:[]).forEach(([x0,x1,z0,z1,y])=>{if(y<HOUSE.ldk.FL2)return;const b=new THREE.Mesh(new THREE.BoxGeometry(x1-x0+1.0,0.02,z1-z0+1.0),occ);b.position.set((x0+x1)/2,y+0.3,(z0+z1)/2);b.castShadow=true;b.userData.occ=1;scene.add(b);});}   // 2階の天井だけ（1階は上に2階の床がある）。天井に接した所で影の判定がすり抜けないよう、遮る板は30cm上に、各辺50cm大きく
 // 影を落とす・受ける（ガラス・半透明・光る部品は影を落とさない）。影は光から見て裏の面で作る（three.js の標準。この家の壁は隣の部屋の面と2枚1組なので光は通り抜けず、表の面の縞＝シャドウアクネも出ない）
-scene.traverse(o=>{if(!o.isMesh||o.userData.occ)return;const m=o.material;o.receiveShadow=!m.isMeshBasicMaterial;o.castShadow=!(m.isMeshBasicMaterial||m.transparent);if(m.isMeshBasicMaterial)m.toneMapped=false;});
+scene.traverse(o=>{if(!o.isMesh||o.userData.occ)return;const m=o.material;if(m.userData&&m.userData.noEnv)m.envMapIntensity=0;o.receiveShadow=!m.isMeshBasicMaterial;o.castShadow=!(m.isMeshBasicMaterial||m.transparent);if(m.isMeshBasicMaterial)m.toneMapped=false;});
 
 // ===== 部屋ごとの照り返しの明るさ（間接光の代わり）：部屋に入る光の量 ÷ 部屋の内側の面積（反射率約0.5の部屋の照り返しの目安）。開いたドア・開口から隣の部屋へも分ける =====
 const ZB=ZBASE;const RN=['f1N','f1S','datsu','sen','ent','entC','entK','toi','bath','void','hall','bed','wic','study'];
