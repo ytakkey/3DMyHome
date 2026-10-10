@@ -2,7 +2,7 @@
 // 影：部品は動かないので、点灯・昼夜・ドア・割り当てが変わったときだけ描き直す。影を付ける光の数には上限（カメラの近くで効いている光から順に割り当て）
 r.toneMapping=THREE.NeutralToneMapping;
 r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFShadowMap;   // 影の縁のぼかしは光ごとの radius で（PCFSoft はぼかしの大きさを変えられず、縁が点々になる）
-const Q=new URLSearchParams(location.search),N_SPOT=+(Q.get('spots')||7),N_POINT=+(Q.get('points')||2);   // 影付きの光の数（影の画像1枚につきテクスチャの枠を1つ使う。枠は16まで（材質の柄の分を残す））
+const Q=new URLSearchParams(location.search),N_SPOT=+(Q.get('spots')||7),N_POINT=+(Q.get('points')||3);   // 影付きの光の数（影の画像1枚につきテクスチャの枠を1つ使う。枠は16まで（材質の柄の分を残す））
 
 // ===== 照明の仕様（LS のキーごと。lm：1灯の光束、K：色温度、kind：lamb＝拡散（中心が明るく周りへなだらか）、cone＝絞った光（α：中心から縁までの角度）、bracket＝箱の上下の開口、bulb＝電球（全方向）） =====
 const SPEC={a6:{lm:320,K:3500,kind:'cone',a:37.5},a4:{lm:440,K:3500,kind:'lamb'},a2:{lm:620,K:3500,kind:'cone',a:30},h1:{lm:440,K:3500,kind:'lamb'},a5:{lm:350,K:2400,kind:'bulb'},a3:{lm:326,K:2700,kind:'cone',a:20},a1:{lm:440,K:3500,kind:'lamb'},
@@ -91,5 +91,18 @@ function relight(){envAll();litList=litLights();updateAmbient(litList);
  const R=roomOf(cam.position);captureEnv(R);const E=R?(0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b):10;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}   // 露出：いる部屋の明るさから（目の慣れ。暗い所では慣れきらない）
 applyEnvAll=function(){relight();draw();};
 {const _td=toggleDoor;toggleDoor=function(k){_td(k);relight();draw();};}
-{const _draw=draw;draw=function(){if(ready){assign(false);const R=roomOf(cam.position);if(R&&R!==envRoom)captureEnv(R);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}}_draw();};}
+// ===== 描画：場面 → 陰（GTAO：画面上で計算する、角・接地面のやわらかい陰）→ 色の仕上げ（トーンマッピング） =====
+const AO=Q.get('ao')!=='0';   // ?ao=0 で陰なし（比べる用）
+const composer=new THREE.EffectComposer(r,new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,samples:4}));composer.addPass(new THREE.RenderPass(scene,cam));
+const aoPass=new THREE.GTAOPass(scene,cam,innerWidth,innerHeight);aoPass.blendIntensity=0.8;aoPass.updateGtaoMaterial({radius:0.25,distanceExponent:1,thickness:1,scale:1,samples:16,distanceFallOff:1});aoPass.updatePdMaterial({lumaPhi:10,depthPhi:2,normalPhi:3,radius:6,rings:2,samples:16});{const os=aoPass.setSize.bind(aoPass);aoPass.setSize=(w,h)=>os(Math.ceil(w/2),Math.ceil(h/2));}if(AO)composer.addPass(aoPass);   // 陰は半分の解像度で計算する（ぼんやりした物なので見た目はほぼ同じで、計算は約1/4）
+composer.addPass(new THREE.OutputPass());
+// 光る部品・ガラス：色の仕上げで露出がかかるので、露出の分を先に打ち消す（見た目の色のまま）
+const GLOW=[];scene.traverse(o=>{if(o.isMesh&&o.material.isMeshBasicMaterial&&!o.userData.occ&&!GLOW.some(g=>g.m===o.material))GLOW.push({m:o.material,c:o.material.color.clone()});});
+const EMIT=[];scene.traverse(o=>{if(o.isMesh&&o.material.emissive&&!EMIT.includes(o.material))EMIT.push(o.material);});   // 光る色（emissive）を持つ材質も同じく露出を打ち消す（点灯した電球のガラスなど）
+let lastSize='',lastExp=-1;
+draw=function(){if(!ready)return;assign(false);const R=roomOf(cam.position);if(R&&R!==envRoom)captureEnv(R);if(R){const E=0.2126*R.E.r+0.7152*R.E.g+0.0722*R.E.b;r.toneMappingExposure=Math.min(0.25,0.9/Math.pow(Math.max(E*3,0.5),0.8));}
+ const sz=r.getSize(new THREE.Vector2()),key=sz.x+'x'+sz.y+'@'+r.getPixelRatio();if(key!==lastSize){lastSize=key;composer.setPixelRatio(r.getPixelRatio());composer.setSize(sz.x,sz.y);}
+ if(r.toneMappingExposure!==lastExp){lastExp=r.toneMappingExposure;GLOW.forEach(g=>{g.m.color.copy(g.c).multiplyScalar(1/lastExp);});EMIT.forEach(m=>m.emissiveIntensity=1/lastExp);}
+ cam.rotation.set(pitch,yaw,0);composer.render();};
+{const _e=envAll;envAll=function(){GLOW.forEach(g=>g.m.color.copy(g.c));_e();GLOW.forEach(g=>{g.c.copy(g.m.color);g.m.color.multiplyScalar(1/Math.max(lastExp,1e-6));});};}   // 点灯・昼夜で光る部品の色が変わるので、元の色を取り直す
 applyEnvAll();
