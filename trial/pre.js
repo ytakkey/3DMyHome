@@ -14,3 +14,11 @@ function mergeStatic(scene){scene.updateMatrixWorld(true);const buckets=new Map(
 const BAKE_WINDOWS=[];
 {const _ad=addDaylight;addDaylight=function(g,um,ym,w,hh,shadeable){g.updateMatrixWorld(true);const c=g.localToWorld(new THREE.Vector3(um,ym,0)),q=g.getWorldQuaternion(new THREE.Quaternion());
  BAKE_WINDOWS.push({c:c.toArray(),out:new THREE.Vector3(0,0,-1).applyQuaternion(q).toArray(),u:new THREE.Vector3(1,0,0).applyQuaternion(q).toArray(),w,h:hh});return _ad(g,um,ym,w,hh,shadeable);};}   // out：外向き、u：壁に沿った向き
+// 天井の位置を記録する（試作C：天井と壁の境目のすき間から光が漏れないよう、少し大きい「影だけを落とす板」を天井のすぐ上に置くため）
+const CEILS=[];
+{const _cr=ceilRect;ceilRect=function(x0,x1,z0,z1,y,m,tile){CEILS.push([x0,x1,z0,z1,y]);return _cr(x0,x1,z0,z1,y,m,tile);};}
+// 開閉できるドアの開口の位置・向き・大きさを記録する（試作C：開いたドアの開口を「隣の部屋の明るさで光る面」として扱うため）。n：壁の +z（その壁の部屋側）
+const DOORWAYS={};
+{const _bw=buildWall;buildWall=function(g,len,h,ops,m,sc,bb,cut){g.updateMatrixWorld(true);const q=g.getWorldQuaternion(new THREE.Quaternion());
+ ops.forEach(o=>{if(!o.toggle||DOORWAYS[o.toggle])return;const c=g.localToWorld(new THREE.Vector3((o.a+o.b)/2,o.y2/2,0));DOORWAYS[o.toggle]={c:c.toArray(),n:new THREE.Vector3(0,0,1).applyQuaternion(q).toArray(),w:o.b-o.a,h:o.y2};});
+ return _bw(g,len,h,ops,m,sc,bb,cut);};}

@@ -14,7 +14,7 @@ for f in sys.argv[1:]:
                 tail=rest[m.start():]
                 cut=tail.find('）') if '）' in tail else -1
                 after=tail[cut+1:] if cut>=0 else ''
-                if CODE.search(after) and ';' in after:
+                if (CODE.search(after) and ';' in after) or re.search(r'[）)]\s*[}\])]+\s*[;,)]\s*$',tail):   # 処理の続き、またはコメントの後ろが閉じ括弧で終わる
                     print(f'{f}:{n}: ...{after[:100]}');bad+=1
                 break
             i=l.find('   // ',i+1)
