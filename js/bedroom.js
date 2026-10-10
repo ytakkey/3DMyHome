@@ -42,8 +42,7 @@ box(BL-0.08,0.06,BW-0.08,bxc,by0+0.03,bzc,0x5c4632);   // 台輪（床から60�
 rbox(s,BL,0.24,BW,0.012,bxc,by0+0.18,bzc,bedWood);   // フレーム（木、角を少し丸める）
 rbox(s,BL-0.03,0.24,BW-0.03,0.06,bxc,by0+0.42,bzc,bedCloth);   // マットレス（厚さ240、角を大きく丸める）
 {const d0=bx0+BL*0.3,d1=bx0+BL+0.02,dl=d1-d0,yt=MT+0.06,yb=MT-0.12;   // 掛け布団：足元側の約2/3を覆う1つの丸い形（上の面と、左右・足元の約12cmの垂れがひと続き。角は半径40で丸める。中のマットレスは隠れる）
- rbox(s,dl,yt-yb,BW+0.04,0.04,(d0+d1)/2,(yt+yb)/2,bzc,bedDuvet);
- rbox(s,0.26,0.03,BW+0.05,0.015,d0+0.13-0.005,yt+0.013,bzc,P({color:0xd6d9dd,specular:0x111111,shininess:4}));}   // 折り返し：頭側の端に、裏地（少し明るい色）の薄い層を重ねる（端は布団の丸みにそろえる）
+ rbox(s,dl,yt-yb,BW+0.04,0.04,(d0+d1)/2,(yt+yb)/2,bzc,bedDuvet);}   // 折り返しは付けない（ユーザーの指定）
 [bz0+0.6,bz0+BW-0.6].forEach(z=>rbox(s,0.43,0.15,0.8,0.07,bx0+0.05+0.215,MT+0.065,z,bedPillow));   // 枕×2（横幅800×430、ふくらみを出す。マットレスへ1cm沈める）
 // 状態・視点
 const S={shadeP:0,zoneLights:[[dls,['bed','hallNearBed']],[brs,['bed','hallNearBed']],[myWins.map(w=>w.light),['bed','hallNearBed']],[[BF.hemi,BF.sun,BF.up],['bedG']]],
