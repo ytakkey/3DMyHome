@@ -1,6 +1,6 @@
 // 検証版（stg）：ライトマップ方式（0章の要件・8章）。点灯・昼夜・ドア・シェードが変わったときだけ、光（影を含む）と照り返しを面の画像（ライトマップ）に描き込み、普段の描画はその画像を貼るだけ
 // 画像の1画素＝面の上の1点（stg/pre.js が付けた属性 lm で対応）。まず各画素の位置・向き・色（G-buffer）を作り、光ごとに「その点から光が見えるか」を影の画像で調べて明るさを足す
-r.toneMapping=THREE.NeutralToneMapping;
+r.toneMapping=THREE.AgXToneMapping;   // 明るい所をなだらかに圧縮する（日なたが白く飛ばず、暗めの所も見える）
 const LMW=LM.W,LMH=LM.H;
 // ===== G-buffer：画素ごとの位置（家の座標）・向き・色（反射率） =====
 const GB=new THREE.WebGLRenderTarget(LMW,LMH,{count:3,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,generateMipmaps:false});
@@ -30,7 +30,7 @@ void main(){ivec2 c=ivec2(gl_FragCoord.xy);vec4 p=texelFetch(tP,c,0);if(p.w!=0.0
  vec4 sp=vec4(0.0),sn=vec4(0.0),sa=vec4(0.0);float id=0.0,k=0.0;for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){ivec2 q=c+ivec2(x,y);vec4 pp=texelFetch(tP,q,0);if(pp.w>0.0&&(id==0.0||pp.w==id)){id=pp.w;sp+=vec4(pp.xyz,1.0);sn+=texelFetch(tN,q,0);sa+=texelFetch(tA,q,0);}}
  if(sp.w>0.0){oP=vec4(sp.xyz/sp.w,id);oN=vec4(normalize(sn.xyz),1.0);oA=vec4(sa.xyz/sp.w,1.0);}else{oP=vec4(0.0);oN=vec4(0.0);oA=vec4(0.0);}}`});
  const fq=new THREE.Mesh(new THREE.PlaneGeometry(2,2),dil);fq.frustumCulled=false;const fs=new THREE.Scene();fs.add(fq);let a=GB,b=GB2;
- for(let i=0;i<2;i++){dil.uniforms.tP.value=a.textures[0];dil.uniforms.tN.value=a.textures[1];dil.uniforms.tA.value=a.textures[2];r.setRenderTarget(b);r.render(fs,cam0);[a,b]=[b,a];}
+ for(let i=0;i<4;i++){dil.uniforms.tP.value=a.textures[0];dil.uniforms.tN.value=a.textures[1];dil.uniforms.tA.value=a.textures[2];r.setRenderTarget(b);r.render(fs,cam0);[a,b]=[b,a];}
  if(a!==GB){dil.uniforms.tP.value=a.textures[0];dil.uniforms.tN.value=a.textures[1];dil.uniforms.tA.value=a.textures[2];r.setRenderTarget(GB);r.render(fs,cam0);}
  r.setRenderTarget(null);gs.traverse(o=>{if(o.material&&o.material.dispose)o.material.dispose();});}
 // ===== 照明の仕様（LS のキーごと。lm：1灯の光束、K：色温度、kind：lamb＝拡散（中心が明るく周りへなだらか）、cone＝絞った光（α：中心から縁までの角度）、bracket＝箱の上下の開口、bulb＝電球（全方向）） =====
@@ -39,7 +39,8 @@ const SPEC={a6:{lm:320,K:3500,kind:'cone',a:37.5},a4:{lm:440,K:3500,kind:'lamb'}
  g1:{lm:312,K:2700,kind:'bulb'},bath:{lm:440,K:5000,kind:'lamb'},l1:{lm:440,K:5000,kind:'lamb'},k1:{lm:440,K:3500,kind:'lamb'}};
 const KCOL={2400:0xffb066,2700:0xffc68e,3500:0xffd9b4,5000:0xfff3e8};   // 色温度ごとの光の色（全部屋共通の決まり）。明るさは光束で決めるので、色は明るさ1にそろえて使う
 const lumColor=hex=>{const c=new THREE.Color(hex),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return c.multiplyScalar(1/y);};
-const SKY_LUX=15000,SUN_LUX=70000,SUN_AZ=150,SUN_EL=38,MOON=3e-4;   // 空（水平面の照度）・太陽（法線照度）・太陽の向き（方位：北から時計回り、高度）・夜の月明かり（空の何倍か）
+const SKY_LUX=550,SUN_LUX=70000,SUN_AZ=150,SUN_EL=38,MOON=0.04;   // 空（水平面の照度）・太陽（法線照度）・太陽の向き（方位：北から時計回り、高度）・夜の月明かり（空の何倍か）。
+// 露出は全ての状態で同じ固定値（EXPO）なので、照明だけで照らされた部屋は昼でも夜でも同じに見える。そのため昼の光は実際より弱めにして、照明の部屋と同じ露出で白く飛ばないようにする（ゲームの昼の明るさ。SKY_LUX・SUN_K は画像で見て調整した値）
 
 // ===== 元の照明を「仕様つきの光の候補」に置き換える（元の光は表示しない。点灯の判定は元の applyEnv の強さで行う） =====
 const ORIG=[];scene.traverse(o=>{if(o.isLight)ORIG.push(o);});
@@ -60,8 +61,8 @@ ORIG.forEach(l=>l.visible=false);
 // 型ガラス（玄関ドアの窓 entGl）：直射は通さず、外の鉛直面の照度（空＋日射）×透過で光る面の光にする。wash.js の中の名前なので、玄関まわりの両面・光らない板の立った面として探す
 const FROST=[];scene.traverse(o=>{const m=o.material;if(!o.isMesh||!m.isMeshBasicMaterial||m.side!==THREE.DoubleSide)return;o.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(o),c=b.getCenter(new THREE.Vector3()),sz=b.getSize(new THREE.Vector3());
  if(Math.min(sz.x,sz.z)>0.005||sz.y<0.3||c.z<6.5)return;const n=new THREE.Vector3(0,0,1),A=sz.x*sz.y;FROST.push(o);   // 玄関ドアは南（+z）の外壁
- WINC.push({group:'sky',type:'spot',pos:c.clone().addScaledVector(n,-0.03),dir:n.clone().negate(),angle:THREE.MathUtils.degToRad(80),penumbra:1,area:A,r2:A/Math.PI,frost:0.8,out:n,win:{c:c.toArray()}});});
-const SUN_K=0.12;   // 直射日光の強さの倍率（日の当たる所が真っ白に飛ばない程度に弱める。自然に見える値に調整）
+ WINC.push({group:'sky',type:'spot',pos:c.clone().addScaledVector(n,-0.03),dir:n.clone().negate(),angle:THREE.MathUtils.degToRad(80),penumbra:1,area:A,r2:A/Math.PI,frost:0.8,out:n,mesh:o,win:{c:c.toArray()}});});
+const SUN_K=0.012;   // 直射日光の強さの倍率（日の当たる所が真っ白に飛ばない程度に弱める。自然に見える値に調整）
 const SUNDIR=(()=>{const az=THREE.MathUtils.degToRad(SUN_AZ),el=THREE.MathUtils.degToRad(SUN_EL);return new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),-Math.cos(az)*Math.cos(el));})();   // 太陽への向き（X東・Y上・Z南）
 
 // ===== 影の画像（光から見た、いちばん近い物までの距離）を作るための、光を遮る物の形 =====
@@ -70,14 +71,17 @@ const OCC=new THREE.Scene(),distMat=new THREE.ShaderMaterial({glslVersion:THREE.
  vertexShader:`out vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
  fragmentShader:`in vec3 vW;uniform vec3 lp,sd;uniform float sun;out vec4 o;void main(){o=vec4(sun>0.5?dot(vW,sd)+100.0:distance(vW,lp),0.0,0.0,1.0);}`});   // 太陽は光の向きに沿った深さ（＋100。0は「何も無い」の印）
 const occOf=o=>{const m=o.material;if(FROST.includes(o))return true;if(m.isMeshBasicMaterial||m.transparent||m.colorWrite===false)return false;if(o.userData.dyn&&o.userData.dk===undefined)return false;return true;};
-const OCCDOOR=[];{scene.updateMatrixWorld(true);const st=[];const dm=new Map();
+// 壁は厚みの無い1枚の面で、床・天井は隙間ができないよう壁の向こうへ8cm広げてある。そのままだと、壁の向こうへ出た床に向こう側（外・隣の部屋）の光が当たり、ライトマップのにじみで壁の根元に明るい線が出る。
+// 影の計算でだけ、壁を部屋の反対側へ WALLT の厚みの板にする（隣の部屋の壁の面を越えないよう、壁の厚さより薄く）
+const WALLT=0.05,WALLX=()=>WALLSH.map(o=>{const g=new THREE.ExtrudeGeometry(o.geometry.parameters.shapes,{depth:WALLT,bevelEnabled:false,curveSegments:1});g.translate(0,0,-WALLT);const w=g.toNonIndexed();g.dispose();const b=new THREE.BufferGeometry();b.setAttribute("position",w.attributes.position);b.applyMatrix4(o.matrixWorld);return b;});
+const OCCDOOR=[];{scene.updateMatrixWorld(true);const st=WALLX();const dm=new Map();
  scene.traverse(o=>{if(!o.isMesh||!occOf(o))return;let dk=null,gOpen=null;for(let p=o;p;p=p.parent){for(const k in DOORS){if(DOORS[k].gO===p){dk=k;gOpen=true;}if(DOORS[k].gC===p){dk=k;gOpen=false;}}if(dk)break;}
   const g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone());const pos=new THREE.BufferAttribute(g.attributes.position.array.slice(),3);const w=new THREE.BufferGeometry();w.setAttribute('position',pos);w.applyMatrix4(o.matrixWorld);g.dispose();
   if(dk){const key=dk+(gOpen?':o':':c');if(!dm.has(key))dm.set(key,{k:dk,open:gOpen,gs:[]});dm.get(key).gs.push(w);}else st.push(w);});
  const mergeP=gs=>{let n=0;gs.forEach(g=>n+=g.attributes.position.array.length);const a=new Float32Array(n);let off=0;gs.forEach(g=>{a.set(g.attributes.position.array,off);off+=g.attributes.position.array.length;g.dispose();});const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a,3));return g;};
  const sm=new THREE.Mesh(mergeP(st),distMat);sm.frustumCulled=false;OCC.add(sm);dm.forEach(d=>{const m=new THREE.Mesh(mergeP(d.gs),distMat);m.frustumCulled=false;m.userData.door=d.k;m.userData.open=d.open;OCC.add(m);OCCDOOR.push(m);});}
 // 照り返し用の遮る形：大きな面（チャートの部品＝壁・床・天井・建具・家具の平らな面）とドアだけ（曲面の多い細かい部品は除いて軽くする。照り返しはやわらかい光なので影の細かさは要らない）
-const OCCB=new THREE.Scene();{scene.updateMatrixWorld(true);const st=[];scene.traverse(o=>{if(!o.isMesh||!occOf(o)||o.userData.dyn)return;const a=o.geometry.attributes.lm;if(a&&a.getZ(0)>0.5)return;const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry;const w=new THREE.BufferGeometry();w.setAttribute('position',new THREE.BufferAttribute(g.attributes.position.array.slice(),3));w.applyMatrix4(o.matrixWorld);st.push(w);});
+const OCCB=new THREE.Scene();{scene.updateMatrixWorld(true);const st=WALLX();scene.traverse(o=>{if(!o.isMesh||!occOf(o)||o.userData.dyn)return;const a=o.geometry.attributes.lm;if(a&&a.getZ(0)>0.5)return;const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry;const w=new THREE.BufferGeometry();w.setAttribute('position',new THREE.BufferAttribute(g.attributes.position.array.slice(),3));w.applyMatrix4(o.matrixWorld);st.push(w);});
  let n=0;st.forEach(g=>n+=g.attributes.position.array.length);const arr=new Float32Array(n);let off=0;st.forEach(g=>{arr.set(g.attributes.position.array,off);off+=g.attributes.position.array.length;g.dispose();});const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(arr,3));
  const m=new THREE.Mesh(g,distMat);m.frustumCulled=false;OCCB.add(m);OCCDOOR.forEach(d=>{const c=new THREE.Mesh(d.geometry,distMat);c.frustumCulled=false;c.userData=d.userData;OCCB.add(c);d.userData.twin=c;});LM.occbTris=arr.length/9;}
 const syncDoors=()=>OCCDOOR.forEach(m=>{m.visible=!!DS[m.userData.door]===m.userData.open;m.userData.twin.visible=m.visible;});
@@ -173,12 +177,13 @@ const sumMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,d
 const sumQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),sumMat);sumQ.frustumCulled=false;const SUMS=new THREE.Scene();SUMS.add(sumQ);
 // ===== 普段の描画：光は使わず、ライトマップの照度を「周りからの光」として材質に入れる（拡散の明るさ＝照度×反射率÷π） =====
 const LMU={lmTex:{value:ET.texture},lmScale:{value:new THREE.Vector3(1,1,1)}};
+// lmB：ライトマップを4×4画素でなめらかに読む（3次のB-スプライン。画素の段々が見えないように）
 function lmPatch(sh){Object.assign(sh.uniforms,LMU);
  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec3 lm;uniform sampler2D lmTex;varying vec2 vLmUv;varying vec3 vLmV;varying vec3 vWP;')
   .replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;if(lm.z>0.5){vLmV=texelFetch(lmTex,ivec2(lm.xy),0).rgb;vLmUv=vec2(-1.0);}else{vLmUv=lm.xy;vLmV=vec3(0.0);}');   // 頂点ごとの部品は頂点で読んで面の中はなめらかに
- sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D lmTex;uniform vec3 lmScale;varying vec2 vLmUv;varying vec3 vLmV;varying vec3 vWP;uniform sampler2D zCau;uniform vec4 zCauK;uniform vec3 g1P;\nfloat cauF(vec3 d){float p=texture2D(zCau,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;float cd=-d.y,op=smoothstep(zCauK.x-0.015,zCauK.x+0.015,cd),gl=zCauK.z*(0.3+1.6*p)*(1.0-smoothstep(zCauK.y-0.02,zCauK.y+0.01,d.y)),rim=zCauK.w*exp(-pow((cd-zCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}')
+ sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D lmTex;uniform vec3 lmScale;varying vec2 vLmUv;varying vec3 vLmV;varying vec3 vWP;uniform sampler2D zCau;\nvec3 lmB(vec2 uv){vec2 ts=vec2(textureSize(lmTex,0)),st=uv*ts-0.5,i=floor(st),f=st-i,f2=f*f,f3=f2*f,w0=(1.0-3.0*f+3.0*f2-f3)/6.0,w1=(4.0-6.0*f2+3.0*f3)/6.0,w2=(1.0+3.0*f+3.0*f2-3.0*f3)/6.0,w3=f3/6.0,g0=w0+w1,g1=w2+w3,h0=(i-0.5+w1/g0)/ts,h1=(i+1.5+w3/g1)/ts;\n return g0.y*(g0.x*texture2D(lmTex,h0).rgb+g1.x*texture2D(lmTex,vec2(h1.x,h0.y)).rgb)+g1.y*(g0.x*texture2D(lmTex,vec2(h0.x,h1.y)).rgb+g1.x*texture2D(lmTex,h1).rgb);}uniform vec4 zCauK;uniform vec3 g1P;\nfloat cauF(vec3 d){float p=texture2D(zCau,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;float cd=-d.y,op=smoothstep(zCauK.x-0.015,zCauK.x+0.015,cd),gl=zCauK.z*(0.3+1.6*p)*(1.0-smoothstep(zCauK.y-0.02,zCauK.y+0.01,d.y)),rim=zCauK.w*exp(-pow((cd-zCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}')
   .replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin.replace(/(pointLight = pointLights\[ i \];[\s\S]*?)(RE_Direct\()/,'$1directLight.color *= cauF( normalize( vWP - g1P ) );\n\t\t$2'))
-  .replace('#include <lights_fragment_maps>',THREE.ShaderChunk.lights_fragment_maps.replace('iblIrradiance += getIBLIrradiance( geometryNormal );','')+'\n\tirradiance += (vLmUv.x>=0.0?texture2D(lmTex,vLmUv).rgb:vLmV)*lmScale;');}
+  .replace('#include <lights_fragment_maps>',THREE.ShaderChunk.lights_fragment_maps.replace('iblIrradiance += getIBLIrradiance( geometryNormal );','')+'\n\tirradiance += (vLmUv.x>=0.0?lmB(vLmUv):vLmV)*lmScale;');}
 LMOBJ.forEach(o=>{const m=o.material;if(!m.isMeshStandardMaterial||m.userData.lmp)return;m.userData.lmp=1;m.onBeforeCompile=lmPatch;m.customProgramCacheKey=()=>'lm';m.needsUpdate=true;});
 scene.traverse(o=>{if(o.isLight)o.visible=false;});   // 実時間の光は使わない（明るさはライトマップ）。G1 だけは揺らいだ光の模様が細かいので実時間（影付き）
 const G1C=CAND.find(c=>c.src.userData.caustic),G1L=new THREE.PointLight(0xffffff,0,0,2);G1L.position.copy(G1C?G1C.pos:new THREE.Vector3(0,-50,0));G1L.castShadow=true;G1L.shadow.mapSize.set(512,512);G1L.shadow.camera.near=0.03;G1L.shadow.camera.far=6;G1L.shadow.bias=-0.001;G1L.shadow.normalBias=0.02;G1L.shadow.autoUpdate=false;scene.add(G1L);
@@ -193,27 +198,20 @@ let lastExp=1;function updateGlow(){lastExp=r.toneMappingExposure;GLOW.forEach(g
 
 // ===== 状態が変わったとき：点いている光・窓・太陽をライトマップに描き込み、露出を決める =====
 const lum=c=>0.2126*c.r+0.7152*c.g+0.0722*c.b;
-const EXPRT=new THREE.WebGLRenderTarget(256,92,{type:THREE.FloatType,depthBuffer:false});
-const expMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tE:{value:ET.texture},tP:{value:GB.textures[0]},WH:{value:new THREE.Vector2(LMW,LMH)}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D tE,tP;uniform vec2 WH;out vec4 o;void main(){ivec2 c=ivec2(gl_FragCoord.xy)*8;float s=0.0,n=0.0;for(int y=0;y<8;y++)for(int x=0;x<8;x++){ivec2 q=c+ivec2(x,y);if(q.x>=int(WH.x)||q.y>=int(WH.y))continue;if(texelFetch(tP,q,0).w!=0.0){vec3 e=texelFetch(tE,q,0).rgb;s+=0.2126*e.r+0.7152*e.g+0.0722*e.b;n+=1.0;}}o=vec4(s,n,0.0,1.0);}`});   // 8×8画素ごとの照度の合計と画素の数
-const expQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),expMat);expQ.frustumCulled=false;const EXPS=new THREE.Scene();EXPS.add(expQ);
-function exposureFromLM(){r.setRenderTarget(EXPRT);r.render(EXPS,CAM0);const b=new Float32Array(256*92*4);r.readRenderTargetPixels(EXPRT,0,0,256,92,b);r.setRenderTarget(null);
- let sl=0,sn=0;for(let i=0;i<256*92;i++){const n=b[i*4+1];if(n>0){sl+=n*Math.log(b[i*4]/n/SC+0.01);sn+=n;}}const E=sn?Math.exp(sl/sn):1;LM.Eavg=E;   // 家全体の面の照度の対数平均（立つ場所では変えない）
- return Math.min(1.5,LM.expK*(night?1:0.6)/Math.pow(Math.max(E,0.05),0.85));}   // 昼は日なたが飛ばないよう少し暗め
-LM.expK=0.25;   // 露出の係数（画像で見て調整）
-let lastShade=-1;
-function relight(chg){envAll();syncDoors();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=night?1:1e-3;
+let lastShade=-1;const WBC=new THREE.Color(1,1,1).lerp(lumColor(KCOL[2700]),0.35);WBC.multiplyScalar(1/lum(WBC));   // 白の合わせ：電球色を35%だけ白に寄せる（全状態で同じ）
+LM.EXPO=0.05;   // 露出（全状態で同じ。画像で見て調整した値）
+function relight(chg){envAll();syncDoors();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=1;
  r.setRenderTarget(ED);r.setClearColor(0x000000,0);r.clear();
- const t0=performance.now();let n=0;const wb=new THREE.Color(0,0,0);const addWB=(col,f)=>wb.add(col.clone().multiplyScalar(f));
+ const t0=performance.now();let n=0;
  r.setRenderTarget(EG);r.clear();G1L.intensity=0;G1L.shadow.needsUpdate=true;
- CAND.forEach(c=>{if(c.src.intensity<=0)return;const p=c.type==='spot'?c.pos.clone().addScaledVector(c.dir,0.03):c.pos,g1=!!c.src.userData.caustic;bakeEmitter({pos:p,dir:c.dir,type:c.type,angle:c.angle,penumbra:c.penumbra,intensity:c.intensity,col:c.color,cau:g1,soft:2},g1?EG:ED);if(g1){G1L.intensity=c.intensity;G1L.userData.col=c.color;}addWB(c.color,c.lm);n++;});   // G1 の直接の光は EG へ（模様が細かいので表示は実時間の光で）   // 照明（器具の面から3cm光の向きへ出した所から。器具の体で影を作らない）
- WINC.forEach(c=>{let I,col;if(c.frost){const Ev=(SKY_LUX*0.5+(night?0:SUN_LUX*SUN_K*Math.max(SUNDIR.dot(c.out),0)))*(night?MOON:1)*c.frost;I=Ev/Math.PI*c.area;col=night?lumColor(0xdfe4f2):lumColor(0xfaf7f0);}
+ CAND.forEach(c=>{if(c.src.intensity<=0)return;const p=c.type==='spot'?c.pos.clone().addScaledVector(c.dir,0.03):c.pos,g1=!!c.src.userData.caustic;bakeEmitter({pos:p,dir:c.dir,type:c.type,angle:c.angle,penumbra:c.penumbra,intensity:c.intensity,col:c.color,cau:g1,soft:2},g1?EG:ED);if(g1){G1L.intensity=c.intensity;G1L.userData.col=c.color;}n++;});   // G1 の直接の光は EG へ（模様が細かいので表示は実時間の光で）   // 照明（器具の面から3cm光の向きへ出した所から。器具の体で影を作らない）
+ WINC.forEach(c=>{let I,col;if(c.frost){const Ev=(SKY_LUX*0.5+(night?0:SUN_LUX*SUN_K*Math.max(SUNDIR.dot(c.out),0)))*(night?MOON:1)*c.frost;I=Ev/Math.PI*c.area;col=night?lumColor(0xdfe4f2):lumColor(0xfaf7f0);c.mesh.material.color.copy(col).multiplyScalar(Ev/Math.PI);}   // ガラスの面自体も、通した光の明るさで光って見える
   else{const t=c.win.shadeable?tr:1;I=SKY_LUX/Math.PI*(night?MOON:1)*t*c.area;col=night?lumColor(0xdfe4f2):lumColor(0xf4f8ff);}
-  bakeEmitter({pos:c.pos,dir:c.dir,type:'spot',angle:c.angle,penumbra:1,intensity:I,col,r2:c.r2||c.area/Math.PI,soft:4});addWB(col,I*Math.PI);n++;});   // 窓：空の光（影の縁は大きくぼかす）
+  bakeEmitter({pos:c.pos,dir:c.dir,type:'spot',angle:c.angle,penumbra:1,intensity:I,col,r2:c.r2||c.area/Math.PI,soft:4});n++;});   // 窓：空の光（影の縁は大きくぼかす）
  if(!night){bakeSun(SUN_LUX*SUN_K*tr,lumColor(0xfff1dc));n++;}
- {const y=lum(wb);const w=night&&y>0?new THREE.Color(1,1,1).lerp(wb.clone().multiplyScalar(1/y),0.75):new THREE.Color(1,1,1);w.multiplyScalar(1/lum(w));LMU.lmScale.value.set(1/SC/w.r,1/SC/w.g,1/SC/w.b);if(G1L.userData.col)G1L.color.setRGB(G1L.userData.col.r/w.r,G1L.userData.col.g/w.g,G1L.userData.col.b/w.b);}   // 白の合わせ（目の慣れ）：夜は点いている光の色の平均の75%を打ち消す（昼の光はそのまま）。家全体で1つ
+ {const w=WBC;LMU.lmScale.value.set(1/SC/w.r,1/SC/w.g,1/SC/w.b);if(G1L.userData.col)G1L.color.setRGB(G1L.userData.col.r/w.r,G1L.userData.col.g/w.g,G1L.userData.col.b/w.b);}   // 白の合わせは固定（点いている照明や昼夜で変えない。変えると同じ部屋の色が状態で変わるため）
  const t1=performance.now();bounce(ED,EBT,EG,NSHOOT[0]);fillTo(EBT,EB1);bounce(EB1,EBT,null,NSHOOT[1]);fillTo(EBT,EB2);r.setRenderTarget(ET);r.render(SUMS,CAM0);LM.bounceMs=performance.now()-t1;   // 照り返し2回を足して、表示に使う照度にする
- r.toneMappingExposure=exposureFromLM();updateGlow();r.setRenderTarget(null);LM.bakeMs=performance.now()-t0;LM.nEmit=n;}
+ r.toneMappingExposure=LM.EXPO;updateGlow();r.setRenderTarget(null);LM.bakeMs=performance.now()-t0;LM.nEmit=n;}
 draw=function(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.setRenderTarget(null);r.render(scene,cam);};
 applyEnvAll=function(){relight();draw();};
 {const _td=toggleDoor;toggleDoor=function(k){const was=DS[k];_td(k);if(DS[k]!==was){relight('door:'+k);draw();}};}

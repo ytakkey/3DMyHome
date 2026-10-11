@@ -1,6 +1,6 @@
 // 検証版（stg）：ライトマップ（明るさを面の画像に描き込む方式。0章の要件・8章）の準備。もとの mergeStatic を差し替え、光の当たる部品に「ライトマップのどこに対応するか」（属性 lm）を付ける
 // lm = (u, v, 方式, チャートの番号)。方式0：平らな面のまとまり（チャート）ごとに画像の区画を割り当て、u・v は画像の中の位置（0〜1、なめらかに補間）。方式1：曲面の多い部品は頂点ごとに1画素（u・v は画素の番号、頂点の間はなめらかに補間）
-const LM={ts:0.04,pad:1,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
+const LM={ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
 const lmLit=(o,m)=>!(m.isMeshBasicMaterial||m.transparent||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明・動く部品（シェードの生地とバー）は除く
 // 三角形の集まり（家全体の座標・index なし）を、同じ平面でつながった三角形のまとまり（チャート）に分ける。各頂点の平面上の座標（m）を返す
 function lmCharts(P){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=new Float32Array(n*3),D=new Float32Array(n);
@@ -45,7 +45,8 @@ const BAKE_WINDOWS=[];
 const CEILS=[];
 {const _cr=ceilRect;ceilRect=function(x0,x1,z0,z1,y,m,tile){CEILS.push([x0,x1,z0,z1,y]);return _cr(x0,x1,z0,z1,y,m,tile);};}
 // 開閉できるドアの開口の位置・向き・大きさを記録する（開いたドアの開口を「隣の部屋の明るさで光る面」として扱うため）。n：壁の +z（その壁の部屋側）
-const DOORWAYS={};
+const DOORWAYS={},WALLSH=[];
 {const _bw=buildWall;buildWall=function(g,len,h,ops,m,sc,bb,cut){g.updateMatrixWorld(true);const q=g.getWorldQuaternion(new THREE.Quaternion());
  ops.forEach(o=>{if(!o.toggle||DOORWAYS[o.toggle])return;const c=g.localToWorld(new THREE.Vector3((o.a+o.b)/2,o.y2/2,0));DOORWAYS[o.toggle]={c:c.toArray(),n:new THREE.Vector3(0,0,1).applyQuaternion(q).toArray(),w:o.b-o.a,h:o.y2};});
- return _bw(g,len,h,ops,m,sc,bb,cut);};}
+ const n0=g.children.length,r=_bw(g,len,h,ops,m,sc,bb,cut);g.children.slice(n0).forEach(c=>{if(c.isMesh&&c.geometry.type==='ShapeGeometry')WALLSH.push(c);});return r;};}
+// 壁の面（厚みの無い1枚の面）を記録する。影の計算では壁に厚みを持たせる（stg/lm.js）
