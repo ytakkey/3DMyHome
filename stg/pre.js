@@ -1,6 +1,6 @@
 // 検証版（stg）：ライトマップ（明るさを面の画像に描き込む方式。0章の要件・8章）の準備。もとの mergeStatic を差し替え、光の当たる部品に「ライトマップのどこに対応するか」（属性 lm）を付ける
 // lm = (u, v, 方式, チャートの番号)。方式0：平らな面のまとまり（チャート）ごとに画像の区画を割り当て、u・v は画像の中の位置（0〜1、なめらかに補間）。方式1：曲面の多い部品は頂点ごとに1画素（u・v は画素の番号、頂点の間はなめらかに補間）
-const LM={ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
+const LM={big:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
 const lmLit=(o,m)=>!(m.isMeshBasicMaterial||m.transparent||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明・動く部品（シェードの生地とバー）は除く
 // 三角形の集まり（家全体の座標・index なし）を、同じ平面でつながった三角形のまとまり（チャート）に分ける。各頂点の平面上の座標（m）を返す
 function lmCharts(P){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=new Float32Array(n*3),D=new Float32Array(n);
@@ -17,7 +17,7 @@ function lmCharts(P){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=ne
 function lmPrepare(o,g){const W=g.clone().applyMatrix4(o.matrixWorld),P=W.attributes.position.array;W.dispose();const r=lmCharts(P),n=P.length/9;
  const vkey=new Map();let nv=0;const VI=new Int32Array(n*3);const NA=g.attributes.normal;for(let i=0;i<n*3;i++){const k=Math.round(P[i*3]*1e4)+','+Math.round(P[i*3+1]*1e4)+','+Math.round(P[i*3+2]*1e4)+'|'+(NA?Math.round(NA.getX(i)*100)+','+Math.round(NA.getY(i)*100)+','+Math.round(NA.getZ(i)*100):'');let v=vkey.get(k);if(v===undefined){v=nv++;vkey.set(k,v);}VI[i]=v;}   // 同じ位置・向きの頂点は1画素を共有
  const cost=r.charts.reduce((s,c)=>s+c.w*c.h,0),mode=r.charts.length>24&&cost>3*nv?1:0;   // 曲面の多い部品（チャートが多く、画素が頂点の3倍を超える）は頂点ごと
- const it={o,g,mode,charts:mode?[]:r.charts,cOf:r.cOf,UV:r.UV,VI,nv};if(!mode)r.charts.forEach(c=>{c.gid=LM.charts.length;LM.charts.push(c);});LM.items.push(it);return it;}
+ const it={o,g,mode,charts:mode?[]:r.charts,cOf:r.cOf,UV:r.UV,VI,nv};if(!mode)r.charts.forEach(c=>{c.gid=LM.charts.length;c.o=o;LM.charts.push(c);});LM.items.push(it);return it;}
 // 区画を並べる（高い順に、幅 W の棚に左から）。頂点ごとの画素はその後ろに並べる。そのあと各形に lm を書く
 function lmPack(){const cs=LM.charts.slice().sort((a,b)=>b.h-a.h||b.w-a.w);let x=0,y=0,rowH=0;cs.forEach(c=>{if(x+c.w>LM.W){x=0;y+=rowH;rowH=0;}c.x=x;c.y=y;x+=c.w;rowH=Math.max(rowH,c.h);});y+=rowH;
  let vb=y,vx=0,vy=y;LM.items.forEach(it=>{if(!it.mode)return;it.vbase=(vy-vb)*LM.W+vx;const end=it.vbase+it.nv;vy=vb+Math.floor(end/LM.W);vx=end%LM.W;});LM.H=vy+1;LM.vrow=vb;
@@ -28,7 +28,9 @@ function lmPack(){const cs=LM.charts.slice().sort((a,b)=>b.h-a.h||b.w-a.w);let x
 // もとの mergeStatic の代わり：動かない部品を、素材ごと・方式ごとにまとめる（まとめる前の部品ごとにチャートを作る）。動く部品（ドア）は自分の形のまま lm を付ける
 function mergeStatic(scene){scene.updateMatrixWorld(true);const olds=[],dyns=[],buckets=new Map();scene.traverse(o=>{if(o.isMesh)(o.userData.dyn?dyns:olds).push(o);});
  olds.forEach(o=>{const g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone()).applyMatrix4(o.matrixWorld),lit=lmLit(o,o.material);let mode=-1,it=null;
-  if(lit){const id=new THREE.Object3D();it=lmPrepare(id,g);mode=it.mode;}const keys=Object.keys(g.attributes).sort(),k=o.material.uuid+'|'+mode+'|'+keys.join(',');
+  if(lit){const id=new THREE.Object3D();it=lmPrepare(id,g);mode=it.mode;const m=o.material;
+   if(!mode&&!m.isMeshBasicMaterial&&!m.transparent&&m.colorWrite!==false){const P=g.attributes.position.array;for(let tr=0;tr<P.length/9;tr++){const c=it.charts[it.cOf[tr]];if((c.u1-c.u0)*(c.v1-c.v0)<0.3)continue;let b=LM.big.get(c);if(!b){const NA=g.attributes.normal;b={c,tri:[],nrm:NA?[NA.getX(tr*3),NA.getY(tr*3),NA.getZ(tr*3)]:null};LM.big.set(c,b);}for(let q=0;q<9;q++)b.tri.push(P[tr*9+q]);}}}   // 大きな平らな面（チャートの広さ0.3m²以上）の三角形を記録（影の計算で裏へ厚みを付ける。stg/lm.js）
+  const keys=Object.keys(g.attributes).sort(),k=o.material.uuid+'|'+mode+'|'+keys.join(',');
   let b=buckets.get(k);if(!b){b={m:o.material,keys,parts:[],mode};buckets.set(k,b);}b.parts.push({g,it});});
  olds.forEach(o=>{o.parent.remove(o);o.geometry.dispose();});
  const merged=[];buckets.forEach(b=>{const m=new THREE.Mesh(new THREE.BufferGeometry(),b.m);scene.add(m);merged.push({b,m});});
@@ -45,8 +47,7 @@ const BAKE_WINDOWS=[];
 const CEILS=[];
 {const _cr=ceilRect;ceilRect=function(x0,x1,z0,z1,y,m,tile){CEILS.push([x0,x1,z0,z1,y]);return _cr(x0,x1,z0,z1,y,m,tile);};}
 // 開閉できるドアの開口の位置・向き・大きさを記録する（開いたドアの開口を「隣の部屋の明るさで光る面」として扱うため）。n：壁の +z（その壁の部屋側）
-const DOORWAYS={},WALLSH=[];
+const DOORWAYS={};
 {const _bw=buildWall;buildWall=function(g,len,h,ops,m,sc,bb,cut){g.updateMatrixWorld(true);const q=g.getWorldQuaternion(new THREE.Quaternion());
  ops.forEach(o=>{if(!o.toggle||DOORWAYS[o.toggle])return;const c=g.localToWorld(new THREE.Vector3((o.a+o.b)/2,o.y2/2,0));DOORWAYS[o.toggle]={c:c.toArray(),n:new THREE.Vector3(0,0,1).applyQuaternion(q).toArray(),w:o.b-o.a,h:o.y2};});
- const n0=g.children.length,r=_bw(g,len,h,ops,m,sc,bb,cut);g.children.slice(n0).forEach(c=>{if(c.isMesh&&c.geometry.type==='ShapeGeometry')WALLSH.push(c);});return r;};}
-// 壁の面（厚みの無い1枚の面）を記録する。影の計算では壁に厚みを持たせる（stg/lm.js）
+ return _bw(g,len,h,ops,m,sc,bb,cut);};}
