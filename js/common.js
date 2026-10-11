@@ -306,13 +306,25 @@ function addToggleDoor(g,o,m,sc){const gO=new THREE.Group(),gC=new THREE.Group()
 // ドアの開口（a〜b）は壁の穴（図面の壁と壁の間）。枠（額縁）は穴の内側に収め、外の端を穴の端にそろえる（隣の壁に埋まらない）。
 // 扉や枠の部品は、穴を額縁の幅の半分（DS2）ずつ内側へ狭めた位置（a'〜b'）を基準に作り、穴の端から a' までは見込み（壁の厚さ）でふさぐ。全ドア共通
 const DS2=o=>o.door==='high'?0.0175:0.025,inner=o=>({...o,a:o.a+DS2(o),b:o.b-DS2(o)});
+// 幅木の角とつなぎ目を合わせる（全部の壁を作った後に1回）：壁ごとに作ると、壁の始まりで12mm短くする決まりが、まっすぐつながる所と外へ出た角ではすき間になるため。
+// 端どうしが3cm以内の幅木の組で、まっすぐなら端を中点でそろえ、直角なら片方を角の外の面まで延ばし、もう片方をその面に突き付ける（内の角・外の角のどちらでも合う）
+const BBS=[];
+function fixBaseboards(scene){scene.updateMatrixWorld(true);const T=0.006;
+ const E=[];BBS.forEach((s,i)=>{const A=s.g.localToWorld(new THREE.Vector3(s.a,0,T)),B=s.g.localToWorld(new THREE.Vector3(s.b,0,T)),d=B.clone().sub(A).normalize();s.y=s.m.getWorldPosition(new THREE.Vector3()).y;s.d=d;E.push({s,k:'a',p:A,out:d.clone().negate()},{s,k:'b',p:B,out:d.clone()});});
+ const done=new Set();E.forEach(e=>{if(done.has(e))return;let best=null,bd=0.03;E.forEach(f=>{if(f.s===e.s||done.has(f)||Math.abs(f.s.y-e.s.y)>0.005)return;const dd=Math.hypot(f.p.x-e.p.x,f.p.z-e.p.z);if(dd<bd){bd=dd;best=f;}});if(!best)return;
+  const dot=Math.abs(e.s.d.dot(best.s.d));let pe,pf;
+  if(dot>0.999){pe=pf=e.p.clone().add(best.p).multiplyScalar(0.5);}
+  else if(dot<0.001){const d1=e.s.d,d2=best.s.d,den=d1.x*d2.z-d1.z*d2.x,t=((best.p.x-e.p.x)*d2.z-(best.p.z-e.p.z)*d2.x)/den,X=e.p.clone().addScaledVector(d1,t);pe=X.clone().addScaledVector(e.out,T);pf=X.clone().addScaledVector(best.out,-T);}
+  else return;
+  [[e,pe],[best,pf]].forEach(([q,pp])=>{q.s[q.k]=q.s.g.worldToLocal(pp.clone()).x;});done.add(e);done.add(best);});
+ BBS.forEach(s=>{const m=s.m;m.geometry.dispose();m.geometry=new THREE.BoxGeometry(s.b-s.a,0.06,0.012);m.position.x=(s.a+s.b)/2;});}
 function buildWall(g,len,h,ops,m,sc,bb,cut){   // cut={u,y}：u より先・高さ y より上を抜く（壁の形を L 字に）
 ops=ops.concat(ops.filter(o=>o.door==='slide'&&o.open).map(o=>{const q=inner(o),w=q.b-q.a;return o.dir<0?{a:q.a-w-0.025,b:o.a,y1:0,y2:o.y2}:{a:o.b,b:q.b+w+0.025,y1:0,y2:o.y2};}));   // 穴どうしは重ねない（重なると穴が抜けない）   // 引き戸の戸袋（手前の壁を抜いて、奥にへこんだ壁を作る。奥の端は額縁の外の端）。dir<0：a側へ引く
 const shp=new THREE.Shape();shp.moveTo(0,0);shp.lineTo(len,0);if(cut){shp.lineTo(len,cut.y);shp.lineTo(cut.u,cut.y);shp.lineTo(cut.u,h);}else shp.lineTo(len,h);shp.lineTo(0,h);shp.lineTo(0,0);
 ops.forEach(o=>{const y1=Math.max(o.y1,0.002),p=new THREE.Path();p.moveTo(o.a,y1);p.lineTo(o.a,o.y2);p.lineTo(o.b,o.y2);p.lineTo(o.b,y1);p.lineTo(o.a,y1);shp.holes.push(p);});
 const geo=new THREE.ShapeGeometry(shp);const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sc,uv.getY(i)/sc);
 g.add(new THREE.Mesh(geo,m));
-if(bb){const by=bb.y||0,seg=(u0,u1)=>{const v0=u0<0.001?0.012:u0;lbox(g,u1-v0,0.06,0.012,(v0+u1)/2,by+0.03,0.006,FIT);   // 幅木（開口の間ごと。壁の始まりの角では、前の壁の幅木に突き付けて厚さ12mm分短くする＝角で重ねない）。bb={y,tile}のときは、高さyに幅木、その下にタイル（土間の壁）
+if(bb){const by=bb.y||0,seg=(u0,u1)=>{const v0=u0<0.001?0.012:u0;BBS.push({m:lbox(g,u1-v0,0.06,0.012,(v0+u1)/2,by+0.03,0.006,FIT),g,a:v0,b:u1});   // 幅木（開口の間ごと。壁の始まりの角では、前の壁の幅木に突き付けて厚さ12mm分短くする＝角で重ねない）。bb={y,tile}のときは、高さyに幅木、その下にタイル（土間の壁）
   if(by>0){const t=new THREE.Mesh(uvPlane(u1-u0,by,u0,0.05,2.4,2.4),bb.tile);t.position.set((u0+u1)/2,by/2,0.004);g.add(t);}};   // タイルは目地の横線が入らない高さで切り出す
  const cuts=ops.filter(o=>o.y1<0.3).sort((p,q)=>p.a-q.a);let u=0;cuts.forEach(o=>{if(o.a-u>0.01)seg(u,o.a);u=Math.max(u,o.b);});if(len-u>0.01)seg(u,len);}
 ops.forEach(o=>{if(o.win)addWindow(g,o.a,o.b,o.y1,o.y2,o.panes,o.noShade,o.splitShade);if(o.hb)addHB(g,o.a,o.b,o.y2);if(o.door){const O=o;o=inner(o);const d=O.toggle||O.open?O.T:0.066,s2=DS2(O),fl=(u0,u1)=>{const dd=d-(d===O.T?0.002:0);lbox(g,u1-u0,O.y2,dd,(u0+u1)/2,O.y2/2,-dd/2,FIT);};if(O.door!=='frame'&&d){if(!(O.door==='slide'&&O.dir<0))fl(O.a,o.a);if(!(O.door==='slide'&&!(O.dir<0)))fl(o.b,O.b);}   // 穴の端から a'・b' までの見込み（引き戸の戸袋側は扉が通るので付けない。壁の厚さいっぱいのときは、向こうの壁の面と重ならないよう2mm手前まで）
