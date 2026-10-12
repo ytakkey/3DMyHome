@@ -33,6 +33,7 @@ void main(){ivec2 c=ivec2(gl_FragCoord.xy);vec4 p=texelFetch(tP,c,0);if(p.w!=0.0
  const fq=new THREE.Mesh(new THREE.PlaneGeometry(2,2),dil);fq.frustumCulled=false;const fs=new THREE.Scene();fs.add(fq);let a=GB,b=GB2;
  for(let i=0;i<4;i++){dil.uniforms.tP.value=a.textures[0];dil.uniforms.tN.value=a.textures[1];dil.uniforms.tA.value=a.textures[2];r.setRenderTarget(b);r.render(fs,cam0);[a,b]=[b,a];}
  if(a!==GB){dil.uniforms.tP.value=a.textures[0];dil.uniforms.tN.value=a.textures[1];dil.uniforms.tA.value=a.textures[2];r.setRenderTarget(GB);r.render(fs,cam0);}
+ GB2.dispose();   // すき間を埋め終わったら入れ替え用は捨てる（メモリ）
  {const am=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tP:{value:GB.textures[0]}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
   fragmentShader:`uniform sampler2D tP;out vec4 o;void main(){ivec2 c=ivec2(gl_FragCoord.xy);vec4 p=texelFetch(tP,c,0);if(p.w<=0.0){o=p;return;}vec3 s=vec3(0.0);float k=0.0;
    for(int y=-2;y<=2;y++)for(int x=-2;x<=2;x++){vec4 q=texelFetch(tP,c+ivec2(x,y),0);if(q.w==p.w){s+=q.xyz;k+=1.0;}}vec3 v=s/k-p.xyz;float l=length(v);o=vec4(l>0.01?p.xyz+v/l*0.015:p.xyz,p.w);}`});
@@ -72,6 +73,7 @@ const SUNDIR=(()=>{const az=THREE.MathUtils.degToRad(SUN_AZ),el=THREE.MathUtils.
 
 // ===== 影の画像（光から見た、いちばん近い物までの距離）を作るための、光を遮る物の形 =====
 // 動かない部品は1つの形にまとめ、ドアは開いた形・閉じた形を別々に持って開閉で切り替える。ガラス・光る部品・シェードは遮らない（シェードの開度は窓の光の量で表す）。型ガラスは直射を遮る
+// 影の画像（CUBE・CUBE2・SUNRT・SUNWIN）は距離1つだけなので、赤1色の浮動小数の画像にする（4色の画像の1/4のメモリ。iPhone ではメモリが足りずページが落ちたため）
 const OCC=new THREE.Scene(),distMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,side:THREE.DoubleSide,uniforms:{lp:{value:new THREE.Vector3()},sd:{value:new THREE.Vector3()},sun:{value:0}},
  vertexShader:`out vec3 vW;void main(){vec4 w=modelMatrix*vec4(position,1.0);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
  fragmentShader:`in vec3 vW;uniform vec3 lp,sd;uniform float sun;out vec4 o;void main(){o=vec4(sun>0.5?dot(vW,sd)+100.0:distance(vW,lp),0.0,0.0,1.0);}`});   // 太陽は光の向きに沿った深さ（＋100。0は「何も無い」の印）
@@ -112,11 +114,11 @@ const OCCB=new THREE.Scene();{scene.updateMatrixWorld(true);const st=SLABX();st.
  let n=0;st.forEach(g=>n+=g.attributes.position.array.length);const arr=new Float32Array(n);let off=0;st.forEach(g=>{arr.set(g.attributes.position.array,off);off+=g.attributes.position.array.length;g.dispose();});const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(arr,3));
  const m=new THREE.Mesh(g,distMat);m.frustumCulled=false;OCCB.add(m);OCCDOOR.forEach(d=>{const c=new THREE.Mesh(d.geometry,distMat);c.frustumCulled=false;c.userData=d.userData;OCCB.add(c);d.userData.twin=c;});LM.occbTris=arr.length/9;}
 const syncDoors=()=>OCCDOOR.forEach(m=>{m.visible=!!DS[m.userData.door]===m.userData.open;m.userData.twin.visible=m.visible;});
-const CUBE=new THREE.WebGLCubeRenderTarget(256,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});const CCAM=new THREE.CubeCamera(0.04,14,CUBE);OCC.add(CCAM);
-const SUNRT=new THREE.WebGLRenderTarget(4096,4096,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false,depthBuffer:true});
+const CUBE=new THREE.WebGLCubeRenderTarget(256,{type:THREE.FloatType,format:THREE.RedFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});const CCAM=new THREE.CubeCamera(0.04,14,CUBE);OCC.add(CCAM);
+const SUNRT=new THREE.WebGLRenderTarget(4096,4096,{type:THREE.FloatType,format:THREE.RedFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false,depthBuffer:true,depthTexture:new THREE.DepthTexture(4096,4096,THREE.UnsignedShortType)});
 const SCAM=new THREE.OrthographicCamera(-7,7,7,-7,0.1,60);{const c=new THREE.Vector3(1.3,3,3.6);SCAM.position.copy(c).addScaledVector(SUNDIR,25);SCAM.lookAt(c);SCAM.updateMatrixWorld(true);SCAM.updateProjectionMatrix();}
 // シェードのある窓：太陽から見たその窓の深さの画像。日差しがこの窓を通るときだけ、シェードの開度で弱める（ほかの窓の日差しは変えない。要件 C3）
-const SUNWIN=new THREE.WebGLRenderTarget(2048,2048,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false,depthBuffer:true}),WINQ=new THREE.Scene();
+const SUNWIN=new THREE.WebGLRenderTarget(2048,2048,{type:THREE.FloatType,format:THREE.RedFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false,depthBuffer:true,depthTexture:new THREE.DepthTexture(2048,2048,THREE.UnsignedShortType)}),WINQ=new THREE.Scene();
 (typeof BAKE_WINDOWS!=='undefined'?BAKE_WINDOWS:[]).filter(w=>w.shadeable).forEach(w=>{const c=new THREE.Vector3(...w.c),u=new THREE.Vector3(...w.u),up=new THREE.Vector3(0,1,0),P=(a,b)=>c.clone().addScaledVector(u,a*w.w/2).addScaledVector(up,b*w.h/2),q=[P(-1,-1),P(1,-1),P(1,1),P(-1,-1),P(1,1),P(-1,1)],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(q.flatMap(v=>v.toArray()),3));const m=new THREE.Mesh(g,distMat);m.frustumCulled=false;WINQ.add(m);});
 const SUNVP=new THREE.Matrix4().multiplyMatrices(SCAM.projectionMatrix,SCAM.matrixWorldInverse);
 
@@ -175,27 +177,27 @@ const CELL=16,CELLS=[],CGRP=[];LM.charts.forEach((c,ci)=>{for(let y=0;y<c.h;y+=C
 const CW=256,CH=Math.ceil(CELLS.length/CW);
 const cellTex=(()=>{const a=new Float32Array(CW*CH*4);CELLS.forEach((c,i)=>a.set(c,i*4));const t=new THREE.DataTexture(a,CW,CH,THREE.RGBAFormat,THREE.FloatType);t.needsUpdate=true;return t;})();
 const CRT=new THREE.WebGLRenderTarget(CW,CH,{count:3,type:THREE.FloatType,depthBuffer:false,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});
-const aggMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tE:{value:null},tE2:{value:null},tP:{value:GB.textures[0]},tN:{value:GB.textures[1]},tA:{value:GB.textures[2]},tC:{value:cellTex},n:{value:CELLS.length}},
+const aggMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tE:{value:null},tE2:{value:null},e2:{value:0},tP:{value:GB.textures[0]},tN:{value:GB.textures[1]},tA:{value:GB.textures[2]},tC:{value:cellTex},n:{value:CELLS.length}},
  vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D tE,tE2,tP,tN,tA,tC;uniform int n;layout(location=0) out vec4 oF;layout(location=1) out vec4 oP;layout(location=2) out vec4 oN;
+ fragmentShader:`uniform sampler2D tE,tE2,tP,tN,tA,tC;uniform int n,e2;layout(location=0) out vec4 oF;layout(location=1) out vec4 oP;layout(location=2) out vec4 oN;
 void main(){ivec2 c=ivec2(gl_FragCoord.xy);int i=c.y*${CW}+c.x;oF=vec4(0.0);oP=vec4(0.0);oN=vec4(0.0);if(i>=n)return;vec4 r=texelFetch(tC,c,0);ivec2 o=ivec2(r.xy);int w=int(r.z),h=int(r.w);vec3 F=vec3(0.0),P=vec3(0.0),P2=vec3(0.0),N=vec3(0.0);float k=0.0,wf=0.0;
- for(int y=0;y<${CELL};y++){if(y>=h)break;for(int x=0;x<${CELL};x++){if(x>=w)break;ivec2 q=o+ivec2(x,y);vec4 p=texelFetch(tP,q,0);if(p.w==0.0)continue;vec3 f=(texelFetch(tE,q,0).rgb+texelFetch(tE2,q,0).rgb)*texelFetch(tA,q,0).rgb;float fl=dot(f,vec3(0.2126,0.7152,0.0722));F+=f;P+=p.xyz;P2+=p.xyz*fl;wf+=fl;N+=texelFetch(tN,q,0).xyz;k+=1.0;}}
+ for(int y=0;y<${CELL};y++){if(y>=h)break;for(int x=0;x<${CELL};x++){if(x>=w)break;ivec2 q=o+ivec2(x,y);vec4 p=texelFetch(tP,q,0);if(p.w==0.0)continue;vec3 f=(texelFetch(tE,q,0).rgb+(e2==1?texelFetch(tE2,q,0).rgb:vec3(0.0)))*texelFetch(tA,q,0).rgb;float fl=dot(f,vec3(0.2126,0.7152,0.0722));F+=f;P+=p.xyz;P2+=p.xyz*fl;wf+=fl;N+=texelFetch(tN,q,0).xyz;k+=1.0;}}
  if(k>0.0){oF=vec4(F,k);oP=vec4(wf>0.0?P2/wf:P/k,k);oN=vec4(normalize(N),0.0);}}`});   // セルごとに：反射する光の量（照度×反射率の合計）・光の量で重みを付けた中心（光が当たっている所から光らせる。ドアの下をまたぐ床などで、暗い側から光を出さないように）・向き
 const aggQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),aggMat);aggQ.frustumCulled=false;const AGGS=new THREE.Scene();AGGS.add(aggQ);
-const CUBE2=new THREE.WebGLCubeRenderTarget(LM.cube2||128,{type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});const CCAM2=new THREE.CubeCamera(0.03,14,CUBE2);OCCB.add(CCAM2);
+const CUBE2=new THREE.WebGLCubeRenderTarget(LM.cube2||128,{type:THREE.FloatType,format:THREE.RedFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});const CCAM2=new THREE.CubeCamera(0.03,14,CUBE2);OCCB.add(CCAM2);
 // 照り返しは変化がなだらかなので、チャートの中は8×8画素（32cm）に1画素だけ計算し（MK）、残りは同じチャートのまわりの計算した画素から補う（チャートをまたがない）。頂点ごとの画素は全部、格子で補えない画素はその画素を計算する
 LM.bstep=8;const MKD=new Uint8Array(LMW*LMH*4),PTS=[];{const P=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,P,undefined,0);
  // ドアの側の印：閉じたドアの面（SEALS）の近く（面から35cm以内で、開口と扉の幅＋15cm・高さの範囲。扉の面とほぼ同じ位置（3mm以内）の画素は除く＝ドアの横の壁で側がばらつかないように）にある画素に、ドアごとに「どちら側か」を記録する。補うときは、閉じたドアの反対側の画素を使わない（床がドアの下でつながっていても、向こうの明るさがにじまない）
  const NN=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,NN,undefined,1);const SC=new Float32Array(LMW*LMH),SS=new Float32Array(LMW*LMH),NEAR=new Uint8Array(LMW*LMH),LF=new Float32Array(LMW*LMH);for(let i=0;i<LMW*LMH;i++){if(P[i*4+3]===0)continue;const x=P[i*4],y=P[i*4+1],z=P[i*4+2];let c=0,sd=0,lf=0;const ch=P[i*4+3]>0?LM.charts[P[i*4+3]-1]:null,dynC=!ch||!!(ch.o&&ch.o.userData&&ch.o.userData.dyn);   // 扉そのもの（動く部品）は除く
   SEALS.forEach((q,j)=>{const dx=x-q.c.x,dy=y-q.c.y,dz=z-q.c.z,sv=dx*q.n.x+dy*q.n.y+dz*q.n.z-q.off,u=dx*q.t.x+dy*q.t.y+dz*q.t.z;if(Math.abs(sv)<0.35&&Math.abs(sv)>0.003&&u>q.t0-0.15&&u<q.t1+0.15&&y>q.b0-0.05&&y<q.b1+0.05){c|=1<<j;if(sv>0)sd|=1<<j;if(Math.abs(sv)<0.12)NEAR[i]=1;if(!dynC&&u>q.t0&&u<q.t1&&Math.abs(sv)<q.lh+0.03&&NN[i*4+1]>0.9&&y<q.b0+0.1)lf=j+1;}});SC[i]=c;SS[i]=sd;LF[i]=lf;}
  const sideOK=(i,k)=>{const cc=SC[i]&SC[k];return ((SS[i]^SS[k])&cc)===0;};
- {const D=new Float32Array(LMW*LMH*4);for(let i=0;i<LMW*LMH;i++){D[i*4]=SC[i];D[i*4+1]=SS[i];D[i*4+2]=LF[i];}const t=new THREE.DataTexture(D,LMW,LMH,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;LM.sideTex=t;}
+ {const D=new Float32Array(LMW*LMH*4);for(let i=0;i<LMW*LMH;i++){D[i*4]=SC[i];D[i*4+1]=SS[i];D[i*4+2]=LF[i];}const t=new THREE.DataTexture(D,LMW,LMH,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;t.onUpdate=()=>{t.image.data=null;};LM.sideTex=t;}
  {const isG=i=>{const w=P[i*4+3];if(!(w>0))return false;const ch=LM.charts[w-1];return !!(ch&&ch.o&&ch.o.material===bathGlM);},H=new Map(),key=(x,y,z)=>Math.round(x*100)+','+Math.round(y*100)+','+Math.round(z*100);
   const G=[];for(let i=0;i<LMW*LMH;i++)if(isG(i)){G.push(i);H.set(key(P[i*4],P[i*4+1],P[i*4+2])+'|'+Math.round(NN[i*4]*2)+','+Math.round(NN[i*4+1]*2)+','+Math.round(NN[i*4+2]*2),i);}
-  const D=new Float32Array(LMW*LMH*4);G.forEach(i=>{const nx=NN[i*4],ny=NN[i*4+1],nz=NN[i*4+2],ox=P[i*4]-nx*0.006,oy=P[i*4+1]-ny*0.006,oz=P[i*4+2]-nz*0.006,nk='|'+Math.round(-nx*2)+','+Math.round(-ny*2)+','+Math.round(-nz*2);
+  const D=LM.sideTex.image.data;G.forEach(i=>{const nx=NN[i*4],ny=NN[i*4+1],nz=NN[i*4+2],ox=P[i*4]-nx*0.006,oy=P[i*4+1]-ny*0.006,oz=P[i*4+2]-nz*0.006,nk='|'+Math.round(-nx*2)+','+Math.round(-ny*2)+','+Math.round(-nz*2);
    let j,bd=1e9;for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++)for(let dz=-3;dz<=3;dz++){const k=H.get(key(ox+dx/100,oy+dy/100,oz+dz/100)+nk);if(k===undefined)continue;const dd=(P[k*4]-ox)**2+(P[k*4+1]-oy)**2+(P[k*4+2]-oz)**2;if(dd<bd){bd=dd;j=k;}}   // 裏の面で、いちばん近い画素（3cm以内）
-   if(j!==undefined){D[i*4]=j%LMW;D[i*4+1]=Math.floor(j/LMW);D[i*4+2]=1;}});
-  const t=new THREE.DataTexture(D,LMW,LMH,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;LM.oppTex=t;LM.nGlass=G.length;}   // すりガラスの裏表の対応（裏の面は、表で受けた光の一部で光って見える）
+   if(j!==undefined)D[i*4+3]=j+1;});
+  LM.nGlass=G.length;}   // すりガラスの裏表の対応（裏の面は、表で受けた光の一部で光って見える）。裏の画素の番号＋1を LM.sideTex の4番目の値に入れる（別の画像を作らない。メモリ）
  const R=LM.bstep-1,COV=new Uint8Array(LMW*LMH);
  const set=(x,y)=>{const k=(y*LMW+x)*4;if(MKD[k])return;MKD[k]=MKD[k+1]=MKD[k+2]=MKD[k+3]=255;PTS.push(x,y,0);const w=P[k+3];if(w<=0)return;
   for(let j=Math.max(0,y-R);j<=Math.min(LMH-1,y+R);j++)for(let i=Math.max(0,x-R);i<=Math.min(LMW-1,x+R);i++)if(P[(j*LMW+i)*4+3]===w&&sideOK(j*LMW+i,y*LMW+x))COV[j*LMW+i]=1;};   // COV：同じチャートで、計算する画素から R 以内（補える）
@@ -213,13 +215,13 @@ const fillMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{R:LM.bs
  vec3 s=vec3(0.0);float ws=0.0;for(int y=-R;y<=R;y++)for(int x=-R;x<=R;x++){ivec2 q=c+ivec2(x,y);if(texelFetch(tM,q,0).r<0.5||texelFetch(tP,q,0).w!=w)continue;vec3 sq=texelFetch(tS,q,0).xyz;if(((s0^int(sq.y))&c0&int(sq.x))!=0||(sq.z>0.5&&((closed>>(int(sq.z)-1))&1)==1))continue;float k=(1.0-abs(float(x))/float(R+1))*(1.0-abs(float(y))/float(R+1));s+=texelFetch(tE,q,0).rgb*k;ws+=k;}o=vec4(ws>0.0?s/ws:vec3(0.0),1.0);}`});
 const fillQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fillMat);fillQ.frustumCulled=false;const FILLS=new THREE.Scene();FILLS.add(fillQ);
 const fillTo=(src,dst)=>{fillMat.uniforms.closed.value=SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);fillMat.uniforms.tE.value=src.texture;r.setRenderTarget(dst);r.render(FILLS,CAM0);};
-const EB1=ED.clone(),EB2=ED.clone(),EBT=ED.clone(),ET=ED.clone(),EG=ED.clone(),EZ=ED.clone();r.setRenderTarget(EZ);r.setClearColor(0x000000,0);r.clear();r.setRenderTarget(null);   // EG：G1 の直接の光（照り返しの元にだけ使う。表示は実時間）、EZ：黒
+const EB1=ED.clone(),EBT=ED.clone();let ET=ED.clone(),EG=ED.clone();   // ET：表示に使う照度。EG：作業用（G1・太陽の直接の光＝照り返しの元にだけ使う。表示は実時間／2回目の照り返し／足し合わせ）。描き込み終わると ET と EG を入れ替え、EG が前の照度になる（なめらかに切り替えるのに使う）。画像の数を減らしてメモリを節約（iPhone で落ちたため）
 const CGRPC=CGRP.map(k=>+k.split(':')[0]);   // まとまりのチャートの番号
 LM.bsoft=1.5;LM.wsoft=2;   // 照り返しの影のやわらかさ（影の画像の画素の何倍の幅で平均するか）
 const GLASS_T=0.5;   // 浴室のドアのすりガラスの透過率（仮）
 const NSHOOT=[2000,6000];   // 照り返しの1回目・2回目で光る面として使うまとまりの、光の量の下限（この値より暗いまとまりは、照らしても見えないほどなので省く）。
 // 「明るい順に何個」にすると、昼は日なたが上位を占めて窓の無い部屋のまとまりが外れ、同じ部屋が昼夜で違って見える（トイレの指摘）。下限は全状態で同じなので、ある部屋の照り返しは他の部屋の明るさによらない
-function bounce(src,dst,src2,ns){aggMat.uniforms.tE.value=src.texture;aggMat.uniforms.tE2.value=(src2||EZ).texture;r.setRenderTarget(CRT);r.render(AGGS,CAM0);const F=new Float32Array(CW*CH*4),P=new Float32Array(CW*CH*4),N=new Float32Array(CW*CH*4);
+function bounce(src,dst,src2,ns){aggMat.uniforms.tE.value=src.texture;aggMat.uniforms.tE2.value=(src2||src).texture;aggMat.uniforms.e2.value=src2?1:0;r.setRenderTarget(CRT);r.render(AGGS,CAM0);const F=new Float32Array(CW*CH*4),P=new Float32Array(CW*CH*4),N=new Float32Array(CW*CH*4);
  r.readRenderTargetPixels(CRT,0,0,CW,CH,F,undefined,0);r.readRenderTargetPixels(CRT,0,0,CW,CH,P,undefined,1);r.readRenderTargetPixels(CRT,0,0,CW,CH,N,undefined,2);
  const G=new Map();for(let i=0;i<CELLS.length;i++){const k=F[i*4+3];if(k<=0)continue;const y=0.2126*F[i*4]+0.7152*F[i*4+1]+0.0722*F[i*4+2];if(!(y>0))continue;
   let g=G.get(CGRP[i]);if(!g){g={y:0,F:new THREE.Vector3(),P:new THREE.Vector3(),N:new THREE.Vector3(N[i*4],N[i*4+1],N[i*4+2]),k:0,i,ts:(LM.charts[CGRPC[i]]||{}).ts||LM.ts};G.set(CGRP[i],g);}g.y+=y;g.F.x+=F[i*4];g.F.y+=F[i*4+1];g.F.z+=F[i*4+2];g.P.addScaledVector(new THREE.Vector3(P[i*4],P[i*4+1],P[i*4+2]),y);g.k+=k;}   // まとまりごとに：光の量の合計・光の量で重みを付けた中心
@@ -236,12 +238,11 @@ LM.nSel=(LM.nSel||[]).concat(sel.length).slice(-2);
  sel.forEach(g=>{const n=g.N;if(!(n.lengthSq()>0.5))return;const pos=g.P.multiplyScalar(1/g.y),area=g.k*g.ts*g.ts,phi=g.F.clone().multiplyScalar(g.ts*g.ts/Math.PI*Math.min(1,(g.y-ns)/ns));   // 反射した光束÷π（拡散面の正面の光度）
   bakeEmitter({pos:pos.addScaledVector(n,0.02),dir:n,lamb:1,intensity:1,colv:phi,r2:area/Math.PI,soft:LM.bsoft,cube:2},dst);});
  LM.nShoot=sel.length;}
-const sumMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{a:{value:ED.texture},b:{value:EB1.texture},c:{value:EB2.texture},tS:{value:LM.sideTex},closed:{value:0},tO:{value:LM.oppTex},gT:{value:GLASS_T/(0.2126*bathGlM.color.r+0.7152*bathGlM.color.g+0.0722*bathGlM.color.b)}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D a,b,c,tS,tO;uniform float gT;uniform int closed;out vec4 o;void main(){ivec2 q=ivec2(gl_FragCoord.xy);float lf=texelFetch(tS,q,0).z;if(lf>0.5&&((closed>>(int(lf)-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}o=vec4(texelFetch(a,q,0).rgb+texelFetch(b,q,0).rgb+texelFetch(c,q,0).rgb,1.0);vec3 op=texelFetch(tO,q,0).xyz;if(op.z>0.5){ivec2 r=ivec2(op.xy);o.rgb+=(texelFetch(a,r,0).rgb+texelFetch(b,r,0).rgb+texelFetch(c,r,0).rgb)*gT;}}`});   // 閉じた扉の真下と、扉の表裏から3cm以内の床は光を0に（扉の足元の細い陰。影の判定の余裕の中で向こうの光を拾うため）。枠や壁の面は0にしない（ドアの縁が黒い線になるため）
+const sumMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{a:{value:ED.texture},b:{value:EB1.texture},c:{value:EBT.texture},tS:{value:LM.sideTex},closed:{value:0},gT:{value:GLASS_T/(0.2126*bathGlM.color.r+0.7152*bathGlM.color.g+0.0722*bathGlM.color.b)}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
+ fragmentShader:`uniform sampler2D a,b,c,tS;uniform float gT;uniform int closed;out vec4 o;void main(){ivec2 q=ivec2(gl_FragCoord.xy);vec4 sq=texelFetch(tS,q,0);float lf=sq.z;if(lf>0.5&&((closed>>(int(lf)-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}o=vec4(texelFetch(a,q,0).rgb+texelFetch(b,q,0).rgb+texelFetch(c,q,0).rgb,1.0);if(sq.w>0.5){int j=int(sq.w+0.5)-1;ivec2 r=ivec2(j%${LMW},j/${LMW});o.rgb+=(texelFetch(a,r,0).rgb+texelFetch(b,r,0).rgb+texelFetch(c,r,0).rgb)*gT;}}`});   // 閉じた扉の真下と、扉の表裏から3cm以内の床は光を0に（扉の足元の細い陰。影の判定の余裕の中で向こうの光を拾うため）。枠や壁の面は0にしない（ドアの縁が黒い線になるため）
 const sumQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),sumMat);sumQ.frustumCulled=false;const SUMS=new THREE.Scene();SUMS.add(sumQ);
 // ===== 普段の描画：光は使わず、ライトマップの照度を「周りからの光」として材質に入れる（拡散の明るさ＝照度×反射率÷π） =====
-const ETP=ET.clone(),cpMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{a:{value:ET.texture}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,fragmentShader:`uniform sampler2D a;out vec4 o;void main(){o=texelFetch(a,ivec2(gl_FragCoord.xy),0);}`}),CPS=new THREE.Scene();{const q=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cpMat);q.frustumCulled=false;CPS.add(q);}   // ETP：切り替える前のライトマップ（なめらかに切り替えるため）
-const LMU={lmPrev:{value:ETP.texture},fade:{value:1},lmTex:{value:ET.texture},lmScale:{value:new THREE.Vector3(1,1,1)},sunS:{value:SUNRT.texture},sunW:{value:SUNWIN.texture},sunVP:{value:SUNVP},sunD:{value:SUNDIR.clone()},sunC:{value:new THREE.Vector3()},sunOn:{value:0},shadeT:{value:1},sunR:{value:0.015/14}};   // sun…：太陽の直接の光（表示で計算）。sunR：影の縁のぼかしの半径（約1.5cm。太陽の大きさによる半影）
+const LMU={lmPrev:{value:EG.texture},fade:{value:1},lmTex:{value:ET.texture},lmScale:{value:new THREE.Vector3(1,1,1)},sunS:{value:SUNRT.texture},sunW:{value:SUNWIN.texture},sunVP:{value:SUNVP},sunD:{value:SUNDIR.clone()},sunC:{value:new THREE.Vector3()},sunOn:{value:0},shadeT:{value:1},sunR:{value:0.015/14}};   // sun…：太陽の直接の光（表示で計算）。sunR：影の縁のぼかしの半径（約1.5cm。太陽の大きさによる半影）
 // lmB：ライトマップを4×4画素でなめらかに読む（3次のB-スプライン。画素の段々が見えないように）
 function lmPatch(sh){Object.assign(sh.uniforms,LMU);
  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec3 lm;uniform sampler2D lmTex,lmPrev;uniform float fade;varying vec2 vLmUv;varying vec3 vLmV;varying vec3 vWP;')
@@ -276,14 +277,14 @@ function relight(chg){envAll();syncDoors();const sh=bedS.shadeP||0,tr=(1-sh)+sh*
   for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){const pos=c.pos.clone().addScaledVector(ua,((i+0.5)/nx-0.5)*ww).add(new THREE.Vector3(0,((j+0.5)/ny-0.5)*wh,0));bakeEmitter({pos,dir:c.dir,type:'spot',angle:c.angle,penumbra:1,intensity:I/N,col,r2:a1/Math.PI,soft:LM.wsoft});n++;}});   // 窓：空の光。窓の面に並べた点（最大4×3）から出す（大きな面の光なので、椅子の脚のような細い物の影は自然に薄くなる）
  LMU.sunOn.value=night?0:1;if(!night){bakeMat.uniforms.shadeT.value=tr;LMU.shadeT.value=tr;const sc=lumColor(0xfff1dc).multiplyScalar(SUN_LUX*SUN_K*SC);LMU.sunC.value.set(sc.r,sc.g,sc.b);bakeSun(SUN_LUX*SUN_K,lumColor(0xfff1dc));n++;}
  {const w=WBC;LMU.lmScale.value.set(1/SC/w.r,1/SC/w.g,1/SC/w.b);if(G1L.userData.col)G1L.color.setRGB(G1L.userData.col.r/w.r,G1L.userData.col.g/w.g,G1L.userData.col.b/w.b);}   // 白の合わせは固定（点いている照明や昼夜で変えない。変えると同じ部屋の色が状態で変わるため）
- const t1=performance.now();bounce(ED,EBT,EG,NSHOOT[0]);fillTo(EBT,EB1);bounce(EB1,EBT,null,NSHOOT[1]);fillTo(EBT,EB2);sumMat.uniforms.closed.value=SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);r.setRenderTarget(ET);r.render(SUMS,CAM0);LM.bounceMs=performance.now()-t1;   // 照り返し2回を足して、表示に使う照度にする
+ const t1=performance.now();bounce(ED,EBT,EG,NSHOOT[0]);fillTo(EBT,EB1);bounce(EB1,EG,null,NSHOOT[1]);fillTo(EG,EBT);sumMat.uniforms.closed.value=SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);r.setRenderTarget(EG);r.render(SUMS,CAM0);[ET,EG]=[EG,ET];LMU.lmTex.value=ET.texture;LMU.lmPrev.value=EG.texture;LM.bounceMs=performance.now()-t1;   // 照り返し2回を足して、表示に使う照度にする
  r.toneMappingExposure=LM.EXPO;updateGlow();r.setRenderTarget(null);LM.bakeMs=performance.now()-t0;LM.nEmit=n;}
 draw=function(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.setRenderTarget(null);r.render(scene,cam);};
 // 照明・昼夜・ドア・シェードを切り替えたとき：まず今の光のまま表示を切り替え（ドアの開閉・器具の点灯はすぐ見える）、次の描画で光を描き込み、0.3秒かけて前の光からなめらかに切り替える。
 // LM.async=false のとき（確認の道具・読み込み直後）はその場で描き込む
 LM.async=false;let rlBusy=false,rlAgain=false;
 function requestRelight(){if(!LM.async){relight();LMU.fade.value=1;draw();return;}envAll();draw();if(rlBusy){rlAgain=true;return;}rlBusy=true;
- setTimeout(()=>{rlAgain=false;r.setRenderTarget(ETP);r.render(CPS,CAM0);r.setRenderTarget(null);relight();LMU.fade.value=0;const t0=performance.now();
+ setTimeout(()=>{rlAgain=false;relight();LMU.fade.value=0;const t0=performance.now();
   const step=()=>{const f=Math.min(1,(performance.now()-t0)/300);LMU.fade.value=f;draw();if(f<1)setTimeout(step,16);else{rlBusy=false;if(rlAgain){rlAgain=false;requestRelight();}}};setTimeout(step,16);},30);}
 applyEnvAll=function(){requestRelight();};
 {const _td=toggleDoor;toggleDoor=function(k){const was=DS[k];_td(k);if(DS[k]!==was)requestRelight();};}
