@@ -1,7 +1,7 @@
 // 検証版（stg）：ライトマップ方式（0章の要件・8章）。点灯・昼夜・ドア・シェードが変わったときだけ、光（影を含む）と照り返しを面の画像（ライトマップ）に描き込み、普段の描画はその画像を貼るだけ
 // 画像の1画素＝面の上の1点（stg/pre.js が付けた属性 lm で対応）。まず各画素の位置・向き・色（G-buffer）を作り、光ごとに「その点から光が見えるか」を影の画像で調べて明るさを足す
 r.toneMapping=THREE.AgXToneMapping;   // 明るい所をなだらかに圧縮する（日なたが白く飛ばず、暗めの所も見える）
-const LMW=LM.W,LMH=LM.H;
+const LMW=LM.W,LMH=LM.H;LM.tm={t0:performance.now()};   // tm：読み込みの各段階の時間（確認用）
 // ===== G-buffer：画素ごとの位置（家の座標）・向き・色（反射率） =====
 const GB=new THREE.WebGLRenderTarget(LMW,LMH,{count:3,type:THREE.FloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,generateMipmaps:false});
 const GB2=GB.clone();   // すき間を埋めるときの入れ替え用
@@ -22,7 +22,8 @@ void main(){vec3 a=color;if(hasMap)a*=texture(map,vUv).rgb;oP=vec4(vP,vId);oN=ve
 const LMOBJ=[];   // lm を持つ部品（描画の材質に画像を貼る対象）
 {const gs=new THREE.Scene();scene.updateMatrixWorld(true);
  scene.traverse(o=>{if(!o.isMesh||!o.geometry.attributes.lm)return;LMOBJ.push(o);const m=o.material,gm=gbMat(m);if(o.geometry.attributes.uv)gm.defines={HAS_UV:1};if(m.map){m.map.updateMatrix();gm.uniforms.uvT.value.copy(m.map.matrix);}
-  const vert=o.geometry.attributes.lm.getZ(0)>0.5,px=vert?new THREE.Points(o.geometry,gm):new THREE.Mesh(o.geometry,gm);px.matrixAutoUpdate=false;px.matrixWorld.copy(o.matrixWorld);px.matrix.copy(o.matrixWorld);px.frustumCulled=false;gs.add(px);});
+  const vert=o.geometry.attributes.lm.getZ(0)>0.5,px=vert?new THREE.Points(o.geometry,gm):new THREE.Mesh(o.geometry,gm);px.matrixAutoUpdate=false;px.matrixWorld.copy(o.matrixWorld);px.matrix.copy(o.matrixWorld);px.frustumCulled=false;gs.add(px);
+  if(!vert){const wm=gbMat(m);if(o.geometry.attributes.uv)wm.defines={HAS_UV:1};if(m.map)wm.uniforms.uvT.value.copy(m.map.matrix);wm.wireframe=true;const wx=new THREE.Mesh(o.geometry,wm);wx.renderOrder=-1;wx.matrixAutoUpdate=false;wx.matrixWorld.copy(o.matrixWorld);wx.matrix.copy(o.matrixWorld);wx.frustumCulled=false;gs.add(wx);}});   // 三角形の辺も線で先に描く：画素より細い面（ドアの開口と隅の間の細い壁など）は、三角形だけだと画素の中心にかからず何も書かれない（表示でその空の画素を読んで黒い線になる）
  const cam0=new THREE.Camera();r.setRenderTarget(GB);r.setClearColor(0x000000,0);r.clear();gs.traverse(o=>{if(o.isMesh||o.isPoints)o.updateMatrixWorld=()=>{};});r.render(gs,cam0);
  // すき間を埋める：まだ書かれていない画素（チャートの余白・細い三角形の取りこぼし）に、となりの書かれた画素の値を入れる（2回）
  const dil=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tP:{value:null},tN:{value:null},tA:{value:null}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
@@ -81,13 +82,27 @@ const occOf=o=>{const m=o.material;if(FROST.includes(o))return true;if(m.isMeshB
 // 壁・床・天井は厚みの無い1枚の面で、床・天井は隙間ができないよう壁の向こうへ8cm広げてある。そのままだと、面のすぐ裏や壁の向こうへ出た床に向こう側（外・隣の部屋）の光が当たり、ライトマップのにじみで根元や隅に明るい線が出る（光漏れ）。
 // 影の計算でだけ、大きな平らな面（チャートの広さ0.3m²以上：壁・床・天井・大きな家具の面。作り方によらない）を、裏側へ厚みのある板にする。厚みは最大 SLABT、裏に向かい合う面があればその5mm手前まで（隣の部屋へはみ出さない）
 // 向かい合う面かどうかは、面の向きの方向にも s だけ広げた箱が重なるかで見る
+// 内側の角（部屋から見てへこんだ角）では、2枚の板の外側の角に穴が残り、そこを通った光（日差しなど）が角のすぐ近くの画素に届く（土間収納の天井の角の光る点）。
+// 面の外周の辺が、ほぼ直角に出会う別の大きな面 o の上にあり、o が部屋側でこの辺に接している所だけ、辺から o の板の厚み分だけ板を延ばしてふさぐ（CF。開口の縁などは延ばさない）
 const SLABT=0.1,SLABX=(()=>{scene.updateMatrixWorld(true);const big=new Map(),v=new THREE.Vector3();
  LM.big.forEach(({c,tri,nrm})=>{const n=new THREE.Vector3(c.nx,c.ny,c.nz).normalize();if(nrm&&n.dot(new THREE.Vector3(...nrm))<0)n.negate();const b={c,n,box:new THREE.Box3(),tri};   // 表の向きは光の計算に使う面の向き（法線）で決める（反転して作った部品でも、表側に板を作らない）
 for(let k=0;k<tri.length;k+=3)b.box.expandByPoint(v.set(tri[k],tri[k+1],tri[k+2]));big.set(c,b);});   // stg/pre.js が記録した、動かない部品の大きな平らな面
  const B=[...big.values()];B.forEach(b=>{b.d=b.n.dot(b.box.getCenter(v));});
  B.forEach(b=>{let T=SLABT+0.005;B.forEach(o=>{if(o===b||b.n.dot(o.n)>-0.99)return;const s=b.d+o.d;   // o の面は b の面の裏 s の所（o.d=−(b.n·点)）
-  if(!(s>0.0005&&s<T))return;const e=b.box.clone().expandByScalar(s+0.01);if(!e.intersectsBox(o.box))return;T=s;});b.T=Math.max(0.004,Math.min(SLABT,T-0.005));});
- return ()=>{const out=[];B.forEach(b=>{const q=b.tri,dx=-b.n.x*b.T,dy=-b.n.y*b.T,dz=-b.n.z*b.T,pos=[];for(let t=0;t<q.length;t+=9){const A=[q[t],q[t+1],q[t+2]],Bv=[q[t+3],q[t+4],q[t+5]],C=[q[t+6],q[t+7],q[t+8]],D=p=>[p[0]+dx,p[1]+dy,p[2]+dz],A2=D(A),B2=D(Bv),C2=D(C);
+  if(!(s>0.0005&&s<T))return;const e=b.box.clone().expandByScalar(s+0.01);if(!e.intersectsBox(o.box))return;T=s;});b.T=Math.max(0.004,Math.min(SLABT,T-0.005));});LM.slabB=B;
+ const CF=[],CFB=LM.cfBox=[];{const V=(x,y,z)=>new THREE.Vector3(x,y,z),inO=(o,p)=>{const t=o.tri,a=new THREE.Vector3(),b1=new THREE.Vector3(),c=new THREE.Vector3(),v0=new THREE.Vector3(),v1=new THREE.Vector3(),v2=new THREE.Vector3();for(let k=0;k<t.length;k+=9){a.set(t[k],t[k+1],t[k+2]);b1.set(t[k+3],t[k+4],t[k+5]);c.set(t[k+6],t[k+7],t[k+8]);v0.subVectors(b1,a);v1.subVectors(c,a);v2.subVectors(p,a);
+   const d00=v0.dot(v0),d01=v0.dot(v1),d11=v1.dot(v1),d20=v2.dot(v0),d21=v2.dot(v1),den=d00*d11-d01*d01;if(!(den>1e-12))continue;const y=(d11*d20-d01*d21)/den,z=(d00*d21-d01*d20)/den;if(y>=-1e-4&&z>=-1e-4&&y+z<=1+1e-4)return true;}return false;};
+  B.forEach(b=>{const q=b.tri,E=new Map(),K=(i)=>Math.round(q[i]*1e4)+','+Math.round(q[i+1]*1e4)+','+Math.round(q[i+2]*1e4);
+   for(let t=0;t<q.length;t+=9)for(let e=0;e<3;e++){const i=t+e*3,j=t+((e+1)%3)*3,m=t+((e+2)%3)*3,ki=K(i),kj=K(j),k=ki<kj?ki+'|'+kj:kj+'|'+ki;const r=E.get(k);if(r)r.n++;else E.set(k,{n:1,i,j,m});}   // 外周の辺（三角形1つだけが使う辺）
+   E.forEach(({n,i,j,m})=>{if(n!==1)return;const P=V(q[i],q[i+1],q[i+2]),Q=V(q[j],q[j+1],q[j+2]),e=Q.clone().sub(P),len=e.length();if(len<0.005)return;e.multiplyScalar(1/len);
+    const w=new THREE.Vector3().crossVectors(e,b.n).normalize();if(w.dot(V(q[m],q[m+1],q[m+2]).sub(P))>0)w.negate();   // w：面の外へ向かう向き（面の中）
+    B.forEach(o=>{if(o===b||Math.abs(o.n.dot(b.n))>0.2||o.n.dot(w)>-0.7)return;if(Math.abs(o.n.dot(P)-o.d)>0.003||Math.abs(o.n.dot(Q)-o.d)>0.003)return;   // 縁が o の面の上にあり、延ばす先が o の裏
+     const N=Math.max(1,Math.ceil(len/0.1)),ok=[];for(let k=0;k<N;k++){const M=P.clone().addScaledVector(e,len*(k+0.5)/N).addScaledVector(b.n,0.01);M.addScaledVector(o.n,o.d-o.n.dot(M));ok.push(inO(o,M));}   // o が部屋側でこの縁に接している所（縁から1cm部屋側の点が o の上）
+     const L=o.T+0.002,bk=b.n.clone().multiplyScalar(-b.T);let k=0;while(k<N){if(!ok[k]){k++;continue;}let k1=k;while(k1+1<N&&ok[k1+1])k1++;
+      const p0=P.clone().addScaledVector(e,len*k/N),p1=P.clone().addScaledVector(e,len*(k1+1)/N),p2=p1.clone().addScaledVector(w,L),p3=p0.clone().addScaledVector(w,L),f=[p0,p1,p2,p3],g=f.map(x=>x.clone().add(bk));CFB.push(new THREE.Box3().setFromPoints([...f,...g]));
+      [[f[0],f[1],f[2],f[3]],[g[0],g[3],g[2],g[1]],[f[0],g[0],g[1],f[1]],[f[1],g[1],g[2],f[2]],[f[2],g[2],g[3],f[3]],[f[3],g[3],g[0],f[0]]].forEach(([A,Bq,C,D])=>CF.push(...A.toArray(),...Bq.toArray(),...C.toArray(),...A.toArray(),...C.toArray(),...D.toArray()));k=k1+1;}});});});
+  LM.cornerFill=CF.length/108;}   // 内側の角をふさぐ板の数
+ return ()=>{const out=[];if(CF.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(CF,3));out.push(g);}B.forEach(b=>{const q=b.tri,dx=-b.n.x*b.T,dy=-b.n.y*b.T,dz=-b.n.z*b.T,pos=[];for(let t=0;t<q.length;t+=9){const A=[q[t],q[t+1],q[t+2]],Bv=[q[t+3],q[t+4],q[t+5]],C=[q[t+6],q[t+7],q[t+8]],D=p=>[p[0]+dx,p[1]+dy,p[2]+dz],A2=D(A),B2=D(Bv),C2=D(C);
    pos.push(...A,...Bv,...C,...A2,...C2,...B2);[[A,Bv,B2,A2],[Bv,C,C2,B2],[C,A,A2,C2]].forEach(([p0,p1,p2,p3])=>pos.push(...p0,...p1,...p2,...p0,...p2,...p3));}   // 三角形を裏へ押し出した柱（表・裏・側面）
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));out.push(g);});LM.slabs=B.length;return out;};})();
 // 玄関ドア：本物のドアはすき間が気密材でふさがっているので、影の計算では開口（枠ごと）を外側の箱でふさぐ（扉の下・横のすき間から外の光が土間へ漏れないように）。型ガラスの光は型ガラスの面の光（WINC）で入れる
@@ -104,7 +119,7 @@ const SEALS=[];   // 閉じたドアの面（照り返しの光る面を選ぶ�
  const c=new THREE.Vector3(...d.c),n=new THREE.Vector3(...d.n).normalize(),t=new THREE.Vector3(0,1,0).cross(n).normalize(),y0=c.y-d.h/2;
  const ds=[];let t0=-d.w/2,t1=d.w/2,b0=y0,b1=y0+d.h;ms.forEach(m=>{const a=m.geometry.attributes.position;for(let i=0;i<a.count;i++){v.fromBufferAttribute(a,i).sub(c);ds.push(v.dot(n));const u=v.dot(t);if(u<t0)t0=u;if(u>t1)t1=u;if(c.y+v.y<b0)b0=c.y+v.y;if(c.y+v.y>b1)b1=c.y+v.y;}});
  ds.sort((x,y)=>x-y);const off=ds[ds.length>>1];let f0=1e9,f1=-1e9;{const A=new THREE.Vector3(),B=new THREE.Vector3(),C=new THREE.Vector3(),e1=new THREE.Vector3(),e2=new THREE.Vector3();ms.forEach(m=>{const a=m.geometry.attributes.position;for(let i=0;i+2<a.count;i+=3){A.fromBufferAttribute(a,i);B.fromBufferAttribute(a,i+1);C.fromBufferAttribute(a,i+2);e1.subVectors(B,A);e2.subVectors(C,A);const cr=e1.clone().cross(e2),ar=cr.length()/2;if(ar<0.02||Math.abs(cr.normalize().dot(n))<0.95)continue;const dd=A.clone().sub(c).dot(n);if(dd<f0)f0=dd;if(dd>f1)f1=dd;}});}
- const lh=f1>f0?Math.max(0.008,(f1-f0)/2):0.018;   // 扉の板の厚みの半分：扉の大きな面（取っ手などは除く）から測るt0-=0.01;t1+=0.01;b0=Math.min(b0,y0)-0.01;b1+=0.01;   // 扉の厚みの中心（頂点の中央値）。広さは開口と扉の形の外側＋1cm
+ const lh=f1>f0?Math.max(0.008,(f1-f0)/2):0.018;t0-=0.01;t1+=0.01;b0=Math.min(b0,y0)-0.01;b1+=0.01;   // lh：扉の板の厚みの半分（扉の大きな面から測る。取っ手などは除く）。面の位置は扉の厚みの中心（頂点の中央値）。広さは開口と扉の形の外側＋1cm（下は床の下まで）
  const P=(u,y,o)=>c.clone().addScaledVector(n,o).addScaledVector(t,u).setY(y),mid=-0.0575,quad=(A,B,C,D)=>[A,B,C,A,C,D];   // mid：壁の厚み（115mm）の中央
  const fr=off>0.005?off+0.025:off<-0.12?off-0.025:off,q=[...quad(P(t0,b0,off),P(t1,b0,off),P(t1,b1,off),P(t0,b1,off)),...quad(P(t0,b0,fr),P(t0,b0,mid),P(t0,b1,mid),P(t0,b1,fr)),...quad(P(t1,b0,fr),P(t1,b0,mid),P(t1,b1,mid),P(t1,b1,fr)),...quad(P(t0,b1,fr),P(t1,b1,fr),P(t1,b1,mid),P(t0,b1,mid))],g=new THREE.BufferGeometry();   // 扉の面と、そのまわり（左右・上）から壁の中までの囲い（扉が壁の外に出ているときは扉の表側まで）（壁の外をすべる引き戸は、扉と壁のすき間・扉の縁を光が回り込むため）
 g.setAttribute('position',new THREE.Float32BufferAttribute(q.flatMap(p=>p.toArray()),3));
@@ -124,23 +139,45 @@ const SUNVP=new THREE.Matrix4().multiplyMatrices(SCAM.projectionMatrix,SCAM.matr
 
 // ===== 光を描き込む：画像の全画素について、その点の位置・向きから光の明るさと、影の画像で見えるかどうかを計算して足す =====
 const ED=new THREE.WebGLRenderTarget(LMW,LMH,{type:THREE.HalfFloatType,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,generateMipmaps:false});   // 照度（lux × SC）。SC：昼1/1000・夜1（半精度に収める）
+// 閉じたドアの開口を通る光は、影の画像によらず計算で止める（SEALU。光の向きの線が閉じたドアの面（SEALS の開口と扉の範囲）を通れば、その光は届かない）。
+// 枠・扉の縁・扉のすぐ上の天井・扉の前の床など、ドアの面が影の判定の余裕の中に入るほど近い所では、影の画像だけだと向こうの光が漏れて、明るい線や明るい所になるため。範囲は扉・開口より3cm広く（枠・開口のすぐ外の壁も）
+const NSEAL=Math.max(1,SEALS.length),SEALU={sA:{value:[]},sB:{value:[]},sC:{value:[]},sD:{value:[]}};for(let i=0;i<NSEAL;i++){const q=SEALS[i],V=(a,b,c,d)=>new THREE.Vector4(a,b,c,d);SEALU.sA.value.push(q?V(q.c.x,q.c.y,q.c.z,q.off):V(0,0,0,0));SEALU.sB.value.push(q?V(q.n.x,q.n.y,q.n.z,q.t0-0.03):V(0,0,1,0));SEALU.sC.value.push(q?V(q.t.x,q.t.y,q.t.z,q.t1+0.03):V(1,0,0,0));SEALU.sD.value.push(q?V(q.b0-0.03,q.b1+0.03,0,0):V(0,0,0,0));}
+const sealUpd=()=>SEALS.forEach((q,i)=>{SEALU.sD.value[i].z=DS[q.k]?0:1;});
 const bakeMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,transparent:true,blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,
- uniforms:{tP:{value:GBP.texture},tN:{value:GB.textures[1]},tM:{value:null},useM:{value:0},sh:{value:CUBE.texture},shS:{value:SUNRT.texture},shW:{value:SUNWIN.texture},shadeT:{value:1},kind:{value:0},lp:{value:new THREE.Vector3()},ld:{value:new THREE.Vector3()},col:{value:new THREE.Vector3()},cosO:{value:0},cosI:{value:1},r2:{value:0},isPt:{value:0},soft:{value:1},lamb:{value:0},cres:{value:256},
+ uniforms:{sA:SEALU.sA,sB:SEALU.sB,sC:SEALU.sC,sD:SEALU.sD,tP:{value:GBP.texture},tN:{value:GB.textures[1]},tM:{value:null},useM:{value:0},sh:{value:CUBE.texture},shS:{value:SUNRT.texture},shW:{value:SUNWIN.texture},shadeT:{value:1},kind:{value:0},lp:{value:new THREE.Vector3()},ld:{value:new THREE.Vector3()},col:{value:new THREE.Vector3()},cosO:{value:0},cosI:{value:1},r2:{value:0},isPt:{value:0},soft:{value:1},lamb:{value:0},cres:{value:256},
   sunVP:{value:new THREE.Matrix4()},sd:{value:SUNDIR.clone()},cau:{value:0},zCau:{value:ZU.zCau.value},zCauK:{value:ZU.zCauK.value}},
  vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
  fragmentShader:`uniform sampler2D tP,tN,tM,shS,shW,zCau;uniform float useM,shadeT;uniform samplerCube sh;uniform int kind;uniform vec3 lp,ld,col,sd;uniform float cosO,cosI,r2,isPt,soft,cau,lamb,cres;uniform mat4 sunVP;uniform vec4 zCauK;out vec4 o;
+#if defined(PTS)&&!defined(CMP)
+flat in vec4 vP;flat in vec3 vN;
+#endif
+#ifdef CMP
+uniform sampler2D cP,cN;
+#endif
+bool cHit1(vec3 X,float ci,vec3 q){float ax=floor(ci/151.0),cw=(ci-ax*151.0)/1000.0;vec3 n=ax<0.5?vec3(1.0,0.0,0.0):ax<1.5?vec3(-1.0,0.0,0.0):ax<2.5?vec3(0.0,1.0,0.0):ax<3.5?vec3(0.0,-1.0,0.0):ax<4.5?vec3(0.0,0.0,1.0):vec3(0.0,0.0,-1.0);vec3 D=q-X;float dn=dot(D,n);if(dn>=-cw)return false;return cw*length(D-n*dn)<=-dn*0.05;}
+bool contactHit(vec3 X,float cc,vec3 q){if(cc<7999999.0)return false;float c=cc-8000000.0,c1=floor(c/1000.0),c2=c-c1*1000.0;return cHit1(X,c1,q)||(c2<905.5&&cHit1(X,c2,q));}
+uniform vec4 sA[${NSEAL}],sB[${NSEAL}],sC[${NSEAL}],sD[${NSEAL}];
+bool sealHit(vec3 p,vec3 q){for(int i=0;i<${NSEAL};i++){if(sD[i].z<0.5)continue;vec3 sn=sB[i].xyz;float s1=dot(p-sA[i].xyz,sn)-sA[i].w,s2=dot(q-sA[i].xyz,sn)-sA[i].w;if(s1*s2>=0.0)continue;vec3 X=p+(q-p)*(s1/(s1-s2));float u=dot(X-sA[i].xyz,sC[i].xyz);if(u>sB[i].w&&u<sC[i].w&&X.y>sD[i].x&&X.y<sD[i].y)return true;}return false;}
 float cauF(vec3 d){float p=texture(zCau,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;float cd=-d.y,op=smoothstep(zCauK.x-0.015,zCauK.x+0.015,cd),gl=zCauK.z*(0.3+1.6*p)*(1.0-smoothstep(zCauK.y-0.02,zCauK.y+0.01,d.y)),rim=zCauK.w*exp(-pow((cd-zCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}
-void main(){ivec2 c=ivec2(gl_FragCoord.xy);if(useM>0.5&&texelFetch(tM,c,0).r<0.5)discard;vec4 P=texelFetch(tP,c,0);vec3 n0=texelFetch(tN,c,0).xyz;if(P.w==0.0||!(dot(n0,n0)>1e-8)||any(isnan(P.xyz)))discard;vec3 n=normalize(n0),p=P.xyz+n*0.012;
+void main(){
+ #ifdef CMP
+ vec4 Pc=texelFetch(cP,ivec2(gl_FragCoord.xy),0);vec3 n0=texelFetch(cN,ivec2(gl_FragCoord.xy),0).xyz;if(!(dot(n0,n0)>1e-8)||any(isnan(Pc.xyz)))discard;vec3 n=normalize(n0),X0=Pc.xyz,p=X0+n*0.012;float cc=Pc.w;
+ #elif defined(PTS)
+ vec3 n0=vN;if(!(dot(n0,n0)>1e-8)||any(isnan(vP.xyz)))discard;vec3 n=normalize(n0),X0=vP.xyz,p=X0+n*0.012;float cc=vP.w;
+ #else
+ ivec2 c=ivec2(gl_FragCoord.xy);if(useM>0.5&&texelFetch(tM,c,0).r<0.5)discard;vec4 P=texelFetch(tP,c,0);vec3 n0=texelFetch(tN,c,0).xyz;if(P.w==0.0||!(dot(n0,n0)>1e-8)||any(isnan(P.xyz)))discard;vec3 n=normalize(n0),X0=P.xyz,p=X0+n*0.012;float cc=P.w;
+ #endif
+
  #ifdef SUN
- float nl=dot(n,sd);if(nl<=0.0)discard;vec4 q=sunVP*vec4(p,1.0);vec2 uv=q.xy/q.w*0.5+0.5;float dz=dot(p,sd)+100.0,v=0.0;
+ float nl=dot(n,sd);if(nl<=0.0||sealHit(p,p+sd*50.0)||contactHit(X0,cc,X0+sd*50.0))discard;vec4 q=sunVP*vec4(p,1.0);vec2 uv=q.xy/q.w*0.5+0.5;float dz=dot(p,sd)+100.0,v=0.0;
   for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){float s=texture(shS,uv+vec2(x,y)*soft/4096.0).r;v+=(s==0.0||s<dz+0.006)?1.0:0.0;}float wv=texture(shW,uv).r;o=vec4(col*nl*v/9.0*((wv>0.0&&wv>dz+0.01)?shadeT:1.0),1.0);
  #else
    // 太陽：光の向きの深さが自分より手前（太陽に近い）物があれば影
  float tex=2.0/cres;vec3 L0=lp-p;p+=n*(length(L0)*tex);   // 影の画像の1画素の大きさの分だけ面から浮かせて判定する（深さの余裕を小さくできる＝薄い面のすぐ裏へ光が回らない）
- vec3 L=lp-p;float d2=dot(L,L),d=sqrt(d2);L/=d;float nl=dot(n,L);if(nl<=0.0)discard;float cn=lamb>0.5?max(dot(-L,ld),0.0):isPt>0.5?1.0:smoothstep(cosO,cosI,dot(-L,ld));if(cn<=0.0)discard;
+ vec3 L=lp-p;float d2=dot(L,L),d=sqrt(d2);L/=d;float nl=dot(n,L);if(nl<=0.0||sealHit(p,lp)||contactHit(X0,cc,lp))discard;float cn=lamb>0.5?max(dot(-L,ld),0.0):isPt>0.5?1.0:smoothstep(cosO,cosI,dot(-L,ld));if(cn<=0.0)discard;
  vec3 dir=-L,t1=normalize(cross(dir,abs(dir.y)<0.9?vec3(0.0,1.0,0.0):vec3(1.0,0.0,0.0))),t2=cross(dir,t1);float k=soft*2.0/cres,nlc=clamp(nl,0.2,1.0),b=0.003+d*tex*(0.25+0.5*sqrt(1.0-nlc*nlc)/nlc),v=0.0;
  #ifdef BOUNCE
- for(int y=0;y<2;y++)for(int x=0;x<2;x++){float s=texture(sh,dir+(t1*(float(x)-0.5)+t2*(float(y)-0.5))*k*1.5).r;v+=(s==0.0||s>d-b)?1.0:0.0;}v/=4.0;
+ {float s=texture(sh,dir).r;v=(s==0.0||s>d-b)?1.0:0.0;}
  #else
  for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){float s=texture(sh,dir+(t1*float(x)+t2*float(y))*k).r;v+=(s==0.0||s>d-b)?1.0:0.0;}v/=9.0;
  #endif
@@ -157,10 +194,13 @@ if(v<=0.0)discard;   // 影：9点で平均（縁をやわらかく）
 const bakeCau=bakeMat.clone(),bakeSunM=bakeMat.clone();bakeCau.uniforms=bakeMat.uniforms;bakeSunM.uniforms=bakeMat.uniforms;bakeCau.defines={CAU:1};bakeSunM.defines={SUN:1};
 const BQ=new THREE.Scene(),bq=new THREE.Mesh(new THREE.PlaneGeometry(2,2),bakeMat);bq.frustumCulled=false;BQ.add(bq);const CAM0=new THREE.Camera();
 let SC=1;
-function bakeEmitter(e,target){const u=bakeMat.uniforms,cc=e.cube===2?CCAM2:CCAM,ct=e.cube===2?CUBE2:CUBE;distMat.uniforms.sun.value=0;distMat.uniforms.lp.value.copy(e.pos);cc.position.copy(e.pos);cc.updateMatrixWorld(true);r.setClearColor(0x000000,0);cc.update(r,e.cube===2?OCCB:OCC);   // その光から見た影の画像（6面）
+const FACED=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]],faceMax=(f,l)=>{const a=FACED[f],ax=a.findIndex(v=>v!==0);let m=-2;for(let i=0;i<=8;i++)for(let j=0;j<=8;j++){const d=[0,0,0];d[ax]=a[ax];d[(ax+1)%3]=i/4-1;d[(ax+2)%3]=j/4-1;const t=(d[0]*l.x+d[1]*l.y+d[2]*l.z)/Math.hypot(d[0],d[1],d[2]);if(t>m)m=t;}return m;};
+// 影の画像の6面のうち、光が使わない面（その面の向きが全部、照らす範囲の外：光る面の後ろ・スポットの広がりの外）は描かない（その面は読まれない。描き込みの式は、範囲の外の画素を影を調べる前に捨てる）
+function cubeUp(cc,ct,sc,e){if(cc.coordinateSystem!==r.coordinateSystem){cc.coordinateSystem=r.coordinateSystem;cc.updateCoordinateSystem();}const thr=e.lamb?0:(e.type==='spot'?Math.cos(e.angle||1):-9),l=e.dir;for(let f=0;f<6;f++){if(l&&thr>-2&&faceMax(f,l)<thr-0.06)continue;r.setRenderTarget(ct,f);r.render(sc,cc.children[f]);}r.setRenderTarget(null);}
+function bakeEmitter(e,target){const u=bakeMat.uniforms,cc=e.cube===2?CCAM2:CCAM,ct=e.cube===2?CUBE2:CUBE;distMat.uniforms.sun.value=0;distMat.uniforms.lp.value.copy(e.pos);cc.position.copy(e.pos);cc.updateMatrixWorld(true);r.setClearColor(0x000000,0);cubeUp(cc,ct,e.cube===2?OCCB:OCC,e);   // その光から見た影の画像（6面）
  u.kind.value=0;u.sh.value=ct.texture;u.cres.value=ct.width;u.lp.value.copy(e.pos);u.ld.value.copy(e.dir||new THREE.Vector3(0,-1,0));const k=e.colv?e.colv:e.col.clone().multiplyScalar(e.intensity*SC);u.col.value.set(k.x!==undefined?k.x:k.r,k.y!==undefined?k.y:k.g,k.z!==undefined?k.z:k.b);   // colv：照り返しの光（すでに SC をかけた値）
  u.isPt.value=e.type==='point'?1:0;u.lamb.value=e.lamb?1:0;u.cosO.value=Math.cos(e.angle||1);u.cosI.value=Math.cos((e.angle||1)*(1-(e.penumbra||0)));u.r2.value=e.r2||0;u.soft.value=e.soft||1;u.cau.value=e.cau?1:0;u.useM.value=e.cube===2?1:0;
- bq.material=e.cau?bakeCau:bakeMat;r.setRenderTarget(target||ED);r.autoClear=false;r.render(e.cube===2?BPS:BQ,CAM0);r.autoClear=true;}   // 足し合わせるので、描く前に消さない
+ bq.material=e.cau?bakeCau:bakeMat;r.setRenderTarget(e.cube===2?EC:(target||ED));r.autoClear=false;r.render(e.cube===2?CMS:BQ,CAM0);r.autoClear=true;}   // 照り返し（cube 2）は詰めた画像 EC に足す（bounce の最後に元の位置へ写す）   // 足し合わせるので、描く前に消さない
 function bakeSun(I,col){const u=bakeMat.uniforms;distMat.uniforms.sun.value=1;distMat.uniforms.sd.value.copy(SUNDIR);r.setRenderTarget(SUNRT);r.setClearColor(0x000000,0);r.clear();r.render(OCC,SCAM);r.setRenderTarget(SUNWIN);r.clear();r.render(WINQ,SCAM);
  u.kind.value=1;u.sunVP.value.multiplyMatrices(SCAM.projectionMatrix,SCAM.matrixWorldInverse);const k=col.clone().multiplyScalar(I*SC);u.col.value.set(k.r,k.g,k.b);u.soft.value=1.5;bq.material=bakeSunM;r.setRenderTarget(EG);r.autoClear=false;r.render(BQ,CAM0);r.autoClear=true;bq.material=bakeMat;}   // 太陽の直接の光は照り返しの元（EG）にだけ入れる。表示では影の画像から画素ごとに計算する（細い窓枠の影も段々にならない）
 
@@ -179,19 +219,49 @@ const cellTex=(()=>{const a=new Float32Array(CW*CH*4);CELLS.forEach((c,i)=>a.set
 const CRT=new THREE.WebGLRenderTarget(CW,CH,{count:3,type:THREE.FloatType,depthBuffer:false,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter});
 const aggMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{tE:{value:null},tE2:{value:null},e2:{value:0},tP:{value:GB.textures[0]},tN:{value:GB.textures[1]},tA:{value:GB.textures[2]},tC:{value:cellTex},n:{value:CELLS.length}},
  vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D tE,tE2,tP,tN,tA,tC;uniform int n,e2;layout(location=0) out vec4 oF;layout(location=1) out vec4 oP;layout(location=2) out vec4 oN;
+ fragmentShader:`uniform sampler2D tE,tE2,tP,tN,tA,tC,tS;uniform int n,e2,closed;layout(location=0) out vec4 oF;layout(location=1) out vec4 oP;layout(location=2) out vec4 oN;
 void main(){ivec2 c=ivec2(gl_FragCoord.xy);int i=c.y*${CW}+c.x;oF=vec4(0.0);oP=vec4(0.0);oN=vec4(0.0);if(i>=n)return;vec4 r=texelFetch(tC,c,0);ivec2 o=ivec2(r.xy);int w=int(r.z),h=int(r.w);vec3 F=vec3(0.0),P=vec3(0.0),P2=vec3(0.0),N=vec3(0.0);float k=0.0,wf=0.0;
- for(int y=0;y<${CELL};y++){if(y>=h)break;for(int x=0;x<${CELL};x++){if(x>=w)break;ivec2 q=o+ivec2(x,y);vec4 p=texelFetch(tP,q,0);if(p.w==0.0)continue;vec3 f=(texelFetch(tE,q,0).rgb+(e2==1?texelFetch(tE2,q,0).rgb:vec3(0.0)))*texelFetch(tA,q,0).rgb;float fl=dot(f,vec3(0.2126,0.7152,0.0722));F+=f;P+=p.xyz;P2+=p.xyz*fl;wf+=fl;N+=texelFetch(tN,q,0).xyz;k+=1.0;}}
+ for(int y=0;y<${CELL};y++){if(y>=h)break;for(int x=0;x<${CELL};x++){if(x>=w)break;ivec2 q=o+ivec2(x,y);vec4 p=texelFetch(tP,q,0);vec4 ts=texelFetch(tS,q,0);if(p.w==0.0||ts.y<0.0||((int(ts.z)>>4)&closed)!=0)continue;vec3 f=(texelFetch(tE,q,0).rgb+(e2==1?texelFetch(tE2,q,0).rgb:vec3(0.0)))*texelFetch(tA,q,0).rgb;float fl=dot(f,vec3(0.2126,0.7152,0.0722));F+=f;P+=p.xyz;P2+=p.xyz*fl;wf+=fl;N+=texelFetch(tN,q,0).xyz;k+=1.0;}}
  if(k>0.0){oF=vec4(F,k);oP=vec4(wf>0.0?P2/wf:P/k,k);oN=vec4(normalize(N),0.0);}}`});   // セルごとに：反射する光の量（照度×反射率の合計）・光の量で重みを付けた中心（光が当たっている所から光らせる。ドアの下をまたぐ床などで、暗い側から光を出さないように）・向き
 const aggQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),aggMat);aggQ.frustumCulled=false;const AGGS=new THREE.Scene();AGGS.add(aggQ);
 const CUBE2=new THREE.WebGLCubeRenderTarget(LM.cube2||128,{type:THREE.FloatType,format:THREE.RedFormat,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,generateMipmaps:false});const CCAM2=new THREE.CubeCamera(0.03,14,CUBE2);OCCB.add(CCAM2);
 // 照り返しは変化がなだらかなので、チャートの中は8×8画素（32cm）に1画素だけ計算し（MK）、残りは同じチャートのまわりの計算した画素から補う（チャートをまたがない）。頂点ごとの画素は全部、格子で補えない画素はその画素を計算する
-LM.bstep=8;const MKD=new Uint8Array(LMW*LMH*4),PTS=[];{const P=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,P,undefined,0);
+LM.tm.pre=performance.now()-LM.tm.t0;LM.bstep=8;let PGP,PGN;const MKD=new Uint8Array(LMW*LMH*4),PTS=[];{const P=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,P,undefined,0);
  // ドアの側の印：閉じたドアの面（SEALS）の近く（面から35cm以内で、開口と扉の幅＋15cm・高さの範囲。扉の面とほぼ同じ位置（3mm以内）の画素は除く＝ドアの横の壁で側がばらつかないように）にある画素に、ドアごとに「どちら側か」を記録する。補うときは、閉じたドアの反対側の画素を使わない（床がドアの下でつながっていても、向こうの明るさがにじまない）
- const NN=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,NN,undefined,1);const SC=new Float32Array(LMW*LMH),SS=new Float32Array(LMW*LMH),NEAR=new Uint8Array(LMW*LMH),LF=new Float32Array(LMW*LMH);for(let i=0;i<LMW*LMH;i++){if(P[i*4+3]===0)continue;const x=P[i*4],y=P[i*4+1],z=P[i*4+2];let c=0,sd=0,lf=0;const ch=P[i*4+3]>0?LM.charts[P[i*4+3]-1]:null,dynC=!ch||!!(ch.o&&ch.o.userData&&ch.o.userData.dyn);   // 扉そのもの（動く部品）は除く
-  SEALS.forEach((q,j)=>{const dx=x-q.c.x,dy=y-q.c.y,dz=z-q.c.z,sv=dx*q.n.x+dy*q.n.y+dz*q.n.z-q.off,u=dx*q.t.x+dy*q.t.y+dz*q.t.z;if(Math.abs(sv)<0.35&&Math.abs(sv)>0.003&&u>q.t0-0.15&&u<q.t1+0.15&&y>q.b0-0.05&&y<q.b1+0.05){c|=1<<j;if(sv>0)sd|=1<<j;if(Math.abs(sv)<0.12)NEAR[i]=1;if(!dynC&&u>q.t0&&u<q.t1&&Math.abs(sv)<q.lh+0.03&&NN[i*4+1]>0.9&&y<q.b0+0.1)lf=j+1;}});SC[i]=c;SS[i]=sd;LF[i]=lf;}
- const sideOK=(i,k)=>{const cc=SC[i]&SC[k];return ((SS[i]^SS[k])&cc)===0;};
- {const D=new Float32Array(LMW*LMH*4);for(let i=0;i<LMW*LMH;i++){D[i*4]=SC[i];D[i*4+1]=SS[i];D[i*4+2]=LF[i];}const t=new THREE.DataTexture(D,LMW,LMH,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;t.onUpdate=()=>{t.image.data=null;};LM.sideTex=t;}
+ const NN=new Float32Array(LMW*LMH*4);r.readRenderTargetPixels(GB,0,0,LMW,LMH,NN,undefined,1);const SC=new Float32Array(LMW*LMH),SS=new Float32Array(LMW*LMH),NEAR=new Uint8Array(LMW*LMH),LF=new Float32Array(LMW*LMH),UZ=new Uint16Array(LMW*LMH),BIGC=new Set(LM.slabB.map(S=>S.c.gid+1));for(let i=0;i<LMW*LMH;i++){if(P[i*4+3]===0)continue;const x=P[i*4],y=P[i*4+1],z=P[i*4+2];let c=0,sd=0,lf=0,uz=0;const bigT=BIGC.has(P[i*4+3]);const ch=P[i*4+3]>0?LM.charts[P[i*4+3]-1]:null,dynC=!ch||!!(ch.o&&ch.o.userData&&ch.o.userData.dyn);   // 扉そのもの（動く部品）は除く
+  SEALS.forEach((q,j)=>{const dx=x-q.c.x,dy=y-q.c.y,dz=z-q.c.z,sv=dx*q.n.x+dy*q.n.y+dz*q.n.z-q.off,u=dx*q.t.x+dy*q.t.y+dz*q.t.z;if(bigT&&Math.abs(sv)<q.lh+0.03&&u>q.t0-0.15&&u<q.t1+0.15&&y>q.b0-0.05&&y<q.b1+0.05)uz|=1<<j;if(Math.abs(sv)<0.35&&Math.abs(sv)>0.003&&u>q.t0-0.15&&u<q.t1+0.15&&y>q.b0-0.05&&y<q.b1+0.05){c|=1<<j;if(sv>0)sd|=1<<j;if(Math.abs(sv)<0.12)NEAR[i]=1;if(!dynC&&u>q.t0&&u<q.t1&&Math.abs(sv)<q.lh+0.03&&NN[i*4+1]>0.9&&y<q.b0+0.1)lf=j+1;}});SC[i]=c;SS[i]=sd;LF[i]=lf;UZ[i]=uz;}   // UZ：大きな面（床など）で、閉じたドアの厚みの帯（ドアの面から扉の厚みの半分＋3cm）にある画素。ドアの面のどちら側かが当てにならない（引き戸の戸袋の床は、ドアの面より洗面所側にあるが脱衣室の光を受ける）ので、閉じているときは補う元に使わない
+ // 壁で区切った範囲（REG）：床・天井など1枚の大きな面が壁の下・上を通って隣の部屋まで続いていると、照り返しを補うとき（fillTo）に壁の向こうの画素の値を使ってしまう（壁ぎわの天井・床に隣の部屋の光がにじむ）。
+ // 大きな面の画素のうち、面から1cm手前の点がほかの大きな面の板（SLABX＝壁などの中）に入る所を「壁の下・上」（壁の中に隠れた画素）とし、そこで面を区切った範囲ごとに番号を付ける（REG。壁の中の画素は近い方の範囲の番号を負にして持つ）。
+ // 壁の中の画素は、影の判定の余裕の中に隣の部屋の光源が入って光ってしまうので、補うときの元にも、照り返しの光る面の集計にも使わず、表示用の値は同じ範囲の隣の画素から写す。壁の近く（NB）の画素は、補う元との間に壁の中の画素があれば使わない（ドアの横など、範囲がつながっていても壁をまたがない）
+ LM.tm.side=performance.now()-LM.tm.t0;
+ // 大きな面の形を面の座標の格子（2cm、三角形を半格子ぶん広げて塗る＝細い面も落とさない）にした表。「面の中か」を1回の表引きで調べる（下の REG・CT で使う）
+ const PMR=0.02,pmOf=S=>{if(S.pm)return S.pm;const n=S.n,u=new THREE.Vector3().crossVectors(n,Math.abs(n.y)<0.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0)).normalize(),v=new THREE.Vector3().crossVectors(n,u),t=S.tri,T2=[];let u0=1e9,v0=1e9,u1=-1e9,v1=-1e9;
+  for(let k=0;k<t.length;k+=3){const a=t[k]*u.x+t[k+1]*u.y+t[k+2]*u.z,b=t[k]*v.x+t[k+1]*v.y+t[k+2]*v.z;T2.push(a,b);if(a<u0)u0=a;if(a>u1)u1=a;if(b<v0)v0=b;if(b>v1)v1=b;}
+  u0-=PMR;v0-=PMR;const w=Math.ceil((u1-u0)/PMR)+2,h=Math.ceil((v1-v0)/PMR)+2,m=new Uint8Array(w*h),tol=PMR*0.71;
+  for(let k=0;k<T2.length;k+=6){const ax=T2[k],ay=T2[k+1],bx=T2[k+2],by=T2[k+3],cx=T2[k+4],cy=T2[k+5],ar=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);if(Math.abs(ar)<1e-12)continue;const sg=ar>0?1:-1,E=[[ax,ay,bx,by],[bx,by,cx,cy],[cx,cy,ax,ay]].map(([px,py,qx,qy])=>{const ex=qx-px,ey=qy-py,l=Math.hypot(ex,ey)||1;return [px,py,ex/l,ey/l];});
+   const i0=Math.max(0,Math.floor((Math.min(ax,bx,cx)-tol-u0)/PMR)),i1=Math.min(w-1,Math.ceil((Math.max(ax,bx,cx)+tol-u0)/PMR)),j0=Math.max(0,Math.floor((Math.min(ay,by,cy)-tol-v0)/PMR)),j1=Math.min(h-1,Math.ceil((Math.max(ay,by,cy)+tol-v0)/PMR));
+   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){if(m[j*w+i])continue;const px=u0+(i+0.5)*PMR,py=v0+(j+0.5)*PMR;let ins=true;for(const [qx,qy,ex,ey] of E){if(sg*(ex*(py-qy)-ey*(px-qx))<-tol){ins=false;break;}}if(ins)m[j*w+i]=1;}}
+  return S.pm={u,v,u0,v0,w,h,m};},
+  inPM=(S,x,y,z)=>{const q=pmOf(S),a=x*q.u.x+y*q.u.y+z*q.u.z,b=x*q.v.x+y*q.v.y+z*q.v.z,i=Math.floor((a-q.u0)/PMR),j=Math.floor((b-q.v0)/PMR);return i>=0&&j>=0&&i<q.w&&j<q.h&&q.m[j*q.w+i]===1;};
+ const REG=new Float32Array(LMW*LMH),NB=new Uint8Array(LMW*LMH);for(let i=0;i<LMW*LMH;i++)REG[i]=Math.abs(P[i*4+3]);
+ {let nid=1e5;const SB=LM.slabB,PAD=LM.pad||2,D4=[[1,0],[-1,0],[0,1],[0,-1]],NR=LM.bstep;
+  const inSlab=(S,x,y,z)=>{const s=S.d-(S.n.x*x+S.n.y*y+S.n.z*z);return s>0&&s<S.T&&inPM(S,x,y,z);};   // 面の裏の板の中か
+  SB.forEach(C=>{const c=C.c,gid=c.gid+1,bx=C.box.clone().expandByScalar(0.05),cand=SB.filter(S=>S!==C&&Math.abs(S.n.dot(C.n))<0.3&&S.box.clone().expandByScalar(S.T+0.02).intersectsBox(bx));if(!cand.length)return;
+   const x0=Math.max(0,c.x-PAD),y0=Math.max(0,c.y-PAD),w=Math.min(LMW,c.x+c.w+PAD)-x0,h=Math.min(LMH,c.y+c.h+PAD)-y0,ix=(xx,yy)=>(y0+yy)*LMW+x0+xx,bar=new Uint8Array(w*h),lab=new Int32Array(w*h).fill(-1);let any=false;
+   for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){const i=ix(xx,yy);if(P[i*4+3]!==gid)continue;const X=P[i*4]+NN[i*4]*0.01,Y=P[i*4+1]+NN[i*4+1]*0.01,Z=P[i*4+2]+NN[i*4+2]*0.01;if(cand.some(S=>inSlab(S,X,Y,Z))){bar[yy*w+xx]=1;any=true;}}
+   if(!any)return;
+   const comps=[];for(let s0=0;s0<w*h;s0++){if(lab[s0]>=0||bar[s0]||P[ix(s0%w,(s0-s0%w)/w)*4+3]!==gid)continue;const id=comps.length;comps.push(0);lab[s0]=id;const st=[s0];
+    while(st.length){const q=st.pop(),qx=q%w,qy=(q-qx)/w;for(const [dx,dy] of D4){const nx=qx+dx,ny=qy+dy;if(nx<0||ny<0||nx>=w||ny>=h)continue;const t=ny*w+nx;if(lab[t]>=0||bar[t]||P[ix(nx,ny)*4+3]!==gid)continue;lab[t]=id;st.push(t);}}}
+   if(!comps.length)return;
+   let fr=[];for(let q=0;q<w*h;q++)if(lab[q]>=0)fr.push(q);while(fr.length){const nf=[];fr.forEach(q=>{const qx=q%w,qy=(q-qx)/w;for(const [dx,dy] of D4){const nx=qx+dx,ny=qy+dy;if(nx<0||ny<0||nx>=w||ny>=h)continue;const t=ny*w+nx;if(lab[t]>=0||P[ix(nx,ny)*4+3]!==gid)continue;lab[t]=lab[q];nf.push(t);}});fr=nf;}   // 壁の中の画素は近い方の範囲へ
+   const ids=comps.map(()=>nid++),nr=new Uint8Array(w*h),tmp=new Uint8Array(w*h);for(let q=0;q<w*h;q++)if(lab[q]>=0)REG[ix(q%w,(q-q%w)/w)]=bar[q]?-ids[lab[q]]:ids[lab[q]];
+   for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){let b=0;for(let d=-NR;d<=NR&&!b;d++){const u=xx+d;if(u>=0&&u<w&&bar[yy*w+u])b=1;}tmp[yy*w+xx]=b;}
+   for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){let b=0;for(let d=-NR;d<=NR&&!b;d++){const v=yy+d;if(v>=0&&v<h&&tmp[v*w+xx])b=1;}if(b&&!bar[yy*w+xx]&&lab[yy*w+xx]>=0)NB[ix(xx,yy)]=1;}   // 壁の中の画素から bstep 画素以内
+   LM.nReg=(LM.nReg||0)+comps.length;LM.nRegC=(LM.nRegC||0)+1;LM.nBar=(LM.nBar||0)+bar.reduce((a,v)=>a+v,0);});}
+ LM.tm.reg=performance.now()-LM.tm.t0;const sightOK=(i,k)=>{const xi=i%LMW,yi=(i-xi)/LMW,dx=k%LMW-xi,dy=(k-k%LMW)/LMW-yi;const ns=Math.max(Math.abs(dx),Math.abs(dy));for(let t=1;t<ns;t++){const m=(yi+Math.floor(dy*t/ns+0.5))*LMW+xi+Math.floor(dx*t/ns+0.5);if(REG[m]<0)return false;}return true;};   // 壁の中の画素をまたがない（間の画素を全部、シェーダーと同じ式で調べる。1画素幅の壁もある：引き戸の戸袋の横）
+ const sideOK=(i,k)=>{const cc=SC[i]&SC[k];return ((SS[i]^SS[k])&cc)===0&&REG[k]>0&&Math.abs(REG[i])===REG[k]&&!UZ[k]&&(!NB[i]||sightOK(i,k));};
+ if(new URLSearchParams(location.search).get('lm')==='dbg')LM.dbg={REG,NB,SC,SS,LF,UZ};   // 確認用（?lm=dbg のときだけ、補う範囲の印を残す）
+ {const D=new Float32Array(LMW*LMH*4);for(let i=0;i<LMW*LMH;i++){D[i*4]=SC[i]+SS[i]*512+NB[i]*262144;D[i*4+1]=REG[i];D[i*4+2]=LF[i]+UZ[i]*16;}const t=new THREE.DataTexture(D,LMW,LMH,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;t.onUpdate=()=>{t.image.data=null;};LM.sideTex=t;aggMat.uniforms.tS={value:t};aggMat.uniforms.closed={value:0};}
  {const isG=i=>{const w=P[i*4+3];if(!(w>0))return false;const ch=LM.charts[w-1];return !!(ch&&ch.o&&ch.o.material===bathGlM);},H=new Map(),key=(x,y,z)=>Math.round(x*100)+','+Math.round(y*100)+','+Math.round(z*100);
   const G=[];for(let i=0;i<LMW*LMH;i++)if(isG(i)){G.push(i);H.set(key(P[i*4],P[i*4+1],P[i*4+2])+'|'+Math.round(NN[i*4]*2)+','+Math.round(NN[i*4+1]*2)+','+Math.round(NN[i*4+2]*2),i);}
   const D=LM.sideTex.image.data;G.forEach(i=>{const nx=NN[i*4],ny=NN[i*4+1],nz=NN[i*4+2],ox=P[i*4]-nx*0.006,oy=P[i*4+1]-ny*0.006,oz=P[i*4+2]-nz*0.006,nk='|'+Math.round(-nx*2)+','+Math.round(-ny*2)+','+Math.round(-nz*2);
@@ -199,29 +269,58 @@ LM.bstep=8;const MKD=new Uint8Array(LMW*LMH*4),PTS=[];{const P=new Float32Array(
    if(j!==undefined)D[i*4+3]=j+1;});
   LM.nGlass=G.length;}   // すりガラスの裏表の対応（裏の面は、表で受けた光の一部で光って見える）。裏の画素の番号＋1を LM.sideTex の4番目の値に入れる（別の画像を作らない。メモリ）
  const R=LM.bstep-1,COV=new Uint8Array(LMW*LMH);
- const set=(x,y)=>{const k=(y*LMW+x)*4;if(MKD[k])return;MKD[k]=MKD[k+1]=MKD[k+2]=MKD[k+3]=255;PTS.push(x,y,0);const w=P[k+3];if(w<=0)return;
-  for(let j=Math.max(0,y-R);j<=Math.min(LMH-1,y+R);j++)for(let i=Math.max(0,x-R);i<=Math.min(LMW-1,x+R);i++)if(P[(j*LMW+i)*4+3]===w&&sideOK(j*LMW+i,y*LMW+x))COV[j*LMW+i]=1;};   // COV：同じチャートで、計算する画素から R 以内（補える）
+ const set=(x,y)=>{const k=(y*LMW+x)*4;if(MKD[k]||REG[k/4]<0)return;MKD[k]=MKD[k+1]=MKD[k+2]=MKD[k+3]=255;PTS.push(x,y,0);const w=P[k+3];if(w<=0)return;
+  for(let j=Math.max(0,y-R);j<=Math.min(LMH-1,y+R);j++)for(let i=Math.max(0,x-R);i<=Math.min(LMW-1,x+R);i++)if(!COV[j*LMW+i]&&P[(j*LMW+i)*4+3]===w&&sideOK(j*LMW+i,y*LMW+x))COV[j*LMW+i]=1;};   // COV：同じチャートで、計算する画素から R 以内（補える）
  for(let y=0;y<LMH;y++)for(let x=0;x<LMW;x++){const k=y*LMW+x;if(P[k*4+3]<0||(P[k*4+3]>0&&NEAR[k]&&LM.nearAll))set(x,y);}   // 頂点ごとの画素は全部計算する（LM.nearAll のときは、閉じたドアの面から12cm以内も全部）
  const S=LM.bstep;LM.charts.forEach(c=>{const nx=Math.ceil(c.w/S),ny=Math.ceil(c.h/S),x0=c.x+Math.floor((c.w-1-(nx-1)*S)/2),y0=c.y+Math.floor((c.h-1-(ny-1)*S)/2);
   for(let b=0;b<ny;b++)for(let a=0;a<nx;a++){const x=x0+a*S,y=y0+b*S;if(P[(y*LMW+x)*4+3]===c.gid+1)set(x,y);}});   // チャートごとに、チャートの中央にそろえた S 画素おきの格子
- for(let y=0;y<LMH;y++)for(let x=0;x<LMW;x++){const k=y*LMW+x;if(P[k*4+3]>0&&!COV[k])set(x,y);}}   // 格子で補えない画素（細長い・不規則な形のチャート）は、その画素も計算する
-const MK={texture:(()=>{const t=new THREE.DataTexture(MKD,LMW,LMH,THREE.RGBAFormat,THREE.UnsignedByteType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;})()};bakeMat.uniforms.tM.value=MK.texture;
-const ptsGeo=new THREE.BufferGeometry();ptsGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(PTS),3));LM.nPts=PTS.length/3;
-const bakePts=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{BOUNCE:1},depthTest:false,depthWrite:false,transparent:true,blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,uniforms:bakeMat.uniforms,
- vertexShader:`uniform vec2 WH;void main(){gl_Position=vec4((position.xy+0.5)/WH*2.0-1.0,0.0,1.0);gl_PointSize=1.0;}`,fragmentShader:bakeMat.fragmentShader});   // 照り返しは計算する画素だけを点として描く（画像全体を描くより速い）
+ for(let y=0;y<LMH;y++)for(let x=0;x<LMW;x++){const k=y*LMW+x;if(P[k*4+3]>0&&!COV[k])set(x,y);}   // 格子で補えない画素（細長い・不規則な形のチャート）は、その画素も計算する
+ // 壁に接する所（CT）：大きな面（壁・床・天井）の手前15cm以内にあり（その面とほぼ直角な面か、その面に向き合う面）、その面に投影した点（と上下左右5cm）が面の中にある（開口から離れている）画素は、その面の向こうからの光を計算で止める。
+ // 影の判定の余裕や影をやわらかくする幅が壁の厚さを越え、壁の向こうの光が壁ぎわの細い面（幅木の上・棚の壁ぎわ）に明るい線として入るため。面の向きが家の座標の軸にそろった面だけ。
+ // 値は 8000000＋近い順に2つの面の（向きの番号（+x,−x,+y,−y,+z,−z）×151＋面までの距離mm）を1000倍・1倍して足したもの（2つ目が無いときは906）。部屋の隅は2枚の壁に接するため。影を調べる位置の画像（GBP）の4番目に入れ、描き込みのシェーダーが読む
+ LM.tm.cov=performance.now()-LM.tm.t0;const CT=new Float32Array(LMW*LMH);{const SB=LM.slabB.filter(S=>Math.max(Math.abs(S.n.x),Math.abs(S.n.y),Math.abs(S.n.z))>0.999),CS=0.5,BB=new THREE.Box3();SB.forEach(S=>BB.union(S.box));BB.expandByScalar(0.3);const GX=Math.ceil((BB.max.x-BB.min.x)/CS),GY=Math.ceil((BB.max.y-BB.min.y)/CS),GZ=Math.ceil((BB.max.z-BB.min.z)/CS),GA=new Array(GX*GY*GZ),ci=(v,m)=>Math.floor((v-m)/CS),gi=(x,y,z)=>{const a=ci(x,BB.min.x),b=ci(y,BB.min.y),c=ci(z,BB.min.z);return a<0||b<0||c<0||a>=GX||b>=GY||c>=GZ?-1:(a*GY+b)*GZ+c;};
+  SB.forEach(S=>{S.ax=Math.abs(S.n.x)>0.999?(S.n.x>0?0:1):Math.abs(S.n.y)>0.999?(S.n.y>0?2:3):(S.n.z>0?4:5);const b=S.box.clone().expandByScalar(0.16);for(let a=Math.max(0,ci(b.min.x,BB.min.x));a<=Math.min(GX-1,ci(b.max.x,BB.min.x));a++)for(let c=Math.max(0,ci(b.min.y,BB.min.y));c<=Math.min(GY-1,ci(b.max.y,BB.min.y));c++)for(let e=Math.max(0,ci(b.min.z,BB.min.z));e<=Math.min(GZ-1,ci(b.max.z,BB.min.z));e++){const k=(a*GY+c)*GZ+e;(GA[k]||(GA[k]=[])).push(S);}});
+  const inS=(S,px,py,pz)=>inPM(S,px,py,pz);
+  const UV=[[[0,1,0],[0,0,1]],[[1,0,0],[0,0,1]],[[1,0,0],[0,1,0]]],GCF=new Array(GX*GY*GZ);LM.cfBox.forEach(b=>{for(let a=Math.max(0,ci(b.min.x,BB.min.x));a<=Math.min(GX-1,ci(b.max.x,BB.min.x));a++)for(let c=Math.max(0,ci(b.min.y,BB.min.y));c<=Math.min(GY-1,ci(b.max.y,BB.min.y));c++)for(let e=Math.max(0,ci(b.min.z,BB.min.z));e<=Math.min(GZ-1,ci(b.max.z,BB.min.z));e++){const k=(a*GY+c)*GZ+e;(GCF[k]||(GCF[k]=[])).push(b);}});
+  const solid=(x,y,z)=>{const k=gi(x,y,z),l=(k<0?null:GA[k])||[];for(const S of l){const d=S.d-(S.n.x*x+S.n.y*y+S.n.z*z);if(d>0&&d<S.T&&inS(S,x+S.n.x*d,y+S.n.y*d,z+S.n.z*d))return true;}const q=new THREE.Vector3(x,y,z);const l2=k<0?null:GCF[k];return !!l2&&l2.some(b=>b.containsPoint(q));};   // 板（壁などの中）の中か
+  for(let i=0;i<LMW*LMH;i++){if(P[i*4+3]===0)continue;const x=P[i*4],y=P[i*4+1],z=P[i*4+2],gk=gi(x,y,z),l=gk<0?null:GA[gk];if(!l)continue;const nx=NN[i*4],ny=NN[i*4+1],nz=NN[i*4+2];let b1=1,a1=-1,b2=1,a2=-1;
+   for(const S of l){const dn=nx*S.n.x+ny*S.n.y+nz*S.n.z;if(dn>0.5||(dn<-0.5&&dn>-0.9))continue;const sd=S.n.x*x+S.n.y*y+S.n.z*z-S.d;if(sd<-0.002||sd>0.15||sd>=b2)continue;const px=x-S.n.x*sd,py=y-S.n.y*sd,pz=z-S.n.z*sd,[u,v]=UV[S.ax>>1];
+    let ok=inS(S,px,py,pz);for(const [a,b] of [[1,0],[-1,0],[0,1],[0,-1]]){if(!ok)break;const qx=px+(u[0]*a+v[0]*b)*0.05,qy=py+(u[1]*a+v[1]*b)*0.05,qz=pz+(u[2]*a+v[2]*b)*0.05;ok=inS(S,qx,qy,qz)||solid(qx-S.n.x*0.01,qy-S.n.y*0.01,qz-S.n.z*0.01);}   // 5cm先が面の外でも、ほかの面の板の中（隅の向こう＝壁の中）ならよい
+    if(ok){const v=Math.max(0,sd);if(v<b1){if(S.ax!==a1){b2=b1;a2=a1;}b1=v;a1=S.ax;}else if(S.ax!==a1&&v<b2){b2=v;a2=S.ax;}}}
+   if(a1>=0)CT[i]=8000000+(a1*151+Math.min(150,Math.round(b1*1000)))*1000+(a2>=0?a2*151+Math.min(150,Math.round(b2*1000)):906);}
+  LM.nCT=CT.reduce((a,v)=>a+(v>0?1:0),0);}
+ // 影を調べる位置（GBP）の仕上げ：壁に接する所の印（CT）を4番目に入れる。面の端で内側へ寄せた位置が閉じたドアの面の向こう側へ出た画素は、寄せる前の位置に戻す（幅の狭い枠で、内側へ寄せる向きが外向きになり、ドアの向こうの光を拾ったため）
+ LM.tm.ct=performance.now()-LM.tm.t0;LM.slabB.forEach(S=>{delete S.pm;});{const n=PTS.length/3,RB=64,buf=new Float32Array(LMW*RB*4),gl=r.getContext(),gtx=r.properties.get(GBP.texture).__webglTexture;PGP=new Float32Array(n*4);PGN=new Float32Array(n*3);for(let k=0;k<n;k++){const i=(PTS[k*3+1]*LMW+PTS[k*3])*4;PGN[k*3]=NN[i];PGN[k*3+1]=NN[i+1];PGN[k*3+2]=NN[i+2];}
+  for(let y0=0;y0<LMH;y0+=RB){const h=Math.min(RB,LMH-y0);r.readRenderTargetPixels(GBP,0,y0,LMW,h,buf);for(let q=0;q<LMW*h;q++){const i=y0*LMW+q,c=CT[i];if(c>0)buf[q*4+3]=c;const sc=SC[i];if(sc)for(let j=0;j<SEALS.length;j++){if(!((sc>>j)&1))continue;const S=SEALS[j],nx=S.n.x,ny=S.n.y,nz=S.n.z,d0=S.c.x*nx+S.c.y*ny+S.c.z*nz+S.off;if((P[i*4]*nx+P[i*4+1]*ny+P[i*4+2]*nz>d0)!==(buf[q*4]*nx+buf[q*4+1]*ny+buf[q*4+2]*nz>d0)){buf[q*4]=P[i*4];buf[q*4+1]=P[i*4+1];buf[q*4+2]=P[i*4+2];}}}
+   r.state.bindTexture(gl.TEXTURE_2D,gtx);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.pixelStorei(gl.UNPACK_ALIGNMENT,4);gl.texSubImage2D(gl.TEXTURE_2D,0,0,y0,LMW,h,gl.RGBA,gl.FLOAT,buf.subarray(0,LMW*h*4));
+   for(let k=0;k<n;k++){const y=PTS[k*3+1];if(y<y0||y>=y0+h)continue;const i=((y-y0)*LMW+PTS[k*3])*4;PGP[k*4]=buf[i];PGP[k*4+1]=buf[i+1];PGP[k*4+2]=buf[i+2];PGP[k*4+3]=buf[i+3];}}}}   // 点ごとの位置（GBP）と向き：点の頂点に持たせる（点を描くときに画像から読まずにすむ）
+LM.tm.pts=performance.now()-LM.tm.t0;const MK={texture:(()=>{const t=new THREE.DataTexture(MKD,LMW,LMH,THREE.RGBAFormat,THREE.UnsignedByteType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;return t;})()};bakeMat.uniforms.tM.value=MK.texture;
+const ptsGeo=new THREE.BufferGeometry();ptsGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(PTS),3));ptsGeo.setAttribute('gp',new THREE.BufferAttribute(PGP,4));ptsGeo.setAttribute('gn',new THREE.BufferAttribute(PGN,3));LM.nPts=PTS.length/3;
+const bakePts=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{BOUNCE:1,PTS:1},depthTest:false,depthWrite:false,transparent:true,blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,uniforms:bakeMat.uniforms,
+ vertexShader:`in vec4 gp;in vec3 gn;uniform vec2 WH;uniform vec3 lp,ld;uniform float cosO,cosI,isPt,lamb,cres;flat out vec4 vP;flat out vec3 vN;
+void main(){vP=gp;vN=gn;bool off=!(dot(gn,gn)>1e-8)||any(isnan(gp.xyz));if(!off){vec3 n=normalize(gn),p=gp.xyz+n*0.012;float tex=2.0/cres;p+=n*(length(lp-p)*tex);vec3 L=normalize(lp-p);float cn=lamb>0.5?max(dot(-L,ld),0.0):isPt>0.5?1.0:smoothstep(cosO,cosI,dot(-L,ld));off=dot(n,L)<=0.0||cn<=0.0;}
+ gl_Position=off?vec4(2.0,2.0,2.0,1.0):vec4((position.xy+0.5)/WH*2.0-1.0,0.0,1.0);gl_PointSize=1.0;}`,fragmentShader:bakeMat.fragmentShader});   // 照り返しは計算する画素だけを点として描く（画像全体を描くより速い）。光の届かない点（裏向き・光る面の後ろ）は頂点の段階で捨てる（判定は描き込みと同じ式）
 bakeMat.uniforms.WH={value:new THREE.Vector2(LMW,LMH)};const BPS=new THREE.Scene(),bpo=new THREE.Points(ptsGeo,bakePts);bpo.frustumCulled=false;BPS.add(bpo);
+// 照り返しの描き込みは、計算する画素（点）を詰めて並べた小さな画像（512×約280）の上で、画像全体を描く形で行い（EC に足し込む）、最後に1回だけ点として元の位置へ写す（scatter）。
+// 1画素の点を光る面ごとに描くと、GPU が2×2画素単位で計算するため4倍近い無駄が出る。1画素ごとの計算の中身は同じ
+const NPT=LM.nPts,CW2=512,CH2=Math.ceil(NPT/CW2),EC=new THREE.WebGLRenderTarget(CW2,CH2,{type:THREE.HalfFloatType,minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,generateMipmaps:false});
+{const cPd=new Float32Array(CW2*CH2*4),cNd=new Float32Array(CW2*CH2*4),CI=new Float32Array(NPT*2);for(let k=0;k<NPT;k++){cPd[k*4]=PGP[k*4];cPd[k*4+1]=PGP[k*4+1];cPd[k*4+2]=PGP[k*4+2];cPd[k*4+3]=PGP[k*4+3];cNd[k*4]=PGN[k*3];cNd[k*4+1]=PGN[k*3+1];cNd[k*4+2]=PGN[k*3+2];CI[k*2]=k%CW2;CI[k*2+1]=Math.floor(k/CW2);}
+ const mk=d=>{const t=new THREE.DataTexture(d,CW2,CH2,THREE.RGBAFormat,THREE.FloatType);t.minFilter=t.magFilter=THREE.NearestFilter;t.needsUpdate=true;t.onUpdate=()=>{t.image.data=null;};return t;};bakeMat.uniforms.cP={value:mk(cPd)};bakeMat.uniforms.cN={value:mk(cNd)};ptsGeo.setAttribute('ci',new THREE.BufferAttribute(CI,2));}
+const bakeCmp=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{BOUNCE:1,PTS:1,CMP:1},depthTest:false,depthWrite:false,transparent:true,blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,uniforms:bakeMat.uniforms,vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,fragmentShader:bakeMat.fragmentShader}),CMS=new THREE.Scene();{const q=new THREE.Mesh(new THREE.PlaneGeometry(2,2),bakeCmp);q.frustumCulled=false;CMS.add(q);}
+const scatMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{ec:{value:EC.texture},WH:{value:new THREE.Vector2(LMW,LMH)}},vertexShader:`in vec2 ci;uniform sampler2D ec;uniform vec2 WH;flat out vec4 vc;void main(){vc=texelFetch(ec,ivec2(ci),0);gl_Position=vec4((position.xy+0.5)/WH*2.0-1.0,0.0,1.0);gl_PointSize=1.0;}`,fragmentShader:`flat in vec4 vc;out vec4 o;void main(){o=vc;}`}),SCS=new THREE.Scene();{const q=new THREE.Points(ptsGeo,scatMat);q.frustumCulled=false;SCS.add(q);}
+const ecClear=()=>{r.setRenderTarget(EC);r.setClearColor(0x000000,0);r.clear();},ecScatter=dst=>{r.setRenderTarget(dst);r.autoClear=false;r.render(SCS,CAM0);r.autoClear=true;};   // 照り返しの点の値を元の位置へ（dst は先に消してある）
 const fillMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{R:LM.bstep-1},depthTest:false,depthWrite:false,uniforms:{tE:{value:null},tP:{value:GB.textures[0]},tM:{value:MK.texture},tS:{value:LM.sideTex},closed:{value:0}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D tE,tP,tM,tS;uniform int closed;out vec4 o;void main(){ivec2 c=ivec2(gl_FragCoord.xy);float w=texelFetch(tP,c,0).w;vec3 sc=texelFetch(tS,c,0).xyz;if(w!=0.0&&sc.z>0.5&&((closed>>(int(sc.z)-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}if(w==0.0||texelFetch(tM,c,0).r>0.5){o=texelFetch(tE,c,0);return;}int c0=int(sc.x)&closed,s0=int(sc.y);
- vec3 s=vec3(0.0);float ws=0.0;for(int y=-R;y<=R;y++)for(int x=-R;x<=R;x++){ivec2 q=c+ivec2(x,y);if(texelFetch(tM,q,0).r<0.5||texelFetch(tP,q,0).w!=w)continue;vec3 sq=texelFetch(tS,q,0).xyz;if(((s0^int(sq.y))&c0&int(sq.x))!=0||(sq.z>0.5&&((closed>>(int(sq.z)-1))&1)==1))continue;float k=(1.0-abs(float(x))/float(R+1))*(1.0-abs(float(y))/float(R+1));s+=texelFetch(tE,q,0).rgb*k;ws+=k;}o=vec4(ws>0.0?s/ws:vec3(0.0),1.0);}`});
+ fragmentShader:`uniform sampler2D tE,tP,tM,tS;uniform int closed;out vec4 o;void main(){ivec2 c=ivec2(gl_FragCoord.xy);float w=texelFetch(tP,c,0).w;vec3 sc=texelFetch(tS,c,0).xyz;int lft=int(sc.z)&15;if(w!=0.0&&lft>0&&((closed>>(lft-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}if(w==0.0||texelFetch(tM,c,0).r>0.5){o=texelFetch(tE,c,0);return;}int sx=int(sc.x),c0=(sx&511)&closed,s0=(sx>>9)&511;bool nb=((sx>>18)&1)==1;float rt=abs(sc.y);
+ vec3 s=vec3(0.0);float ws=0.0;for(int y=-R;y<=R;y++)for(int x=-R;x<=R;x++){ivec2 q=c+ivec2(x,y);if(texelFetch(tM,q,0).r<0.5||texelFetch(tP,q,0).w!=w)continue;vec3 sq=texelFetch(tS,q,0).xyz;int qx=int(sq.x);if(sq.y!=rt||((s0^((qx>>9)&511))&c0&(qx&511))!=0||((int(sq.z)&15)>0&&((closed>>((int(sq.z)&15)-1))&1)==1)||((int(sq.z)>>4)&closed)!=0)continue;if(nb){int ns=max(abs(x),abs(y));bool bl=false;for(int t=1;t<=R;t++){if(t>=ns)break;ivec2 m=c+ivec2(floor(vec2(float(x),float(y))*float(t)/float(ns)+0.5));if(texelFetch(tS,m,0).y<0.0){bl=true;break;}}if(bl)continue;}float k=(1.0-abs(float(x))/float(R+1))*(1.0-abs(float(y))/float(R+1));s+=texelFetch(tE,q,0).rgb*k;ws+=k;}o=vec4(ws>0.0?s/ws:vec3(0.0),1.0);}`});
 const fillQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fillMat);fillQ.frustumCulled=false;const FILLS=new THREE.Scene();FILLS.add(fillQ);
 const fillTo=(src,dst)=>{fillMat.uniforms.closed.value=SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);fillMat.uniforms.tE.value=src.texture;r.setRenderTarget(dst);r.render(FILLS,CAM0);};
 const EB1=ED.clone(),EBT=ED.clone();let ET=ED.clone(),EG=ED.clone();   // ET：表示に使う照度。EG：作業用（G1・太陽の直接の光＝照り返しの元にだけ使う。表示は実時間／2回目の照り返し／足し合わせ）。描き込み終わると ET と EG を入れ替え、EG が前の照度になる（なめらかに切り替えるのに使う）。画像の数を減らしてメモリを節約（iPhone で落ちたため）
 const CGRPC=CGRP.map(k=>+k.split(':')[0]);   // まとまりのチャートの番号
 LM.bsoft=1.5;LM.wsoft=2;   // 照り返しの影のやわらかさ（影の画像の画素の何倍の幅で平均するか）
 const GLASS_T=0.5;   // 浴室のドアのすりガラスの透過率（仮）
-const NSHOOT=[2000,6000];   // 照り返しの1回目・2回目で光る面として使うまとまりの、光の量の下限（この値より暗いまとまりは、照らしても見えないほどなので省く）。
+const NSHOOT=[1000,500];   // 照り返しの1回目・2回目で光る面として使うまとまりの、光の量の下限（この値より暗いまとまりは省く）。2000・6000 だと、窓の無い部屋が昼に開いたドアからの光だけで照らされるとき（洗面所の北の壁・北東の小さなくぼみ）、部屋の中の照り返しが全部省かれて真っ黒になった
 // 「明るい順に何個」にすると、昼は日なたが上位を占めて窓の無い部屋のまとまりが外れ、同じ部屋が昼夜で違って見える（トイレの指摘）。下限は全状態で同じなので、ある部屋の照り返しは他の部屋の明るさによらない
-function bounce(src,dst,src2,ns){aggMat.uniforms.tE.value=src.texture;aggMat.uniforms.tE2.value=(src2||src).texture;aggMat.uniforms.e2.value=src2?1:0;r.setRenderTarget(CRT);r.render(AGGS,CAM0);const F=new Float32Array(CW*CH*4),P=new Float32Array(CW*CH*4),N=new Float32Array(CW*CH*4);
+function bounce(src,dst,src2,ns){aggMat.uniforms.closed.value=SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);aggMat.uniforms.tE.value=src.texture;aggMat.uniforms.tE2.value=(src2||src).texture;aggMat.uniforms.e2.value=src2?1:0;r.setRenderTarget(CRT);r.render(AGGS,CAM0);const F=new Float32Array(CW*CH*4),P=new Float32Array(CW*CH*4),N=new Float32Array(CW*CH*4);
  r.readRenderTargetPixels(CRT,0,0,CW,CH,F,undefined,0);r.readRenderTargetPixels(CRT,0,0,CW,CH,P,undefined,1);r.readRenderTargetPixels(CRT,0,0,CW,CH,N,undefined,2);
  const G=new Map();for(let i=0;i<CELLS.length;i++){const k=F[i*4+3];if(k<=0)continue;const y=0.2126*F[i*4]+0.7152*F[i*4+1]+0.0722*F[i*4+2];if(!(y>0))continue;
   let g=G.get(CGRP[i]);if(!g){g={y:0,F:new THREE.Vector3(),P:new THREE.Vector3(),N:new THREE.Vector3(N[i*4],N[i*4+1],N[i*4+2]),k:0,i,ts:(LM.charts[CGRPC[i]]||{}).ts||LM.ts};G.set(CGRP[i],g);}g.y+=y;g.F.x+=F[i*4];g.F.y+=F[i*4+1];g.F.z+=F[i*4+2];g.P.addScaledVector(new THREE.Vector3(P[i*4],P[i*4+1],P[i*4+2]),y);g.k+=k;}   // まとまりごとに：光の量の合計・光の量で重みを付けた中心
@@ -231,15 +330,15 @@ const p=g.P.clone().multiplyScalar(1/g.y);
   if(SEALS.some(s=>!DS[s.k]&&Math.abs(g.N.dot(s.n))<0.5&&Math.abs(p.clone().sub(s.c).dot(s.n)-s.off)<0.04&&(()=>{const u=p.clone().sub(s.c).dot(s.t);return u>s.t0-0.02&&u<s.t1+0.02&&p.y>s.b0-0.02&&p.y<s.b1+0.02;})()))G.delete(key);});   // 表示していない形（閉じたドアの開いた形など）と、閉じたドアの厚みの中で扉の面と直角な面（扉の小口・ガラスのすき間の面）のまとまりは光らせない（ドアの両側の光を混ぜて反対側へ出してしまうため）
  const gs=[...G.values()].sort((a,b)=>b.y-a.y||a.i-b.i),sel=gs.filter(g=>g.y>=ns);   // 下限〜2倍の間は光を0から1倍へなめらかに増やす（下限の前後でわずかな光の差が、急な見た目の差にならないように）
 LM.nSel=(LM.nSel||[]).concat(sel.length).slice(-2);
- r.setRenderTarget(dst);r.setClearColor(0x000000,0);r.clear();
+ r.setRenderTarget(dst);r.setClearColor(0x000000,0);r.clear();ecClear();
  const tr=[];sel.forEach(g=>{const ch=LM.charts[CGRPC[g.i]];if(ch&&ch.o&&ch.o.material===bathGlM)tr.push(g);});   // 浴室のドアのすりガラス：受けた光の一部を反対側へ、ぼんやりした光として出す（透過率 GLASS_T は仮）
  tr.forEach(g=>{const n=g.N;if(!(n.lengthSq()>0.5))return;const pos=g.P.clone().multiplyScalar(1/g.y).addScaledVector(n,-0.026),area=g.k*g.ts*g.ts,phi=g.F.clone().multiplyScalar(g.ts*g.ts/Math.PI*GLASS_T/lum(bathGlM.color)*Math.min(1,(g.y-ns)/ns));
   bakeEmitter({pos,dir:n.clone().negate(),lamb:1,intensity:1,colv:phi,r2:area/Math.PI,soft:LM.bsoft,cube:2},dst);});
  sel.forEach(g=>{const n=g.N;if(!(n.lengthSq()>0.5))return;const pos=g.P.multiplyScalar(1/g.y),area=g.k*g.ts*g.ts,phi=g.F.clone().multiplyScalar(g.ts*g.ts/Math.PI*Math.min(1,(g.y-ns)/ns));   // 反射した光束÷π（拡散面の正面の光度）
   bakeEmitter({pos:pos.addScaledVector(n,0.02),dir:n,lamb:1,intensity:1,colv:phi,r2:area/Math.PI,soft:LM.bsoft,cube:2},dst);});
- LM.nShoot=sel.length;}
+ ecScatter(dst);LM.nShoot=sel.length;}
 const sumMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,depthTest:false,depthWrite:false,uniforms:{a:{value:ED.texture},b:{value:EB1.texture},c:{value:EBT.texture},tS:{value:LM.sideTex},closed:{value:0},gT:{value:GLASS_T/(0.2126*bathGlM.color.r+0.7152*bathGlM.color.g+0.0722*bathGlM.color.b)}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
- fragmentShader:`uniform sampler2D a,b,c,tS;uniform float gT;uniform int closed;out vec4 o;void main(){ivec2 q=ivec2(gl_FragCoord.xy);vec4 sq=texelFetch(tS,q,0);float lf=sq.z;if(lf>0.5&&((closed>>(int(lf)-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}o=vec4(texelFetch(a,q,0).rgb+texelFetch(b,q,0).rgb+texelFetch(c,q,0).rgb,1.0);if(sq.w>0.5){int j=int(sq.w+0.5)-1;ivec2 r=ivec2(j%${LMW},j/${LMW});o.rgb+=(texelFetch(a,r,0).rgb+texelFetch(b,r,0).rgb+texelFetch(c,r,0).rgb)*gT;}}`});   // 閉じた扉の真下と、扉の表裏から3cm以内の床は光を0に（扉の足元の細い陰。影の判定の余裕の中で向こうの光を拾うため）。枠や壁の面は0にしない（ドアの縁が黒い線になるため）
+ fragmentShader:`uniform sampler2D a,b,c,tS;uniform float gT;uniform int closed;out vec4 o;void main(){ivec2 q=ivec2(gl_FragCoord.xy);vec4 sq=texelFetch(tS,q,0);int lfi=int(sq.z)&15;if(lfi>0&&((closed>>(lfi-1))&1)==1){o=vec4(0.0,0.0,0.0,1.0);return;}o=vec4(texelFetch(a,q,0).rgb+texelFetch(b,q,0).rgb+texelFetch(c,q,0).rgb,1.0);int uzc=(int(sq.z)>>4)&closed;if(sq.y>0.0&&uzc!=0){int j=0;for(int t=0;t<9;t++){if(((uzc>>t)&1)==1){j=t;break;}}int sb=((int(sq.x)>>9)>>j)&1;vec3 s0=vec3(0.0),s1=vec3(0.0);float k0=0.0,k1=0.0;for(int y=-3;y<=3;y++)for(int x=-3;x<=3;x++){ivec2 m=q+ivec2(x,y);vec4 sn=texelFetch(tS,m,0);if(sn.y!=sq.y||((int(sn.z)>>4)&closed)!=0)continue;float wg=1.0/(1.0+float(x*x+y*y));vec3 e=(texelFetch(a,m,0).rgb+texelFetch(b,m,0).rgb+texelFetch(c,m,0).rgb)*wg;if((((int(sn.x)>>9)>>j)&1)==sb){s0+=e;k0+=wg;}else{s1+=e;k1+=wg;}}if(k0>0.0)o.rgb=s0/k0;else if(k1>0.0)o.rgb=s1/k1;}if(sq.y<0.0){vec3 sm=vec3(0.0);float kw=0.0;for(int y=-3;y<=3;y++)for(int x=-3;x<=3;x++){ivec2 m=q+ivec2(x,y);vec4 sn=texelFetch(tS,m,0);if(sn.y!=-sq.y||((int(sn.z)>>4)&closed)!=0)continue;float wg=1.0/(1.0+float(x*x+y*y));sm+=(texelFetch(a,m,0).rgb+texelFetch(b,m,0).rgb+texelFetch(c,m,0).rgb)*wg;kw+=wg;}if(kw>0.0)o.rgb=sm/kw;}if(sq.w>0.5){int j=int(sq.w+0.5)-1;ivec2 r=ivec2(j%${LMW},j/${LMW});o.rgb+=(texelFetch(a,r,0).rgb+texelFetch(b,r,0).rgb+texelFetch(c,r,0).rgb)*gT;}}`});   // 閉じた扉の真下と、扉の表裏から3cm以内の床は光を0に（扉の足元の細い陰。影の判定の余裕の中で向こうの光を拾うため）。枠や壁の面は0にしない（ドアの縁が黒い線になるため）
 const sumQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),sumMat);sumQ.frustumCulled=false;const SUMS=new THREE.Scene();SUMS.add(sumQ);
 // ===== 普段の描画：光は使わず、ライトマップの照度を「周りからの光」として材質に入れる（拡散の明るさ＝照度×反射率÷π） =====
 const LMU={lmPrev:{value:EG.texture},fade:{value:1},lmTex:{value:ET.texture},lmScale:{value:new THREE.Vector3(1,1,1)},sunS:{value:SUNRT.texture},sunW:{value:SUNWIN.texture},sunVP:{value:SUNVP},sunD:{value:SUNDIR.clone()},sunC:{value:new THREE.Vector3()},sunOn:{value:0},shadeT:{value:1},sunR:{value:0.015/14}};   // sun…：太陽の直接の光（表示で計算）。sunR：影の縁のぼかしの半径（約1.5cm。太陽の大きさによる半影）
@@ -266,7 +365,7 @@ let lastExp=1;function updateGlow(){lastExp=r.toneMappingExposure;GLOW.forEach(g
 const lum=c=>0.2126*c.r+0.7152*c.g+0.0722*c.b;
 let lastShade=-1;const WBC=new THREE.Color(1,1,1).lerp(lumColor(KCOL[2700]),0.35);WBC.multiplyScalar(1/lum(WBC));   // 白の合わせ：電球色を35%だけ白に寄せる（全状態で同じ）
 LM.EXPO=0.05;   // 露出（全状態で同じ。画像で見て調整した値）
-function relight(chg){envAll();syncDoors();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=1;
+function relight(chg){envAll();syncDoors();sealUpd();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=1;
  r.setRenderTarget(ED);r.setClearColor(0x000000,0);r.clear();
  const t0=performance.now();let n=0;
  r.setRenderTarget(EG);r.clear();G1L.intensity=0;G1L.shadow.needsUpdate=true;
@@ -290,4 +389,4 @@ applyEnvAll=function(){requestRelight();};
 {const _td=toggleDoor;toggleDoor=function(k){const was=DS[k];_td(k);if(DS[k]!==was)requestRelight();};}
 if(LMQ!=='chk'){applyEnvAll();LM.async=true;let n=0;const t=setInterval(()=>{draw();if(++n>=3)clearInterval(t);},400);}   // 読み込み中の表示が消えた後にも描き直す
 
-LM.loaded=true;   // 最後まで読み込めた印（確認の道具が待つ）
+LM.tm.all=performance.now()-LM.tm.t0;LM.loaded=true;   // 最後まで読み込めた印（確認の道具が待つ）
