@@ -87,8 +87,8 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
    for(let k=0;k<=n;k++){const t=k/n,q=1-t;p.push([q*q*a[0]+2*q*t*B[0]+t*t*b[0],q*q*a[1]+2*q*t*B[1]+t*t*b[1]]);}}return p;};   // 角を丸めた四角形の周
   const NL=10,NC=8,pos=[],idx=[],col=[];   // col：奥ほど少し暗く（照明が無いため、深さが分かるように）
   let N=0;for(let l=0;l<=NL;l++){const t=l/NL,eh=1-Math.cos(t*Math.PI/2),ev=Math.sin(t*Math.PI/2),c=top.map((p,i)=>[p[0]+(bot[i][0]-p[0])*eh,p[1]+(bot[i][1]-p[1])*eh]),pts=rq(c,0.03+0.04*t,NC);N=pts.length;pts.forEach(([x,z])=>{pos.push(x,YT-(YT-YD)*ev,z);const k=1-0.13*ev;col.push(k,k,k*0.995);});}   // 壁は上で立ち、下で丸く底へつながる
-  for(let l=0;l<NL;l++)for(let k=0;k<N;k++){const a=l*N+k,b=l*N+(k+1)%N;idx.push(a,b,a+N,b,b+N,a+N);}
-  {const c0=pos.length/3;let cx=0,cz=0;for(let k=0;k<N;k++){cx+=pos[(NL*N+k)*3];cz+=pos[(NL*N+k)*3+2];}pos.push(cx/N,YD,cz/N);col.push(0.87,0.87,0.866);for(let k=0;k<N;k++)idx.push(c0,NL*N+k,NL*N+(k+1)%N);}   // 底
+  for(let l=0;l<NL;l++)for(let k=0;k<N;k++){const a=l*N+k,b=l*N+(k+1)%N;idx.push(a,a+N,b,b,a+N,b+N);}   // 表（法線）がボウルの内側を向く並び
+  {const c0=pos.length/3;let cx=0,cz=0;for(let k=0;k<N;k++){cx+=pos[(NL*N+k)*3];cz+=pos[(NL*N+k)*3+2];}pos.push(cx/N,YD,cz/N);col.push(0.87,0.87,0.866);for(let k=0;k<N;k++)idx.push(c0,NL*N+(k+1)%N,NL*N+k);}   // 底
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.setIndex(idx);geo.computeVertexNormals();g.add(new THREE.Mesh(geo,P({color:0xf7f7f5,specular:0x555555,shininess:50,side:THREE.DoubleSide,vertexColors:true})));
   const sh=new THREE.Shape([[0,0],[XS,0],[XS,-0.53],[0,-0.53]].map(([x,y])=>new THREE.Vector2(x,y))),hl=new THREE.Path(rq(top,0.03,NC).map(([x,z])=>new THREE.Vector2(x,-z)));sh.holes.push(hl);   // カウンターの上面（ボウルの穴あき）
   const cg=new THREE.ShapeGeometry(sh);cg.rotateX(-Math.PI/2);const ct=new THREE.Mesh(cg,cw);ct.position.y=YT;g.add(ct);

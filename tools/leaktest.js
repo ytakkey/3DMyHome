@@ -1,4 +1,5 @@
 // 光漏れの確認道具（確認用）：全部のドアを閉じ、照明を部屋ごとに1つずつ点けて、ほかの部屋の面にライトマップの光が増えていないかを調べる。
+if(typeof LM!=="undefined")LM.async=false;   // 確認の道具はその場で描き込む（光をなめらかに切り替える動きを止める）
 // leakPrep() のあと leakTest(名前) で結果の文字列を返す（部屋の箱は確認のためだけのもの。照明の仕組みには使わない）
 window.leakPrep=()=>{Object.keys(DS).forEach(k=>{if(DS[k])toggleDoor(k);});
  const gl=r.getContext(),W=LM.W,H=LM.H,P=new Float32Array(W*H*4);r.readRenderTargetPixels(GB,0,0,W,H,P,undefined,0);

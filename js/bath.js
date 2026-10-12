@@ -39,14 +39,14 @@ ceilRect(X0,X1,Z0,Z1,BH,ceilBM,1.0);box(0.002,0.001,Z1-Z0,X0+BW/2,BH-0.0006,(Z0+
  const rr=(c,r)=>{const [a,b,cc,d]=c,p=[];[[cc-r,b+r,-Math.PI/2],[cc-r,d-r,0],[a+r,d-r,Math.PI/2],[a+r,b+r,Math.PI]].forEach(([x,z,a0])=>{for(let k=0;k<=NC;k++){const t=a0+k/NC*Math.PI/2;p.push([x+r*Math.cos(t),z+r*Math.sin(t)]);}});return p;};   // 角を丸めた四角形の周（どの段も同じ点の数）
  const pos=[],idx=[],col=[];let N=0;
  for(let l=0;l<=NL;l++){const t=l/NL,eh=1-Math.cos(t*Math.PI/2),ev=Math.sin(t*Math.PI/2),c=top.map((q,i)=>q+(bot[i]-q)*eh),pts=rr(c,0.24-0.08*eh);N=pts.length;pts.forEach(([x,z])=>{pos.push(x,TY-(TY-YB)*ev,z);const k=1-0.1*ev;col.push(k,k,k*0.995);});}   // 上で立ち、下で丸く底へつながる
- for(let l=0;l<NL;l++)for(let k=0;k<N;k++){const a=l*N+k,b=l*N+(k+1)%N;idx.push(a,b,a+N,b,b+N,a+N);}
- {const c0=pos.length/3;pos.push((bot[0]+bot[2])/2,YB,(bot[1]+bot[3])/2);col.push(0.9,0.9,0.895);for(let k=0;k<N;k++)idx.push(c0,NL*N+k,NL*N+(k+1)%N);}   // 底
+ for(let l=0;l<NL;l++)for(let k=0;k<N;k++){const a=l*N+k,b=l*N+(k+1)%N;idx.push(a,a+N,b,b,a+N,b+N);}   // 表（法線）が浴槽の内側を向く並び
+ {const c0=pos.length/3;pos.push((bot[0]+bot[2])/2,YB,(bot[1]+bot[3])/2);col.push(0.9,0.9,0.895);for(let k=0;k<N;k++)idx.push(c0,NL*N+(k+1)%N,NL*N+k);}   // 底
  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.setIndex(idx);geo.computeVertexNormals();s.add(new THREE.Mesh(geo,P({color:0xf6f6f4,specular:0x666666,shininess:60,side:THREE.DoubleSide,vertexColors:true})));
  const sh=new THREE.Shape([[X0,-Z0],[TX1-0.012,-Z0],[TX1-0.012,-Z1],[X0,-Z1]].map(([x,y])=>new THREE.Vector2(x,y)));sh.holes.push(new THREE.Path(rr(top,0.24).map(([x,z])=>new THREE.Vector2(x,-z))));   // 上面（口の穴あき）
  const tg=new THREE.ShapeGeometry(sh);tg.rotateX(-Math.PI/2);const tp=new THREE.Mesh(tg,tubM);tp.position.y=TY;s.add(tp);
  {const WY=TY-0.12,ev=(TY-WY)/(TY-YB),eh=1-Math.cos(Math.asin(ev)),c=top.map((q,i)=>q+(bot[i]-q)*eh),wg=new THREE.ShapeGeometry(new THREE.Shape(rr(c,0.24-0.08*eh).map(([x,z])=>new THREE.Vector2(x,-z))));wg.rotateX(-Math.PI/2);   // お湯：縁から120下の水面（浴槽の内側の形をその高さで切った形）
   const rpC=cv((x,W,H)=>{const im=x.createImageData(W,H),D=im.data,T=Math.PI*2,h=(i,j)=>0.5*Math.sin(T*(2*i/W+0.3*Math.sin(T*j/H)))+0.4*Math.sin(T*(3*j/H+0.25*Math.sin(T*2*i/W)))+0.2*Math.sin(T*(5*i/W+4*j/H));for(let j=0;j<H;j++)for(let i=0;i<W;i++){const nx=-(h(i+1,j)-h(i-1,j))*6,ny=-(h(i,j+1)-h(i,j-1))*6,l=Math.hypot(nx,ny,1),o=(j*W+i)*4;D[o]=(nx/l*0.5+0.5)*255;D[o+1]=(ny/l*0.5+0.5)*255;D[o+2]=(1/l*0.5+0.5)*255;D[o+3]=255;}x.putImageData(im,0,0);},128,128),rpT=tex(rpC);rpT.repeat.set(2,2);   // 水面のゆるい波（向きのテクスチャ）
-  waterM=new THREE.MeshPhongMaterial({color:0x8adcec,transparent:true,opacity:0.48,specular:0xffffff,shininess:120,envMap:envT,combine:THREE.MixOperation,reflectivity:0.12,normalMap:rpT,normalScale:new THREE.Vector2(0.08,0.08),depthWrite:false});   // 澄んだ水色（下の浴槽が透けて見える）
+  waterM=new THREE.MeshPhongMaterial({userData:{lmRecv:1},color:0x8adcec,transparent:true,opacity:0.48,specular:0xffffff,shininess:120,envMap:envT,combine:THREE.MixOperation,reflectivity:0.12,normalMap:rpT,normalScale:new THREE.Vector2(0.08,0.08),depthWrite:false});   // 澄んだ水色（下の浴槽が透けて見える）
   const w=new THREE.Mesh(wg,waterM);w.position.y=WY;s.add(w);}
  box(0.02,TY-0.012,Z1-Z0,TX1-0.01,(TY-0.012)/2,(Z0+Z1)/2,tubM);   // エプロン（東の面）
  {const c=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,Z1-Z0,16),tubM);c.rotation.x=Math.PI/2;c.position.set(TX1-0.012,TY-0.012,(Z0+Z1)/2);s.add(c);}   // 上面とエプロンの角（丸い）
