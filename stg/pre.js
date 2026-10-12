@@ -1,7 +1,8 @@
 // 検証版（stg）：ライトマップ（明るさを面の画像に描き込む方式。0章の要件・8章）の準備。もとの mergeStatic を差し替え、光の当たる部品に「ライトマップのどこに対応するか」（属性 lm）を付ける
 // lm = (u, v, 方式, チャートの番号)。方式0：平らな面のまとまり（チャート）ごとに画像の区画を割り当て、u・v は画像の中の位置（0〜1、なめらかに補間）。方式1：曲面の多い部品は頂点ごとに1画素（u・v は画素の番号、頂点の間はなめらかに補間）
-const LM={big:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
-const lmLit=(o,m)=>!(m.isMeshBasicMaterial||m.transparent||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明・動く部品（シェードの生地とバー）は除く
+// fine：中心がこの範囲にあるチャートは画素を細かく（ts）する。リビングの東の壁（階段の踏み板の細い影を描くため。ユーザーの指摘）
+const LM={fine:[{min:[4.7,-0.1,2.0],max:[5.0,5.4,7.3],ts:0.02}],big:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
+const lmLit=(o,m)=>!(m.isMeshBasicMaterial||(m.transparent&&!m.userData.lmRecv)||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明（水面など lmRecv の印のある物は受ける）・動く部品（シェードの生地とバー）は除く
 // 三角形の集まり（家全体の座標・index なし）を、同じ平面でつながった三角形のまとまり（チャート）に分ける。各頂点の平面上の座標（m）を返す
 function lmCharts(P){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=new Float32Array(n*3),D=new Float32Array(n);
  const find=i=>{while(par[i]!==i){par[i]=par[par[i]];i=par[i];}return i;};
@@ -12,7 +13,8 @@ function lmCharts(P){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=ne
  const id=new Map(),cOf=new Int32Array(n),charts=[];for(let t=0;t<n;t++){const r=find(t);if(!id.has(r)){id.set(r,charts.length);charts.push({nx:N[r*3],ny:N[r*3+1],nz:N[r*3+2],u0:1e9,u1:-1e9,v0:1e9,v1:-1e9});}cOf[t]=id.get(r);}
  const UV=new Float32Array(n*6);charts.forEach(c=>{let ux,uy,uz;if(Math.abs(c.ny)>0.7){ux=1;uy=0;uz=0;}else{ux=-c.nz;uy=0;uz=c.nx;}const l=Math.hypot(ux,uy,uz);ux/=l;uy/=l;uz/=l;c.u=[ux,uy,uz];c.v=[c.ny*uz-c.nz*uy,c.nz*ux-c.nx*uz,c.nx*uy-c.ny*ux];});   // 平面の座標軸：床・天井は東西、壁は水平方向を u に（家の座標の軸にそろう）
  for(let t=0;t<n;t++){const c=charts[cOf[t]];for(let i=0;i<3;i++){const a=t*9+i*3,u=c.u[0]*P[a]+c.u[1]*P[a+1]+c.u[2]*P[a+2],v=c.v[0]*P[a]+c.v[1]*P[a+1]+c.v[2]*P[a+2];UV[t*6+i*2]=u;UV[t*6+i*2+1]=v;if(u<c.u0)c.u0=u;if(u>c.u1)c.u1=u;if(v<c.v0)c.v0=v;if(v>c.v1)c.v1=v;}}
- charts.forEach(c=>{c.w=Math.ceil((c.u1-c.u0)/LM.ts+1)+2*LM.pad;c.h=Math.ceil((c.v1-c.v0)/LM.ts+1)+2*LM.pad;});return {cOf,charts,UV};}
+ const CB=charts.map(()=>[1e9,1e9,1e9,-1e9,-1e9,-1e9]);for(let t=0;t<n;t++){const b=CB[cOf[t]];for(let k=0;k<3;k++)for(let a=0;a<3;a++){const v=P[t*9+k*3+a];if(v<b[a])b[a]=v;if(v>b[a+3])b[a+3]=v;}}
+ charts.forEach((c,ci)=>{const b=CB[ci],cx=(b[0]+b[3])/2,cy=(b[1]+b[4])/2,cz=(b[2]+b[5])/2,f=LM.fine.find(f=>cx>=f.min[0]&&cy>=f.min[1]&&cz>=f.min[2]&&cx<=f.max[0]&&cy<=f.max[1]&&cz<=f.max[2]);c.ts=f?f.ts:LM.ts;c.w=Math.ceil((c.u1-c.u0)/c.ts+1)+2*LM.pad;c.h=Math.ceil((c.v1-c.v0)/c.ts+1)+2*LM.pad;});return {cOf,charts,UV};}
 // 形（index なし・自分の座標）に lm を付ける準備：チャートか頂点ごとかを決め、あとで画像の区画が決まったら lm を書く
 function lmPrepare(o,g){const W=g.clone().applyMatrix4(o.matrixWorld),P=W.attributes.position.array;W.dispose();const r=lmCharts(P),n=P.length/9;
  const vkey=new Map();let nv=0;const VI=new Int32Array(n*3);const NA=g.attributes.normal;for(let i=0;i<n*3;i++){const k=Math.round(P[i*3]*1e4)+','+Math.round(P[i*3+1]*1e4)+','+Math.round(P[i*3+2]*1e4)+'|'+(NA?Math.round(NA.getX(i)*100)+','+Math.round(NA.getY(i)*100)+','+Math.round(NA.getZ(i)*100):'');let v=vkey.get(k);if(v===undefined){v=nv++;vkey.set(k,v);}VI[i]=v;}   // 同じ位置・向きの頂点は1画素を共有
@@ -23,7 +25,7 @@ function lmPack(){const cs=LM.charts.slice().sort((a,b)=>b.h-a.h||b.w-a.w);let x
  let vb=y,vx=0,vy=y;LM.items.forEach(it=>{if(!it.mode)return;it.vbase=(vy-vb)*LM.W+vx;const end=it.vbase+it.nv;vy=vb+Math.floor(end/LM.W);vx=end%LM.W;});LM.H=vy+1;LM.vrow=vb;
  LM.items.forEach(it=>{const n=it.g.attributes.position.count,A=new Float32Array(n*4);
   for(let i=0;i<n;i++){if(it.mode){const k=it.vbase+it.VI[i];A[i*4]=k%LM.W;A[i*4+1]=LM.vrow+Math.floor(k/LM.W);A[i*4+2]=1;A[i*4+3]=-1;}
-   else{const c=it.charts[it.cOf[Math.floor(i/3)]],u=it.UV[i*2],v=it.UV[i*2+1];A[i*4]=(c.x+LM.pad+0.5+(u-c.u0)/LM.ts)/LM.W;A[i*4+1]=(c.y+LM.pad+0.5+(v-c.v0)/LM.ts)/LM.H;A[i*4+2]=0;A[i*4+3]=c.gid;}}   // 画素の中心が面の端に来るように
+   else{const c=it.charts[it.cOf[Math.floor(i/3)]],u=it.UV[i*2],v=it.UV[i*2+1];A[i*4]=(c.x+LM.pad+0.5+(u-c.u0)/c.ts)/LM.W;A[i*4+1]=(c.y+LM.pad+0.5+(v-c.v0)/c.ts)/LM.H;A[i*4+2]=0;A[i*4+3]=c.gid;}}   // 画素の中心が面の端に来るように
   it.g.setAttribute('lm',new THREE.BufferAttribute(A,4));it.o.geometry=it.g;delete it.UV;delete it.cOf;delete it.VI;});}
 // もとの mergeStatic の代わり：動かない部品を、素材ごと・方式ごとにまとめる（まとめる前の部品ごとにチャートを作る）。動く部品（ドア）は自分の形のまま lm を付ける
 function mergeStatic(scene){scene.updateMatrixWorld(true);const olds=[],dyns=[],buckets=new Map();scene.traverse(o=>{if(o.isMesh)(o.userData.dyn?dyns:olds).push(o);});
