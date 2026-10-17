@@ -292,10 +292,10 @@ function addToggleDoor(g,o,m,sc){const gO=new THREE.Group(),gC=new THREE.Group()
   const door=(gp,u0)=>{lbox(gp,wd,h-0.007,TD,u0+R*wd/2,(h-0.007)/2,zc,0xf6f5f2);const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 扉と引手（表と裏、戸先寄り）。u0：戸先の位置
   const u0=R>0?a+0.003:b-0.003;door(gC,u0);door(gO,u0+R*w);}   // 閉：開口を覆う、開：戸袋のへこみの前へ引いた位置
  else if(o.door==='outset'){   // アウトセットの引き戸：扉は壁の面の外（部屋側）を上のレールに吊られて走る。開口は壁の厚さいっぱいの見込みで囲む。R<0はa側へ引く
-  const R=o.dir<0?-1:1,T=o.T,TD=PK.door,ov=0.02,wd=w+2*ov,zc=TD/2-0.001,hd=h+0.010;   // ov：扉が開口に重なる幅、zc：扉の中心（扉の裏を壁の面に1mm入れる＝閉じたとき壁との間にすき間がない）、hd：扉の高さ（床から2mm上〜開口の上端の12mm上。床とのすき間は付けない＝ユーザーの指示）
+  const R=o.dir<0?-1:1,T=o.T,TD=PK.door,ov=0.02,wd=w+2*ov,zc=TD/2-0.001,hd=h+0.010;   // ov：扉が開口に重なる幅、zc：扉の中心（扉の裏を壁の面に1mm入れる＝閉じたとき壁との間にすき間がない）、hd：扉の高さ（床から開口の上端の12mm上まで。下は床に1mm入れる＝床とのすき間なし。ユーザーの指示）
   lbox(g,0.008,h,T-0.002,a+0.004,h/2,-(T-0.002)/2,FIT);lbox(g,0.008,h,T-0.002,b-0.004,h/2,-(T-0.002)/2,FIT);lbox(g,w-0.016,0.008,T-0.002,(a+b)/2,h-0.004,-(T-0.002)/2,FIT);   // 開口の見込み（左右・上。壁の厚さいっぱい。上は左右の間）
   {const c0=Math.min(a-ov,a-ov+R*w),c1=Math.max(b+ov,b+ov+R*w);lbox(g,c1-c0+0.03,0.05,0.05,(c0+c1)/2,h+0.037,0.025,FIT);}   // 上のレール（カバー付き。扉の動く範囲いっぱい）
-  const door=(gp,u0)=>{const uc=u0+R*wd/2;lbox(gp,wd,hd,TD,uc,0.002+hd/2,zc,0xf6f5f2);if(!o.noWin){const w2=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,TD+0.003,24),frostMat);w2.rotation.x=Math.PI/2;w2.position.set(u0+R*0.1,hd-0.126,zc);gp.add(w2);}   // 扉と小窓（戸先寄りの上に小さな丸い穴。中の明かりが分かる程度。大きさは仮。noWin で小窓なし）
+  const door=(gp,u0)=>{const uc=u0+R*wd/2;lbox(gp,wd,hd+0.003,TD,uc,(hd+0.001)/2,zc,0xf6f5f2);if(!o.noWin){const w2=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,TD+0.003,24),frostMat);w2.rotation.x=Math.PI/2;w2.position.set(u0+R*0.1,hd-0.126,zc);gp.add(w2);}   // 扉と小窓（戸先寄りの上に小さな丸い穴。中の明かりが分かる程度。大きさは仮。noWin で小窓なし）
    const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 引手（表と裏、戸先寄り）。u0：戸先の位置
   const u0=R>0?a-ov:b+ov;door(gC,u0);door(gO,u0+R*w);}   // 閉：開口を覆う、開：引いた位置
  else if(o.door==='high'){highFrame(g,a,b,h);addHighDoor(gO,a,b,h,o.uw);addHighDoor(gC,a,b,h,0);lbox(gC,0.035,0.035,0.012,a+0.06,1.0,-0.0535,0x1a1a1a);}   // 閉じたとき：裏側の引手
