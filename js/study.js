@@ -108,7 +108,7 @@ ceilRect(SX0,SX1,SZ0,SZ1,OY+H,stC,1);
    const sh=new THREE.Shape();rr(sh,-SD/2,0,-SD/2+AL,AH,ro);const hl=new THREE.Path();rr(hl,-SD/2+AT,AT,-SD/2+AL-AT,AH-AT,ri);sh.holes.push(hl);   // u＝−z（前が負）、v＝高さ
    const geo=new THREE.ExtrudeGeometry(sh,{depth:0.034,bevelEnabled:true,bevelThickness:0.003,bevelSize:0.003,bevelSegments:2,curveSegments:10});geo.rotateY(Math.PI/2);   // 押し出しの向きを +X に（u は −z へ）
    [-1,1].forEach(k=>{const m=new THREE.Mesh(geo,P({color:0x1a1a1c,specular:0x2a2a2a,shininess:24}));m.position.set(k>0?SW/2+0.008:-SW/2-0.045,ST-0.06,0);g.add(m);
-    [-0.11,0.05].forEach(z=>{const sc=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.004,12),decalMat(P({color:0x0c0c0d})));sc.rotation.z=Math.PI/2;sc.position.set(k*(SW/2+0.046),ST-0.045,z);g.add(sc);});});}}   // 下の辺のねじ（外側）
+    [0.11,-0.05].forEach(z=>{const sc=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.004,12),decalMat(P({color:0x0c0c0d})));sc.rotation.z=Math.PI/2;sc.position.set(k*(SW/2+0.046),ST-0.045,z);g.add(sc);});});}}   // 下の辺のねじ（外側。肘掛けの下の辺は z＝−0.095〜0.225＝前が正）
 }
 // ダウンライト：L1（ウォークイン）RMN(P1) 昼白色5000K、K1（書斎）RMW(P1) 温白色3500K。器具・配光は洗面所のD1・キッチンのA1と同じ
 const dl=(x,z,c)=>{const y=OY+H,em=new THREE.MeshBasicMaterial({color:0xd9d8d4}),ring=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.004,32),L(0xf7f7f5));ring.position.set(x,y-0.002,z);s.add(ring);

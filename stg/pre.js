@@ -1,7 +1,7 @@
 // 検証版（stg）：ライトマップ（明るさを面の画像に描き込む方式。0章の要件・8章）の準備。もとの mergeStatic を差し替え、光の当たる部品に「ライトマップのどこに対応するか」（属性 lm）を付ける
 // lm = (u, v, 方式, チャートの番号)。方式0：平らな面のまとまり（チャート）ごとに画像の区画を割り当て、u・v は画像の中の位置（0〜1、なめらかに補間）。方式1：曲面の多い部品は頂点ごとに1画素（u・v は画素の番号、頂点の間はなめらかに補間）
 // fine：中心がこの範囲にあるチャートは画素を細かく（ts）する。リビングの東の壁（階段の踏み板の細い影を描くため。ユーザーの指摘）
-const LM={fine:[{min:[4.7,-0.1,2.0],max:[5.0,5.4,7.3],ts:0.02}],big:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
+const LM={fine:[{min:[4.7,-0.1,2.0],max:[5.0,5.4,7.3],ts:0.02}],big:new Map(),mid:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
 const lmLit=(o,m)=>!(m.isMeshBasicMaterial||(m.transparent&&!m.userData.lmRecv)||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明（水面など lmRecv の印のある物は受ける）・動く部品（シェードの生地とバー）は除く
 // 三角形の集まり（家全体の座標・index なし）を、同じ平面でつながった三角形のまとまり（チャート）に分ける。各頂点の平面上の座標（m）を返す
 function lmCharts(P,TG){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=new Float32Array(n*3),D=new Float32Array(n);
@@ -23,8 +23,9 @@ function lmPrepare(o,g,TG){const W=g.clone().applyMatrix4(o.matrixWorld),P=W.att
 // ドアの枠などを扉の面で分ける：閉じた扉の厚みの中心の面（stg/lm.js の SEALS と同じ求め方）をまたぐ小さな部品の三角形（ドアの開口のまわりに収まるもの）を、その面で切って、面の両側を別のチャートにする。
 // 1つのチャートのままだと、ライトマップの画素（4cm）が扉の両側にまたがり、表示でなめらかに読むときに、閉じたドアの向こうの光が枠の手前側に明るい線として出る（ハイドアの枠など）
 function doorCuts(){const C=[];if(typeof DOORS==='undefined')return C;const v=new THREE.Vector3();Object.keys(DOORWAYS).forEach(k=>{const d=DOORWAYS[k],D=DOORS[k];if(!D||!D.gC)return;const c=new THREE.Vector3(...d.c),n=new THREE.Vector3(...d.n).normalize(),t=new THREE.Vector3(0,1,0).cross(n).normalize(),ds=[];
- D.gC.updateMatrixWorld(true);D.gC.traverse(o=>{if(!o.isMesh)return;const m=o.material;if(m.isMeshBasicMaterial||(m.transparent&&!(typeof FROST!=='undefined'&&FROST.includes(o)))||m.colorWrite===false)return;const a=o.geometry.attributes.position;for(let i=0;i<a.count;i++){v.fromBufferAttribute(a,i).applyMatrix4(o.matrixWorld).sub(c);ds.push(v.dot(n));}});
- if(!ds.length)return;ds.sort((x,y)=>x-y);C.push({c,n,t,off:ds[ds.length>>1],hw:d.w/2+0.12,y0:c.y-d.h/2-0.05,y1:c.y+d.h/2+0.12});});return C;}
+ let f0=1e9,f1=-1e9;const A=new THREE.Vector3(),B=new THREE.Vector3(),E=new THREE.Vector3();D.gC.updateMatrixWorld(true);D.gC.traverse(o=>{if(!o.isMesh)return;const m=o.material;if(m.isMeshBasicMaterial||(m.transparent&&!(typeof FROST!=='undefined'&&FROST.includes(o)))||m.colorWrite===false)return;const a=o.geometry.attributes.position,ix=o.geometry.index;for(let i=0;i<a.count;i++){v.fromBufferAttribute(a,i).applyMatrix4(o.matrixWorld).sub(c);ds.push(v.dot(n));}
+  const nt=ix?ix.count/3:a.count/3,vi=k=>ix?ix.getX(k):k;for(let t=0;t<nt;t++){A.fromBufferAttribute(a,vi(t*3)).applyMatrix4(o.matrixWorld);B.fromBufferAttribute(a,vi(t*3+1)).applyMatrix4(o.matrixWorld);E.fromBufferAttribute(a,vi(t*3+2)).applyMatrix4(o.matrixWorld);const cr=B.clone().sub(A).cross(E.clone().sub(A)),ar=cr.length()/2;if(ar<0.02||Math.abs(cr.normalize().dot(n))<0.95)continue;const dd=A.clone().sub(c).dot(n);if(dd<f0)f0=dd;if(dd>f1)f1=dd;}});   // 扉の大きな面（stg/lm.js の SEALS と同じ求め方）
+ if(!ds.length)return;ds.sort((x,y)=>x-y);const ofL=f1>f0?(f0+f1)/2:ds[ds.length>>1];C.push({c,n,t,off:ofL>0.005?0:ofL,hw:d.w/2+0.12,y0:c.y-d.h/2-0.05,y1:c.y+d.h/2+0.12});});return C;}
 function cutAtDoors(g,C){if(!C.length)return {g,TG:null};const P=g.attributes.position.array,n=P.length/9,reg=new Int16Array(n).fill(-1),DD=new Float32Array(n*3);let any=false;
  for(let t=0;t<n;t++)for(let j=0;j<C.length;j++){const q=C[j];let inside=true;for(let k=0;k<3;k++){const i=t*9+k*3,x=P[i]-q.c.x,y=P[i+1],z=P[i+2]-q.c.z,u=x*q.t.x+z*q.t.z,sv=x*q.n.x+(y-q.c.y)*q.n.y+z*q.n.z-q.off;if(Math.abs(u)>q.hw||y<q.y0||y>q.y1||Math.abs(sv)>0.2){inside=false;break;}DD[t*3+k]=sv;}if(inside){reg[t]=j;any=true;break;}}
  if(!any)return {g,TG:null};   // ドアのまわりに収まる三角形が無い部品はそのまま
@@ -49,7 +50,7 @@ function mergeStatic(scene){scene.updateMatrixWorld(true);const olds=[],dyns=[],
  const DC=doorCuts();
  olds.forEach(o=>{let g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone()).applyMatrix4(o.matrixWorld),TG=null;const lit=lmLit(o,o.material);let mode=-1,it=null;
   if(lit){({g,TG}=cutAtDoors(g,DC));const id=new THREE.Object3D();it=lmPrepare(id,g,TG);mode=it.mode;const m=o.material;
-   if(!mode&&!m.isMeshBasicMaterial&&!m.transparent&&m.colorWrite!==false){const P=g.attributes.position.array;for(let tr=0;tr<P.length/9;tr++){const c=it.charts[it.cOf[tr]];if((c.u1-c.u0)*(c.v1-c.v0)<0.3)continue;let b=LM.big.get(c);if(!b){const NA=g.attributes.normal;b={c,tri:[],nrm:NA?[NA.getX(tr*3),NA.getY(tr*3),NA.getZ(tr*3)]:null};LM.big.set(c,b);}for(let q=0;q<9;q++)b.tri.push(P[tr*9+q]);}}}   // 大きな平らな面（チャートの広さ0.3m²以上）の三角形を記録（影の計算で裏へ厚みを付ける。stg/lm.js）
+   if(!mode&&!m.isMeshBasicMaterial&&!m.transparent&&m.colorWrite!==false){const P=g.attributes.position.array;for(let tr=0;tr<P.length/9;tr++){const c=it.charts[it.cOf[tr]];const ca=(c.u1-c.u0)*(c.v1-c.v0),mp=ca<0.3;if(mp&&(ca<0.01||Math.max(Math.abs(c.nx),Math.abs(c.ny),Math.abs(c.nz))<0.999))continue;const MB=mp?LM.mid:LM.big;let b=MB.get(c);if(!b){const NA=g.attributes.normal;b={c,tri:[],nrm:NA?[NA.getX(tr*3),NA.getY(tr*3),NA.getZ(tr*3)]:null,mat:m};MB.set(c,b);}for(let q=0;q<9;q++)b.tri.push(P[tr*9+q]);}}}   // 大きな平らな面（チャートの広さ0.3m²以上）の三角形を記録（mid：0.01〜0.3m²で家の座標の軸にそろった面。stg/lm.js の「壁の中」の判定だけに使う）（影の計算で裏へ厚みを付ける。stg/lm.js）
   const keys=Object.keys(g.attributes).sort(),k=o.material.uuid+'|'+mode+'|'+keys.join(',');
   let b=buckets.get(k);if(!b){b={m:o.material,keys,parts:[],mode};buckets.set(k,b);}b.parts.push({g,it});});
  olds.forEach(o=>{o.parent.remove(o);o.geometry.dispose();});
