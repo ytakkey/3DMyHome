@@ -222,13 +222,13 @@ if(!T)lbox(g,w+0.04,h+0.03,0.006,(a+b)/2,(h+0.03)/2,-0.069,0xdedcd7);   // 奥�
 function casing(g,a,b,h){lbox(g,0.05,h-0.025,0.02,a,(h-0.025)/2,0.01,FIT);lbox(g,0.05,h-0.025,0.02,b,(h-0.025)/2,0.01,FIT);lbox(g,b-a+0.05,0.05,0.02,(a+b)/2,h,0.01,FIT);}
 function addDoor(g,a,b,h,n){const w=b-a;
 casing(g,a,b,h);
-const pw=(w-0.01)/n;for(let i=0;i<n;i++)lbox(g,pw-0.006,h-0.01,0.035,a+0.005+pw*(i+0.5),(h-0.01)/2,-0.03,0xf6f5f2);
+const pw=(w-0.01)/n;for(let i=0;i<n;i++)lbox(g,pw-0.006,h-0.007,0.035,a+0.005+pw*(i+0.5),(h-0.007)/2,-0.03,0xf6f5f2);
 if(n===1)lbox(g,0.12,0.02,0.03,b-0.12,1.0,0.0,0x8f8b85);
 if(n===2)[-1,1].forEach(i=>lbox(g,0.015,0.25,0.025,(a+b)/2+i*0.045,1.0,0.0,0x8f8b85));}
 // 折れ戸（閉じた状態。折れ目に溝、丸い引手）。n：2枚折れの組の数（2＝4枚、引手は中央寄りに2つ。1＝2枚、引手は knob の側（-1＝a側の扉）の折れ目寄り）
 function addFoldDoor(g,a,b,h,n=2,knob){const w=b-a,pw=(w-0.01)/n;
 casing(g,a,b,h);
-for(let i=0;i<n;i++){const c=a+0.005+pw*(i+0.5);lbox(g,pw/2-0.004,h-0.01,0.03,c-pw/4,(h-0.01)/2,-0.03,0xf6f5f2);lbox(g,pw/2-0.004,h-0.01,0.03,c+pw/4,(h-0.01)/2,-0.03,0xf6f5f2);}
+for(let i=0;i<n;i++){const c=a+0.005+pw*(i+0.5);lbox(g,pw/2-0.004,h-0.007,0.03,c-pw/4,(h-0.007)/2,-0.03,0xf6f5f2);lbox(g,pw/2-0.004,h-0.007,0.03,c+pw/4,(h-0.007)/2,-0.03,0xf6f5f2);}
 (n===1?[knob||-1]:[-1,1]).forEach(i=>{const k=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,0.02,20),L(0x8f8b85));k.rotation.x=Math.PI/2;k.position.set(n===1?(a+b)/2+i*0.06:(a+b)/2+i*(pw/2+0.04),1.0,-0.005);g.add(k);});}
 // ハイドア（天井までの高さ、中央に縦長の型板ガラス、黒い角型の引手）
 const frostMat=P({color:0xdde1e4,emissive:0x202326,specular:0x333333,shininess:40});
@@ -276,7 +276,7 @@ lv(1.04,1.15);lv(0.69,0.78);lv(0.08,0.34);   // ガラリ（上・中・下）
 {const k=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.018,20),L(0xe9e9e7));k.rotation.x=Math.PI/2;k.position.set(a+0.05,0.73,0.037);g.add(k);}}   // つまみ
 // 開き戸（閉じた状態）：b側の吊元。レバーハンドルは両面で戸先（a側）寄り
 function addSwingClosed(g,a,b,h){const w=b-a;   // 額縁は呼ぶ側で1組だけ作る
-lbox(g,w-0.01,h-0.01,0.035,(a+b)/2,(h-0.01)/2,-0.03,0xf6f5f2);
+lbox(g,w-0.01,h-0.007,0.035,(a+b)/2,(h-0.007)/2,-0.03,0xf6f5f2);   // 閉じた扉：上は上枠に1mm入り、左右は見込みに3mm重なる（すき間なし）
 [-1,1].forEach(k=>lbox(g,0.12,0.02,0.03,a+0.105,1.0,-0.03+k*0.0325,0x8f8b85));}
 // 開閉できるドア（o.toggle）：開いた形と閉じた形を両方作り、表示を切り替える
 const PK={door:0.036,thin:0.055};   // 引き戸：扉の厚さ・戸袋の部分の薄い壁の厚さ（仮置き。平面図の比率から。壁115−55＝へこみ60）
@@ -289,10 +289,10 @@ function addToggleDoor(g,o,m,sc){const gO=new THREE.Group(),gC=new THREE.Group()
   const bk=new THREE.Mesh(uvPlane(w,h,Math.min(mo,pe),0,sc,sc),m);bk.position.set(pc,h/2,-DP);g.add(bk);   // 戸袋：へこんだ壁（クロス貼り）
   lbox(g,w-0.008,0.06,0.012,pc-R*0.004,0.03,-DP+0.006,FIT);lbox(g,0.008,h,DP,pe-R*0.004,h/2,-DP/2,FIT);lbox(g,w-0.008,0.008,DP,pc-R*0.004,h-0.004,-DP/2,FIT);   // 戸袋：幅木・奥の端と上の見込み（幅木と上の見込みは奥の端の手前まで）
   {const zb=zc-TD/2-0.003,Tz=T-0.002;lbox(g,0.008,h,Tz+zb,mo+R*0.004,h/2,(zb-Tz)/2,FIT);}   // 開口の戸袋側の見込み：反対側の枠から扉の裏（すき間3mm）まで巻き込み、段差をなくす
-  const door=(gp,u0)=>{lbox(gp,wd,h-0.01,TD,u0+R*wd/2,(h-0.01)/2,zc,0xf6f5f2);const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 扉と引手（表と裏、戸先寄り）。u0：戸先の位置
+  const door=(gp,u0)=>{lbox(gp,wd,h-0.007,TD,u0+R*wd/2,(h-0.007)/2,zc,0xf6f5f2);const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 扉と引手（表と裏、戸先寄り）。u0：戸先の位置
   const u0=R>0?a+0.003:b-0.003;door(gC,u0);door(gO,u0+R*w);}   // 閉：開口を覆う、開：戸袋のへこみの前へ引いた位置
  else if(o.door==='outset'){   // アウトセットの引き戸：扉は壁の面の外（部屋側）を上のレールに吊られて走る。開口は壁の厚さいっぱいの見込みで囲む。R<0はa側へ引く
-  const R=o.dir<0?-1:1,T=o.T,TD=PK.door,ov=0.02,wd=w+2*ov,zc=0.008+TD/2,hd=h+0.010;   // ov：扉が開口に重なる幅、zc：扉の中心（壁から8mm離す）、hd：扉の高さ（床から2mm上〜開口の上端の12mm上。床とのすき間は付けない＝ユーザーの指示）
+  const R=o.dir<0?-1:1,T=o.T,TD=PK.door,ov=0.02,wd=w+2*ov,zc=TD/2-0.001,hd=h+0.010;   // ov：扉が開口に重なる幅、zc：扉の中心（扉の裏を壁の面に1mm入れる＝閉じたとき壁との間にすき間がない）、hd：扉の高さ（床から2mm上〜開口の上端の12mm上。床とのすき間は付けない＝ユーザーの指示）
   lbox(g,0.008,h,T-0.002,a+0.004,h/2,-(T-0.002)/2,FIT);lbox(g,0.008,h,T-0.002,b-0.004,h/2,-(T-0.002)/2,FIT);lbox(g,w-0.016,0.008,T-0.002,(a+b)/2,h-0.004,-(T-0.002)/2,FIT);   // 開口の見込み（左右・上。壁の厚さいっぱい。上は左右の間）
   {const c0=Math.min(a-ov,a-ov+R*w),c1=Math.max(b+ov,b+ov+R*w);lbox(g,c1-c0+0.03,0.05,0.05,(c0+c1)/2,h+0.037,0.025,FIT);}   // 上のレール（カバー付き。扉の動く範囲いっぱい）
   const door=(gp,u0)=>{const uc=u0+R*wd/2;lbox(gp,wd,hd,TD,uc,0.002+hd/2,zc,0xf6f5f2);if(!o.noWin){const w2=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,TD+0.003,24),frostMat);w2.rotation.x=Math.PI/2;w2.position.set(u0+R*0.1,hd-0.126,zc);gp.add(w2);}   // 扉と小窓（戸先寄りの上に小さな丸い穴。中の明かりが分かる程度。大きさは仮。noWin で小窓なし）
@@ -320,6 +320,7 @@ function fixBaseboards(scene){scene.updateMatrixWorld(true);const T=0.006;
  BBS.forEach(s=>{const m=s.m;m.geometry.dispose();m.geometry=new THREE.BoxGeometry(s.b-s.a,0.06,0.012);m.position.x=(s.a+s.b)/2;});}
 function buildWall(g,len,h,ops,m,sc,bb,cut){   // cut={u,y}：u より先・高さ y より上を抜く（壁の形を L 字に）
 ops=ops.concat(ops.filter(o=>o.door==='slide'&&o.open).map(o=>{const q=inner(o),w=q.b-q.a;return o.dir<0?{a:q.a-w-0.025,b:o.a,y1:0,y2:o.y2}:{a:o.b,b:q.b+w+0.025,y1:0,y2:o.y2};}));   // 穴どうしは重ねない（重なると穴が抜けない）   // 引き戸の戸袋（手前の壁を抜いて、奥にへこんだ壁を作る。奥の端は額縁の外の端）。dir<0：a側へ引く
+WALLS.push({g,len,h,m,sc,cut,ops:ops.map(o=>({a:o.a,b:o.b,y1:Math.max(o.y1,0.002),y2:o.y2}))});   // 壁の面の記録（closeWalls が背中合わせの面を組にして、間の空洞をふさぐ）
 const shp=new THREE.Shape();shp.moveTo(0,0);shp.lineTo(len,0);if(cut){shp.lineTo(len,cut.y);shp.lineTo(cut.u,cut.y);shp.lineTo(cut.u,h);}else shp.lineTo(len,h);shp.lineTo(0,h);shp.lineTo(0,0);
 ops.forEach(o=>{const y1=Math.max(o.y1,0.002),p=new THREE.Path();p.moveTo(o.a,y1);p.lineTo(o.a,o.y2);p.lineTo(o.b,o.y2);p.lineTo(o.b,y1);p.lineTo(o.a,y1);shp.holes.push(p);});
 const geo=new THREE.ShapeGeometry(shp);const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sc,uv.getY(i)/sc);
@@ -331,6 +332,28 @@ ops.forEach(o=>{if(o.win)addWindow(g,o.a,o.b,o.y1,o.y2,o.panes,o.noShade,o.split
  if(o.door!=='frame')if(!((o.toggle||o.fixed)&&(o.door==='slide'||o.door==='outset'||o.door==='bath')))doorBox(g,o.a,o.b,o.y2,(o.open||o.door==='swing')?o.T:0);}if(o.toggle||o.fixed)addToggleDoor(g,o,m,sc);else if(o.door==='fold')addFoldDoor(g,o.a,o.b,o.y2,o.n,o.knob);else if(o.door==='frame'){const w=o.b-o.a,h=o.y2;casing(g,o.a,o.b,h);}else if(o.door)addDoor(g,o.a,o.b,o.y2,o.n||1);});}
 // 壁を2点（A→B）で指定：Aから見てBへ向かう向きに壁を張り、部屋側（+z）はその向きの右手（真上から見て）。y0：下端の高さ
 function wallAB(ax,az,bx,bz,y0,h,ops,m,bb){const dx=bx-ax,dz=bz-az;buildWall(wallGroup(ax,y0,az,Math.atan2(-dz,dx)),Math.hypot(dx,dz),h,ops,m,1,bb);}
+// 壁の空洞をふさぐ（全部の部屋を作った後に1回）：壁は部屋ごとの厚みの無い面なので、背中合わせの2枚の面（向きが逆・間が4〜20cm・重なる範囲がある）を組にし、
+// 重なる範囲の端（左右・上・下。下は床と重ならないよう1mm下）と、両方の面に開いた開口の内側（左右・上。重なる範囲の端にある開口の縁も。床の高さの開口の下は床がふさぐ）に面を張って、壁を中の詰まった箱と同じにする（壁の厚みの中を光や視線が通らない）。
+// 組にならない面（外壁・吹抜けに面した面など）はそのまま。張る面の材質はその壁の材質
+const WALLS=[];
+function closeWalls(sc){const F=WALLS.map(w=>{w.g.updateMatrixWorld(true);const O=w.g.localToWorld(new THREE.Vector3(0,0,0)),q=w.g.getWorldQuaternion(new THREE.Quaternion());return {...w,O,U:new THREE.Vector3(1,0,0).applyQuaternion(q),N:new THREE.Vector3(0,0,1).applyQuaternion(q)};}),pairs=[];
+ F.forEach((A,i)=>F.forEach((B,j)=>{if(j<=i||A.N.dot(B.N)>-0.99||A.cut||B.cut)return;   // L字の壁（cut）は組にしない（今は外壁だけ）
+ const d=B.O.clone().sub(A.O).dot(A.N);if(!(d<-0.04&&d>-0.2))return;
+  const uB=k=>B.O.clone().addScaledVector(B.U,k).sub(A.O).dot(A.U),b0=Math.min(uB(0),uB(B.len)),b1=Math.max(uB(0),uB(B.len)),u0=Math.max(0,b0),u1=Math.min(A.len,b1),y0=Math.max(A.O.y,B.O.y),y1=Math.min(A.O.y+A.h,B.O.y+B.h);
+  if(u1-u0<0.01||y1-y0<0.01)return;const hB=B.ops.map(o=>{const p=uB(o.a),q2=uB(o.b);return {a:Math.min(p,q2),b:Math.max(p,q2),y1:B.O.y+o.y1-A.O.y,y2:B.O.y+o.y2-A.O.y};}),holes=[];
+  A.ops.forEach(o=>hB.forEach(h=>{const a=Math.max(o.a,h.a),b=Math.min(o.b,h.b),ya=Math.max(o.y1,h.y1),yb=Math.min(o.y2,h.y2);if(b-a>0.05&&yb-ya>0.05)holes.push({a:Math.max(a,u0),b:Math.min(b,u1),y1:ya,y2:yb});}));   // 両方の面に開いた開口（通り抜けられる穴）
+  pairs.push({A,t:-d,u0,u1,y0:y0-A.O.y,y1:y1-A.O.y,holes,all:A.ops.concat(hB)});}));   // all：どちらかの面だけの穴も含む（引き戸の戸袋など。そこには面を張らない＝扉が通る）
+ pairs.forEach(({A,t,u0,u1,y0,y1,holes,all})=>{const yo=(g,h)=>g.y1<h.y2-0.005&&g.y2>h.y1+0.005;const P=[],quad=(p0,p1,p2,p3)=>P.push(...p0,...p1,...p2,...p0,...p2,...p3),gaps=(lo,hi,iv)=>{const r=[];let s0=lo;iv.filter(v=>v[1]>lo&&v[0]<hi).sort((p,q)=>p[0]-q[0]).forEach(([v0,v1])=>{if(v0>s0)r.push([s0,v0]);s0=Math.max(s0,v1);});if(hi>s0)r.push([s0,hi]);return r.filter(v=>v[1]-v[0]>0.002);};
+  // 外へ向く面（三角形の向き＝外向きの法線）。z：0＝この面、-t＝向こうの面
+  gaps(y0,y1,all.filter(h=>h.a<=u0+0.005&&h.b>=u0-0.005).map(h=>[h.y1,h.y2])).forEach(([a,b])=>quad([u0,a,-t],[u0,a,0],[u0,b,0],[u0,b,-t]));   // 左の端（-u 向き）
+  gaps(y0,y1,all.filter(h=>h.b>=u1-0.005&&h.a<=u1+0.005).map(h=>[h.y1,h.y2])).forEach(([a,b])=>quad([u1,a,0],[u1,a,-t],[u1,b,-t],[u1,b,0]));   // 右の端
+  gaps(u0,u1,all.filter(h=>h.y2>=y1-0.005&&h.y1<y1).map(h=>[h.a,h.b])).forEach(([a,b])=>quad([a,y1,0],[b,y1,0],[b,y1,-t],[a,y1,-t]));   // 上の端
+  quad([u0,y0-0.001,-t],[u1,y0-0.001,-t],[u1,y0-0.001,0],[u0,y0-0.001,0]);   // 下の端（床より1mm下。浴室のように床が壁の下まで届かない厚い壁のため）
+  holes.forEach(h=>{if(!all.some(g=>g.a<h.a-0.005&&g.b>=h.a-0.001&&yo(g,h)))quad([h.a,h.y1,0],[h.a,h.y1,-t],[h.a,h.y2,-t],[h.a,h.y2,0]);if(!all.some(g=>g.b>h.b+0.005&&g.a<=h.b+0.001&&yo(g,h)))quad([h.b,h.y1,-t],[h.b,h.y1,0],[h.b,h.y2,0],[h.b,h.y2,-t]);   // 開口の左右（開口の内側へ向く）
+   if(h.y2<y1-0.005)quad([h.a,h.y2,-t],[h.b,h.y2,-t],[h.b,h.y2,0],[h.a,h.y2,0]);if(h.y1>0.01)quad([h.a,h.y1,0],[h.b,h.y1,0],[h.b,h.y1,-t],[h.a,h.y1,-t]);});   // 上（下へ向く）・窓などの下（上へ向く）
+  if(!P.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));const n=P.length/3,uv=new Float32Array(n*2),S=A.sc||1;for(let k=0;k<n;k+=6){const flat=Math.abs(P[k*3+1]-P[k*3+4])<1e-6&&Math.abs(P[k*3+1]-P[k*3+7])<1e-6;for(let q=k;q<k+6;q++){uv[q*2]=(flat?P[q*3]:P[q*3]+P[q*3+2])/S;uv[q*2+1]=(flat?P[q*3+2]:P[q*3+1])/S;}}g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.computeVertexNormals();
+  const ms=new THREE.Mesh(g,A.m);A.g.add(ms);});   // 柄の大きさは壁と同じ（sc）。水平な面は奥行きを縦に
+ return pairs.length;}
 function applyShades(list,p){list.forEach(sh=>{const len=Math.max(0.02,sh.max*p);sh.fab.geometry.dispose();sh.fab.geometry=uvPlane(sh.w,len,0,0,sh.w,0.035);sh.fab.position.set(sh.um,sh.top-len/2,sh.z||-0.07);sh.fab.visible=p>0;sh.rail.position.y=sh.top-len-0.01;});}
 // エアコン：ダイキン AXシリーズ（W798×H295×D370、ホワイト）。x,z=取付け壁面での左右中心、y=本体の下端、ry=向き（+z側が室内）
 const acWhite=P({color:0xf6f6f4,specular:0x333333,shininess:30}),acGrey=P({color:0xb4b1ab,specular:0x222222,shininess:20}),acFlap=P({color:0xe9e9e6,specular:0x333333,shininess:30});
