@@ -2,9 +2,13 @@
 // 脱衣室・洗面所の床は石目調フローリング（キッチンと同じ、南北張り）。SG300×2・SG33・SG11H・SG500・浴室のドアは開閉できる（ページを開いたときの状態は DS）
 function buildWash(sc,M){s=sc;shades=[];winLights=[];const myWins=winLights;
 const {X0,LW,DZ0,DZ1,SZ0,SZ1,SX1,CX0,CX1,winZ0,winZ1,bathA,bathB,sgA,sgB,s33A,s33B,hbX}=HOUSE.wash,{H1,TVZ,PZ0,PZ1,SGZ0,SGZ1}=HOUSE.ldk,EN=HOUSE.entry,wm=tmat(plasterC),e=HOUSE.floorMargin,WM=HOUSE.wallMargin;   // wm：脱衣室・洗面所・廊下・玄関の壁（IC-5016、寝室と同じ）
-floorRect(X0-e,-0.08,DZ0-e,PZ1,0.002,M.stoneMat,1.818);                    // 脱衣室・洗面所の北側（LDKの床はX=-0.08から）
-floorRect(X0-e,CX0-0.035,PZ1,SZ1+e,0.002,M.stoneMat,1.818);                // 洗面所の南側（SG33の扉の下で廊下の床に切り替え。廊下・玄関の床は玄関の部分で作る）
-ceilRect(X0,0,DZ0,TVZ,H1,ceilMat,0.4);ceilRect(0,HOUSE.ldk.TVX,HOUSE.ldk.VZ,TVZ,H1,ceilMat,0.4);   // 天井（2400）
+// 床と天井は部屋ごと（実物と同じ）：境は壁の芯、ドアの所は閉じた扉の厚みの中心（インセットの引き戸は壁の面から2mm＋扉の厚さの半分、開き戸・浴室のドアは30mm）。柄は家全体の座標でそろう
+const LIN=-0.002-PK.door/2,P300l=LIN,P300w=DZ1-LIN,PBA=DZ0-0.03,P33=CX0-0.03,CW1=(LW+0)/2,CW2=(DZ1+SZ0)/2,CW3=(SX1+CX0)/2;   // 扉の中心：SG300l（X）・SG300w（Z）・浴室のドア（Z）・SG33（X）。壁の芯：LDK との壁（X）・脱衣室と洗面所の間（Z）・洗面所と廊下の間（X）
+const BKL=LW+PK.thin,PWL=SGZ1-SGZ0-0.05,BKW=DZ1+(SZ0-DZ1-PK.thin),PWW=sgB-sgA-0.05;   // 引き戸の戸袋のへこみ：SG300l（LDK 側へ開く）の奥の面（X）と長さ、SG300w（脱衣室側へ開く）の奥の面（Z）と長さ（開口の内側の幅）
+floorPoly([[X0-e,PBA],[BKL,PBA],[BKL,SGZ0],[P300l,SGZ0],[P300l,P300w],[sgA,P300w],[sgA,BKW],[sgA-PWW,BKW],[sgA-PWW,P300w],[X0-e,P300w]],0.002,M.stoneMat,1.818);   // 脱衣室（北は浴室のドア、東は SG300l、南は SG300w の扉の中心まで。戸袋のへこみの床は、へこみが開いている部屋の床＝SG300l の戸袋は LDK、SG300w の戸袋は脱衣室）
+floorPoly([[X0-e,P300w],[sgA-PWW,P300w],[sgA-PWW,BKW],[sgA,BKW],[sgA,P300w],[-0.08,P300w],[-0.08,PZ1],[P33,PZ1],[P33,SZ1+e],[X0-e,SZ1+e]],0.002,M.stoneMat,1.818);   // 洗面所（東の北のくぼみは LDK との壁の中まで、廊下側は SG33 の扉の中心まで）
+floorStep(P300l,SGZ1,P300l,SGZ0,0.002,M.stoneMat);floorStep(P33,s33B,P33,s33A,0.002,M.stoneMat);       // SG300l・SG33 の扉の下の床の段（石2mm、隣の木の床へ向く）
+ceilRect(X0,CW1,DZ0,CW2,H1,ceilMat,0.4);ceilPoly([[X0,CW2],[CW1,CW2],[CW1,PZ0+0.0575],[CW3,PZ0+0.0575],[CW3,TVZ],[X0,TVZ]],H1,ceilMat,0.4);   // 天井（2400）：脱衣室・洗面所（廊下・玄関の天井は玄関の部分で作る）
 // 脱衣室
 buildWall(wallGroup(X0,0,DZ1,Math.PI/2),DZ1-DZ0,H1,[{a:DZ1-winZ1,b:DZ1-winZ0,y1:1.677,y2:2.134,win:1,panes:2,noShade:1}],wm,1,true);   // 西（F4415N：W1198×H457、+1677）
 buildWall(wallGroup(X0,0,DZ0,0),LW-X0,H1,[{a:bathA-X0,b:bathB-X0,y1:0,y2:2.0,door:'bath',T:DZ0-HOUSE.bath.Z1,toggle:'bath'}],wm,1,true);   // 北（浴室のドア：開閉できる。東側吊元で浴室側へ95°開く）
@@ -111,7 +115,7 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
 // 廊下（洗面所とリビングの間。南は玄関ホールへ続く）。壁は玄関と同じIC-5016
 buildWall(wallGroup(CX0,0,PZ1,0),-CX0,H1,[],wm,1,true);                                                                                 // 北（仕切り壁の南側）
 buildWall(wallGroup(0,0,PZ1+0.0025,0),CX1,H1,[],wm,1,false);                                                                             // 北：X=0から東（LDKの仕切り壁の面から2.5mm離して重ねる＝ちらつかない。幅木はLDKの仕切り壁のもの）
-vplane(0.0025,H1,wm,0,H1/2,PZ1+0.00125,-Math.PI/2,1);                                                                                     // 上の2枚の壁の2.5mmの段（X=0）をふさぐ面（西へ向く。壁と仕切り壁の間のすき間を廊下へ開けない）
+arch(vplane(0.0025,H1,wm,0,H1/2,PZ1+0.00125,-Math.PI/2,1));                                                                                     // 上の2枚の壁の2.5mmの段（X=0）をふさぐ面（西へ向く。壁と仕切り壁の間のすき間を廊下へ開けない）
 buildWall(wallGroup(CX0,0,EN.Z0,Math.PI/2),EN.Z0-PZ1,H1,[{a:EN.Z0-s33B,b:EN.Z0-s33A,y1:0,y2:2.0,door:'swing',T:CX0-SX1,toggle:'sg33'}],wm,1,true);   // 西（SG33：北側吊元で廊下側へ開く。開閉できる）。南端は玄関ホールの北の壁の面
 
 // ===== 玄関（玄関ホール・土間・土間収納）とトイレ =====
@@ -133,11 +137,12 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
  const zf=x=>KF[0][1]+(x-KF[0][0])*(KF[1][1]-KF[0][1])/(KF[1][0]-KF[0][0]),zb=x=>zf(x)-KW;   // 框の土間側の端・ホール側の端（Z）
  const accM=tmat(ic5023C,{specular:0x2a2724,shininess:22}),domaM=tmat(domaC,{specular:0x1a1a1a,shininess:10}),wood=P({color:0xc89e6e,specular:0x1c1813,shininess:18});   // wood：框・手摺（床に近い木の色）
  // 床と天井
- floorPoly([[CX0-e,PZ1],[TVX-0.05,PZ1],[TVX-0.05,zb(TVX-0.05)],[X1-e,zb(X1-e)],[X1-e,EZ0-e],[CX0-e,EZ0-e]],0,OAK,1.818);   // 廊下・玄関ホール（框まで）
- floorRect(X0-e,TX1,EZ0-e,TZ1+e,0,M.stoneKMat,1.818);floorRect(TX1,X1-e,EZ0-e,TZ1+e,0,OAK,1.818);                              // トイレ：石目調フローリング（ブラック、南北張り）。SG500の扉の下（トイレ側の壁の面）でホールのオークに切り替え
+ const L11=TVX-0.03;   // SG11H の扉の厚みの中心（X）
+ floorPoly([[P33,PZ1],[L11,PZ1],[L11,zb(L11)],[TX1,zb(TX1)],[TX1,EZ0-e],[P33,EZ0-e]],0,OAK,1.818);   // 廊下・玄関ホール（框まで）：西は SG33・東は SG11H の扉の中心まで、トイレ側は SG500 の扉の面（トイレの壁の面）まで
+ floorRect(X0-e,TX1,EZ0-e,TZ1+e,0,M.stoneKMat,1.818);                                                                            // トイレ：石目調フローリング（ブラック、南北張り）。SG500の扉の下（トイレ側の壁の面）でホールのオークに切り替え
  floorPoly([[X1-e,zf(X1-e)],[TVX-0.05,zf(TVX-0.05)],[TVX-0.05,EZ1+e],[X0-e,EZ1+e],[X0-e,KZ0-e],[X1-e,KZ0-e]],DY,domaM,2.4);   // 土間・土間収納
- ceilRect(X0,TVX,TVZ,EZ0,H1,ceilMat,0.4);ceilRect(TX1,TVX,EZ0,TZ1,H1,ceilMat,0.4);ceilRect(X0,TVX,TZ1,EZ1,H1,ceilMat,0.4);   // 天井（2400。土間収納も。トイレの部分は除く）
- ceilRect(X0,TX1,EZ0,TZ1,H1,tmat(ic5021C,{emissive:0x1c1c1a}),1);                                                        // トイレの天井：IC-5021（照り返しの明るさは他の天井と同じ）
+ {const CT1=(TX1+X1)/2,CT2=(TZ1+KZ0)/2;ceilPoly([[CW3,PZ0+0.0575],[TVX,PZ0+0.0575],[TVX,EZ1],[X0,EZ1],[X0,CT2],[CT1,CT2],[CT1,TVZ],[CW3,TVZ]],H1,ceilMat,0.4);}   // 天井（2400）：廊下・玄関ホール・土間・土間収納で1枚（つながった1つの空間）。洗面所・トイレとの間は壁の芯まで
+ ceilRect(X0,(TX1+X1)/2,TVZ,(TZ1+KZ0)/2,H1,tmat(ic5021C,{emissive:0x1c1c1a}),1);                                          // トイレの天井：IC-5021（照り返しの明るさは他の天井と同じ）。まわりの壁の芯まで
  // 框（木。上面は床の高さ、前の面は土間まで）
  {const x0=X1-0.01,x1=CX1+0.03,g=new THREE.ExtrudeGeometry(new THREE.Shape([[x0,zb(x0)],[x1,zb(x1)],[x1,zf(x1)],[x0,zf(x0)]].map(([x,z])=>new THREE.Vector2(x,z))),{depth:0.002-DY,bevelEnabled:false});
   g.rotateX(Math.PI/2);g.translate(0,0.002,0);s.add(new THREE.Mesh(g,wood));}   // 平面の形（x,z）を下へ押し出す

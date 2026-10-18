@@ -8,10 +8,11 @@ const plasterMat=tmat(ic5021C),accentMat=ic5025Mat(),woodMat=tmat(oakC,{},Math.P
 const oakFloorMat=tmat(oakTile,{specular:0x1c1813,shininess:18},Math.PI/2);
 const stoneMat=tmat(stoneTile,{specular:0x222222,shininess:14},Math.PI/2),stoneKMat=tmat(stoneTileK,{specular:0x222222,shininess:14},Math.PI/2);
 const railWood=P({color:0xc48c56,specular:0x1c1813,shininess:20});
-function hRect(x0,x1,z0,z1,y,m,su,sv,down){const p=new THREE.Mesh(uvPlane(x1-x0,z1-z0,x0,down?z0:D-z1,su,sv||su),m);p.rotation.x=down?Math.PI/2:-Math.PI/2;p.position.set((x0+x1)/2,y,(z0+z1)/2);s.add(p);return p;}
+function hRect(x0,x1,z0,z1,y,m,su,sv,down){const p=new THREE.Mesh(uvPlane(x1-x0,z1-z0,x0,down?z0:D-z1,su,sv||su),m);p.rotation.x=down?Math.PI/2:-Math.PI/2;p.position.set((x0+x1)/2,y,(z0+z1)/2);s.add(arch(p));return p;}
 
 // 床
-floorPoly([[-0.08,-0.08],[W,-0.08],[W,0],[2.155,0],[2.155,1.76],[W,1.76],[W,PZ1],[-0.08,PZ1]],0,oakFloorMat,1.818);floorRect(TVX-0.05,W,PZ1,D,0,oakFloorMat,1.818);   // 西・北の壁の向こうまで少し広げる（ドア下に隙間ができないように）。仕切り壁より南は西の壁（テレビ面）の裏まで（その西は廊下・玄関）
+{const L300=-0.002-PK.door/2,L11=TVX-0.03,CB=0.5-0.069,BK=HOUSE.wash.LW+PK.thin,PW=SGZ1-SGZ0-0.05;   // L300：SG300l（インセットの引き戸）の扉の厚みの中心（X）、L11：SG11H の扉の厚みの中心（X）、CB：押入の扉の奥の面（Z）、BK・PW：SG300l の戸袋のへこみの奥の面（X）と長さ（Z。開口の内側の幅）
+ floorPoly([[L300,CB],[1.30,CB],[1.30,-0.08],[W,-0.08],[W,0],[2.155,0],[2.155,1.76],[W,1.76],[W,D],[L11,D],[L11,PZ1],[L300,PZ1],[L300,SGZ0],[BK,SGZ0],[BK,SGZ0-PW],[L300,SGZ0-PW]],0,oakFloorMat,1.818);}   // LDK の床（1枚）：北は北の壁の向こうまで少し広げる。西は SG300l の扉の中心まで（その向こうは脱衣室の床）、仕切り壁より南は西の壁（テレビ面）の中の SG11H の扉の中心まで（その西は廊下・玄関）。押入の中（x0〜1.24・z0〜0.5）は床を作らない（扉の奥の面まで）
 // キッチン部分（東の壁から3マス×北の壁から2マス）は石目調フローリング、張り方向は南北
 floorRect(2.155,W,0,1.76,0,stoneMat,1.818);   // 石の床は木の床をくり抜いた所に同じ高さで（重ねない）
 
@@ -24,17 +25,14 @@ buildWall(wallGroup(0,0,PZ0,Math.PI/2),PZ0,H1,[{a:PZ0-SGZ1,b:PZ0-SGZ0,y1:0,y2:2.
 buildWall(wallGroup(TVX,0,D,Math.PI/2),D-HOUSE.wash.SZ1,H1,[],accentMat,0.4,true);                                                             // リビング西（アクセント面：IC-5025）。北端はSG11Hの開口の端（建具の横）まで
 buildWall(wallGroup(TVX,0,HOUSE.wash.SZ1,Math.PI/2),HOUSE.wash.SZ1-PZ1,H1,[{a:0,b:HOUSE.wash.SZ1-PZ1,y1:0,y2:H1-0.03,door:'high',open:1,T:TVX-HOUSE.wash.CX1,uw:1,toggle:'sg11h'}],plasterMat,1,true);   // 西のドア（SG11H：北側吊元でリビング側へ開いた状態）
 wbox(PX1,H1,PZ1-PZ0,PX1/2,H1/2,(PZ0+PZ1)/2,plasterMat,1);                                                                                         // 仕切り壁
-box(PX1+0.01,0.06,PZ1-PZ0+0.024,PX1/2,0.03,(PZ0+PZ1)/2,FIT);
+box(PX1+0.012,0.06,0.012,(PX1+0.012)/2,0.03,PZ0-0.006,FIT);box(0.012,0.06,PZ1-PZ0+0.012,PX1+0.006,0.03,(PZ0+PZ1+0.012)/2,FIT);box(PX1-TVX,0.06,0.012,(TVX+PX1)/2,0.03,PZ1+0.006,FIT);box(HOUSE.wash.CX1,0.06,0.012,HOUSE.wash.CX1/2,0.03,PZ1+0.006,FIT);   // 仕切り壁の幅木（北・東の端・南の LDK 側・南の廊下側。テレビ面の壁の中は通さない＝廊下と LDK をつながない）
 
 // 押入（2枚扉の観音開き）
 buildWall(wallGroup(0,0,0.5,0),1.24,H1,[{a:0.04,b:1.2,y1:0,y2:2.0,door:1,n:2}],plasterMat,1,true);
 wbox(0.12,H1,0.5,1.30,H1/2,0.25,plasterMat,1);
 
 // 1階天井（2400）とキッチン上の下がり天井（2300・IC-5015）
-hRect(0,2.15,0,VZ,H1,ceilMat,0.4,0.4,true);
-hRect(2.15,W,0,1.565,H1,ceilMat,0.4,0.4,true);
-hRect(2.15,W,2.67,VZ,H1,ceilMat,0.4,0.4,true);
-hRect(TVX,VX,VZ,D,H1,ceilMat,0.4,0.4,true);
+ceilPoly([[0,0.45],[1.30,0.45],[1.30,0],[W,0],[W,1.565],[2.15,1.565],[2.15,2.67],[W,2.67],[W,VZ],[VX,VZ],[VX,D],[TVX,D],[TVX,VZ],[0,VZ]],H1,ceilMat,0.4);   // 1階の天井（LDK で1枚。下がり天井の所は抜く。押入の上は扉の面の向こう5cmまで）
 hRect(2.15,W,1.565,2.67,2.3,woodMat,0.9,0.9,true);
 {const p1=new THREE.Mesh(uvPlane(1.105,0.1,0,0,0.9,0.9),woodMat);p1.rotation.y=-Math.PI/2;p1.position.set(2.15,2.35,2.1175);s.add(p1);
  const p2=new THREE.Mesh(uvPlane(W-2.15,0.1,0,0,0.9,0.9),woodMat);p2.rotation.y=Math.PI;p2.position.set((W+2.15)/2,2.35,1.565);s.add(p2);
