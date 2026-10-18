@@ -32,6 +32,7 @@ const HOUSE={
  wic:{X0:0.455,X1:2.16,Z0:3.6375,Z1:5.3425},   // ウォークイン（2階、X3〜X5・Y4〜Y2）：西・東・北・南の壁の室内面（壁芯±57.5）
  study:{X0:0.455,X1:2.16,Z0:5.4575,Z1:7.16,winC:1.715},   // 書斎（2帖、X3〜X5・Y2〜Y0）：同上（南は外壁の室内面）、窓 FK2442 の中心（平面図から。幅は寝室の FK2442 と同じ743、東端は東の壁の面から約7cm）
  floorMargin:0.08,                           // 床を壁の向こうへ広げる幅（ドア下に隙間ができないように）
+ extT:0.14,                                  // 外壁の厚さ（室内面から外の面まで。窓の額縁・玄関ドアの枠の奥行と同じ。仮）
  wallMargin:0.10};                           // 移動で壁・通れない家具に近づける距離（すべての場所で共通）
 const MC={};
 const P=o=>new THREE.MeshPhongMaterial(Object.assign({specular:0x0a0a0a,shininess:6},o));
@@ -320,7 +321,7 @@ function fixBaseboards(scene){scene.updateMatrixWorld(true);const T=0.006;
  BBS.forEach(s=>{const m=s.m;m.geometry.dispose();m.geometry=new THREE.BoxGeometry(s.b-s.a,0.06,0.012);m.position.x=(s.a+s.b)/2;});}
 function buildWall(g,len,h,ops,m,sc,bb,cut){   // cut={u,y}：u より先・高さ y より上を抜く（壁の形を L 字に）
 ops=ops.concat(ops.filter(o=>o.door==='slide'&&o.open).map(o=>{const q=inner(o),w=q.b-q.a;return o.dir<0?{a:q.a-w-0.025,b:o.a,y1:0,y2:o.y2}:{a:o.b,b:q.b+w+0.025,y1:0,y2:o.y2};}));   // 穴どうしは重ねない（重なると穴が抜けない）   // 引き戸の戸袋（手前の壁を抜いて、奥にへこんだ壁を作る。奥の端は額縁の外の端）。dir<0：a側へ引く
-WALLS.push({g,len,h,m,sc,cut,ops:ops.map(o=>({a:o.a,b:o.b,y1:Math.max(o.y1,0.002),y2:o.y2}))});   // 壁の面の記録（closeWalls が背中合わせの面を組にして、間の空洞をふさぐ）
+WALLS.push({g,len,h,m,sc,cut,ops:ops.map(o=>({a:o.a,b:o.b,y1:Math.max(o.y1,0.002),y2:o.y2,r1:o.y1}))});   // 壁の面の記録（closeWalls が背中合わせの面を組にして、間の空洞をふさぐ）
 const shp=new THREE.Shape();shp.moveTo(0,0);shp.lineTo(len,0);if(cut){shp.lineTo(len,cut.y);shp.lineTo(cut.u,cut.y);shp.lineTo(cut.u,h);}else shp.lineTo(len,h);shp.lineTo(0,h);shp.lineTo(0,0);
 ops.forEach(o=>{const y1=Math.max(o.y1,0.002),p=new THREE.Path();p.moveTo(o.a,y1);p.lineTo(o.a,o.y2);p.lineTo(o.b,o.y2);p.lineTo(o.b,y1);p.lineTo(o.a,y1);shp.holes.push(p);});
 const geo=new THREE.ShapeGeometry(shp);const uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/sc,uv.getY(i)/sc);
@@ -354,6 +355,16 @@ function closeWalls(sc){const F=WALLS.map(w=>{w.g.updateMatrixWorld(true);const 
   if(!P.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));const n=P.length/3,uv=new Float32Array(n*2),S=A.sc||1;for(let k=0;k<n;k+=6){const flat=Math.abs(P[k*3+1]-P[k*3+4])<1e-6&&Math.abs(P[k*3+1]-P[k*3+7])<1e-6;for(let q=k;q<k+6;q++){uv[q*2]=(flat?P[q*3]:P[q*3]+P[q*3+2])/S;uv[q*2+1]=(flat?P[q*3+2]:P[q*3+1])/S;}}g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.computeVertexNormals();
   const ms=new THREE.Mesh(g,A.m);A.g.add(ms);});   // 柄の大きさは壁と同じ（sc）。水平な面は奥行きを縦に
  return pairs.length;}
+// 家の外皮（全部の部屋を作った後に1回）：外壁は部屋側の厚みの無い面なので、外壁の室内面の四角（西 wash.X0・東 ldk.W・北0・南 ldk.D）から外へ extT の位置に、基礎（YB）から屋根（YT）までの外の面4枚と、基礎の面・屋根の面を張って、家全体を閉じた箱にする（1・2階の間・浴室のまわり・作っていない部屋も含めて、外とつながる所をなくす）。
+// 外の面の穴は、その面に並ぶ外壁の面（WALLS）の窓・ドアの開口をそのまま写す（額縁・玄関ドアの枠の奥行が extT なので、穴の縁で壁の中がふさがる）。外へ向く面なので中からは見えない（unseen：ライトマップを持たない）。基礎・屋根の高さは仮
+function closeShell(sc){const X0=HOUSE.wash.X0,X1=HOUSE.ldk.W,Z1=HOUSE.ldk.D,T=HOUSE.extT,YB=-0.3,YT=HOUSE.ldk.H2+0.1,m=L(0x8f8a83),UP=new THREE.Vector3(0,1,0);
+ const add=g=>{const ms=new THREE.Mesh(g,m);ms.userData.unseen=true;sc.add(ms);},F=WALLS.map(w=>{w.g.updateMatrixWorld(true);const q=w.g.getWorldQuaternion(new THREE.Quaternion());return {w,O:w.g.localToWorld(new THREE.Vector3()),U:new THREE.Vector3(1,0,0).applyQuaternion(q),N:new THREE.Vector3(0,0,1).applyQuaternion(q)};});
+ const C=[[X0-T,-T],[X1+T,-T],[X0-T,Z1+T],[X1+T,Z1+T]].map(([x,z])=>new THREE.Vector3(x,0,z));
+ [[new THREE.Vector3(-1,0,0),X0],[new THREE.Vector3(1,0,0),X1],[new THREE.Vector3(0,0,-1),0],[new THREE.Vector3(0,0,1),Z1]].forEach(([n,v])=>{const t=new THREE.Vector3().crossVectors(UP,n),na=n.x+n.z,ss=C.map(c=>c.dot(t)),sh=new THREE.Shape();   // t：外から見て右へ向かう横の向き（t×上＝n）。na：n の軸の成分（±1）
+  const s0=Math.min(...ss),s1=Math.max(...ss);sh.moveTo(s0,YB);sh.lineTo(s1,YB);sh.lineTo(s1,YT);sh.lineTo(s0,YT);sh.lineTo(s0,YB);
+  F.forEach(({w,O,U,N})=>{if(Math.abs(O.dot(n)*na-v)>0.002||N.dot(n)>-0.99)return;w.ops.forEach(o=>{const sa=O.clone().addScaledVector(U,o.a).dot(t),sb=O.clone().addScaledVector(U,o.b).dot(t),a=Math.min(sa,sb),b=Math.max(sa,sb),y1=O.y+(o.r1>0.002?o.r1:0),y2=O.y+o.y2,p=new THREE.Path();p.moveTo(a,y1);p.lineTo(a,y2);p.lineTo(b,y2);p.lineTo(b,y1);p.lineTo(a,y1);sh.holes.push(p);});});   // この面に並ぶ外壁の面（向きが室内へ）の開口
+  const g=new THREE.ShapeGeometry(sh);g.applyMatrix4(new THREE.Matrix4().makeBasis(t,UP,n).setPosition(n.clone().multiplyScalar(na*v+T)));add(g);});
+ const W=X1-X0+2*T,D=Z1+2*T,cx=(X0+X1)/2,cz=Z1/2;[[YB,Math.PI/2],[YT,-Math.PI/2]].forEach(([y,r])=>{const g=new THREE.PlaneGeometry(W,D);g.rotateX(r);g.translate(cx,y,cz);add(g);});}   // 基礎の面（下へ向く）・屋根の面（上へ向く）
 function applyShades(list,p){list.forEach(sh=>{const len=Math.max(0.02,sh.max*p);sh.fab.geometry.dispose();sh.fab.geometry=uvPlane(sh.w,len,0,0,sh.w,0.035);sh.fab.position.set(sh.um,sh.top-len/2,sh.z||-0.07);sh.fab.visible=p>0;sh.rail.position.y=sh.top-len-0.01;});}
 // エアコン：ダイキン AXシリーズ（W798×H295×D370、ホワイト）。x,z=取付け壁面での左右中心、y=本体の下端、ry=向き（+z側が室内）
 const acWhite=P({color:0xf6f6f4,specular:0x333333,shininess:30}),acGrey=P({color:0xb4b1ab,specular:0x222222,shininess:20}),acFlap=P({color:0xe9e9e6,specular:0x333333,shininess:30});

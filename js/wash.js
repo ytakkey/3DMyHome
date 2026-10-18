@@ -111,6 +111,7 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
 // 廊下（洗面所とリビングの間。南は玄関ホールへ続く）。壁は玄関と同じIC-5016
 buildWall(wallGroup(CX0,0,PZ1,0),-CX0,H1,[],wm,1,true);                                                                                 // 北（仕切り壁の南側）
 buildWall(wallGroup(0,0,PZ1+0.0025,0),CX1,H1,[],wm,1,false);                                                                             // 北：X=0から東（LDKの仕切り壁の面から2.5mm離して重ねる＝ちらつかない。幅木はLDKの仕切り壁のもの）
+vplane(0.0025,H1,wm,0,H1/2,PZ1+0.00125,-Math.PI/2,1);                                                                                     // 上の2枚の壁の2.5mmの段（X=0）をふさぐ面（西へ向く。壁と仕切り壁の間のすき間を廊下へ開けない）
 buildWall(wallGroup(CX0,0,EN.Z0,Math.PI/2),EN.Z0-PZ1,H1,[{a:EN.Z0-s33B,b:EN.Z0-s33A,y1:0,y2:2.0,door:'swing',T:CX0-SX1,toggle:'sg33'}],wm,1,true);   // 西（SG33：北側吊元で廊下側へ開く。開閉できる）。南端は玄関ホールの北の壁の面
 
 // ===== 玄関（玄関ホール・土間・土間収納）とトイレ =====
@@ -266,7 +267,7 @@ const entGl=new THREE.MeshBasicMaterial({color:0xdfe3e5,side:THREE.DoubleSide});
    const k=0.8+0.16*n1+0.14*n2+0.1*n3-(n2>0.75?0.1:0)-(n1>0.8?0.06:0),o=(y*W+i)*4;D[o]=Math.min(255,122*k);D[o+1]=Math.min(255,91*k);D[o+2]=Math.min(255,82*k);D[o+3]=255;}x.putImageData(im,0,0);},512,512);
   const snM=tmat(snC,{specular:0x1c1714,shininess:12,bumpMap:tex(snC),bumpScale:0.5}),snE=P({color:0x684d44,specular:0x1c1714,shininess:12}),fb=(bw,bh,bd,x,y,z)=>wbox(bw,bh,bd,x,y,z,snM,T);   // snM：木目（浮造り調の凹凸は木目の濃淡から）、snE：小口・扉の芯、fb：木目の箱
   fb(0.04,y1-y0-0.07,0.14,drA+0.02,(y0+y1-0.01)/2,zi+0.07);fb(0.04,y1-y0-0.07,0.14,drB-0.02,(y0+y1-0.01)/2,zi+0.07);fb(w,0.04,0.14,(drA+drB)/2,y1-0.02,zi+0.07);fb(w,0.03,0.14,(drA+drB)/2,y0+0.015,zi+0.07);   // 枠（縦・上・下とも木目。縦は上と下の間だけ＝角で重ねない）
-  const a0=drA+0.04,b0=drB-0.04,yt=y1-0.04,yb=y0+0.03,p0=drM+0.003,gx=p0+113.25*PX,gy=yt-151.5*PX;   // a0〜b0：枠の内側、p0：親扉の戸先、gx,gy：窓のガラスの中心（写真：戸先から113px、扉の上端から151px）
+  const a0=drA+0.039,b0=drB-0.039,yt=y1-0.039,yb=y0+0.029,p0=drM+0.003,gx=p0+113.25*PX,gy=yt-151.5*PX;   // a0〜b0・yb〜yt：扉の外の端（枠の内側から枠へ1mm入れる＝閉じた扉と枠の間にすき間なし）、p0：親扉の戸先、gx,gy：窓のガラスの中心（写真：戸先から113px、扉の上端から151px）
   const EX=px=>gx+(px-235.25)*PX,EY=py=>gy-(py-215.5)*PX,IX=px=>gx+(166.5-px)*PX,IY=py=>gy-(py-219.5)*PX;   // 写真の座標 → 家の座標（E：外の写真、I：内の写真。内は左右が逆）
   const face=(x0,x1,ya,yc,hole,z,dir)=>{const m=dir<0?-1:1,V=(u,v)=>new THREE.Vector2(m*u,v),sh=new THREE.Shape([V(x0,ya),V(x1,ya),V(x1,yc),V(x0,yc)]);if(hole)sh.holes.push(new THREE.Path([V(hole[0],hole[2]),V(hole[1],hole[2]),V(hole[1],hole[3]),V(hole[0],hole[3])]));
    const g=new THREE.ShapeGeometry(sh);if(dir<0)g.rotateY(Math.PI);g.translate(0,0,z);const p=g.attributes.position,uv=g.attributes.uv;for(let i=0;i<p.count;i++)uv.setXY(i,p.getX(i)/T,p.getY(i)/T);s.add(new THREE.Mesh(g,snM));};   // 扉の面（dir：+1＝外、−1＝内。木目は家の座標から取り、穴は窓）

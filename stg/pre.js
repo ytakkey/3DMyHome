@@ -2,7 +2,7 @@
 // lm = (u, v, 方式, チャートの番号)。方式0：平らな面のまとまり（チャート）ごとに画像の区画を割り当て、u・v は画像の中の位置（0〜1、なめらかに補間）。方式1：曲面の多い部品は頂点ごとに1画素（u・v は画素の番号、頂点の間はなめらかに補間）
 // fine：中心がこの範囲にあるチャートは画素を細かく（ts）する。リビングの東の壁（階段の踏み板の細い影を描くため。ユーザーの指摘）
 const LM={fine:[{min:[4.7,-0.1,2.0],max:[5.0,5.4,7.3],ts:0.02}],big:new Map(),mid:new Map(),ts:0.04,pad:2,W:2048,H:0,charts:[],nVert:0,items:[]};   // ts：1画素の大きさ（m）、pad：区画のまわりの余白（画素。表示で4×4画素をなめらかに読むので2）、W：画像の幅。items：lm を付けた形（G-buffer を作るときに使う）
-const lmLit=(o,m)=>!(m.isMeshBasicMaterial||(m.transparent&&!m.userData.lmRecv)||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明（水面など lmRecv の印のある物は受ける）・動く部品（シェードの生地とバー）は除く
+const lmLit=(o,m)=>!(o.userData.unseen||m.isMeshBasicMaterial||(m.transparent&&!m.userData.lmRecv)||(o.userData.dyn&&o.userData.dk===undefined));   // 光を受ける部品：光る部品・ガラスなどの半透明（水面など lmRecv の印のある物は受ける）・動く部品（シェードの生地とバー）・中から見えない面（unseen：家の外皮。影は落とす）は除く
 // 三角形の集まり（家全体の座標・index なし）を、同じ平面でつながった三角形のまとまり（チャート）に分ける。各頂点の平面上の座標（m）を返す
 function lmCharts(P,TG){const n=P.length/9,par=new Int32Array(n).map((_,i)=>i),N=new Float32Array(n*3),D=new Float32Array(n);
  const find=i=>{while(par[i]!==i){par[i]=par[par[i]];i=par[i];}return i;};
