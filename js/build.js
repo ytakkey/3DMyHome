@@ -11,5 +11,5 @@ const bedS=buildBedroom(scene),stS=buildStudy(scene);
 const ldkS=buildLDK(scene);
 const washS=buildWash(scene,ldkS.mats),bathS=buildBath(scene,ldkS.mats);
 function envAll(){glassMat.color.set(night?0x141c28:0xcfdfec);fabMat.emissive.set(night?0x0c0a08:0x5a5650);bedS.applyEnv(night);ldkS.applyEnv(night);stS.applyEnv(night);washS.applyEnv(night);bathS.applyEnv(night);}   // 昼夜・照明の状態を素材と光源に反映（範囲の受け渡しと描画は applyEnvAll）
-closeWalls(scene);fixBaseboards(scene);mergeStatic(scene);
+closeWalls(scene);closeShell(scene);fixBaseboards(scene);mergeStatic(scene);
 setupZones(scene,[...bedS.zoneLights,...stS.zoneLights,...ldkS.zoneLights,...washS.zoneLights,...bathS.zoneLights]);
