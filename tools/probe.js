@@ -1,6 +1,0 @@
-// 画素を調べる道具（確認用）：texAtW([位置],[見る点]) で、その線が最初に当たる面のライトマップの画素（番号 mi・座標 tx,ty・チャート gid）を返す。rdT(画像,tx,ty) で照度の画像の値を読む（HalfFloat も読める）
-window.texAtW=(p,t)=>{const o=new THREE.Vector3(...p),d=new THREE.Vector3(...t).sub(o).normalize(),rc=new THREE.Raycaster(o,d,0.01,20);const hs=rc.intersectObjects(scene.children,true).filter(h=>h.object.isMesh&&h.object.visible&&h.object.geometry.attributes.lm);if(!hs.length)return null;
- const h=hs[0],g=h.object.geometry,a=g.attributes.lm,f=h.face,P=g.attributes.position,bc=new THREE.Vector3(),V=i=>new THREE.Vector3().fromBufferAttribute(P,i);THREE.Triangle.getBarycoord(h.point.clone().applyMatrix4(h.object.matrixWorld.clone().invert()),V(f.a),V(f.b),V(f.c),bc);
- const L=i=>new THREE.Vector4().fromBufferAttribute(a,i),la=L(f.a),lb=L(f.b),lc=L(f.c);let tx,ty;if(la.z>0.5){tx=la.x;ty=la.y;}else{tx=Math.floor((la.x*bc.x+lb.x*bc.y+lc.x*bc.z)*LM.W);ty=Math.floor((la.y*bc.x+lb.y*bc.y+lc.y*bc.z)*LM.H);}
- return {mi:ty*LM.W+tx,tx,ty,gid:la.w,pt:h.point.toArray().map(x=>+x.toFixed(3)),mode:la.z};};
-window.rdT=(rt,x,y,w=1,h=1)=>{const gl=r.getContext(),b=new Float32Array(4*w*h);r.setRenderTarget(rt);gl.readPixels(x,y,w,h,gl.RGBA,gl.FLOAT,b);r.setRenderTarget(null);return w*h===1?Array.from(b).map(v=>+v.toFixed(3)):b;};

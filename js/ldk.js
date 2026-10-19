@@ -8,7 +8,7 @@ const plasterMat=tmat(ic5021C),accentMat=ic5025Mat(),woodMat=tmat(oakC,{},Math.P
 const oakFloorMat=tmat(oakTile,{specular:0x1c1813,shininess:18},Math.PI/2);
 const stoneMat=tmat(stoneTile,{specular:0x222222,shininess:14},Math.PI/2),stoneKMat=tmat(stoneTileK,{specular:0x222222,shininess:14},Math.PI/2);
 const railWood=P({color:0xc48c56,specular:0x1c1813,shininess:20});
-function hRect(x0,x1,z0,z1,y,m,su,sv,down){const p=new THREE.Mesh(uvPlane(x1-x0,z1-z0,x0,down?z0:D-z1,su,sv||su),m);p.rotation.x=down?Math.PI/2:-Math.PI/2;p.position.set((x0+x1)/2,y,(z0+z1)/2);s.add(arch(p));return p;}
+function hRect(x0,x1,z0,z1,y,m,su,sv,down){const p=new THREE.Mesh(uvPlane(x1-x0,z1-z0,x0,down?z0:D-z1,su,sv||su),m);p.rotation.x=down?Math.PI/2:-Math.PI/2;p.position.set((x0+x1)/2,y,(z0+z1)/2);s.add(p);return p;}
 
 // 床
 {const L300=-0.002-PK.door/2,L11=TVX-0.03,CB=0.5-0.069,BK=HOUSE.wash.LW+PK.thin,PW=SGZ1-SGZ0-0.05;   // L300：SG300l（インセットの引き戸）の扉の厚みの中心（X）、L11：SG11H の扉の厚みの中心（X）、CB：押入の扉の奥の面（Z）、BK・PW：SG300l の戸袋のへこみの奥の面（X）と長さ（Z。開口の内側の幅）

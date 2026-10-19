@@ -1,4 +1,4 @@
-# 確認用のサーバー（127.0.0.1 のみ）：リポジトリのファイルを配信し、POST /save?path=bake/work/... で受け取ったデータを保存する（焼き込み用の形の書き出しに使う）
+# 確認用のサーバー（127.0.0.1 のみ）：リポジトリのファイルを配信し、POST /save?path=bake/work/... で受け取ったデータを保存する（tools/cap.js などが撮った画像・点検の結果）
 import http.server,pathlib,sys,urllib.parse
 ROOT=pathlib.Path(__file__).resolve().parent.parent
 class H(http.server.SimpleHTTPRequestHandler):
