@@ -21,7 +21,8 @@ layout(location=0) out vec4 oP;layout(location=1) out vec4 oN;layout(location=2)
 void main(){vec3 a=color;if(hasMap)a*=texture(map,vUv).rgb;oP=vec4(vP,vId);oN=vec4(normalize(vN),1.0);oA=vec4(a,1.0);}`});   // 位置の w：チャートの番号＋1（頂点ごとの画素は −1、まだ書かれていない画素は 0）
 const LMOBJ=[];   // lm を持つ部品（描画の材質に画像を貼る対象）
 {const gs=new THREE.Scene();scene.updateMatrixWorld(true);
- scene.traverse(o=>{if(!o.isMesh||!o.geometry.attributes.lm)return;LMOBJ.push(o);const m=o.material,gm=gbMat(m);if(o.geometry.attributes.uv)gm.defines={HAS_UV:1};if(m.map){m.map.updateMatrix();gm.uniforms.uvT.value.copy(m.map.matrix);}
+ scene.traverse(o=>{if(!o.isMesh||!o.geometry.attributes.lm)return;LMOBJ.push(o);if(o.userData.lmView)return;const m=o.material,gm=gbMat(m);   // lmView：ほかの面の画像を読むだけの部品（シェードの生地と下のバー）は G-buffer に描かない
+ if(o.geometry.attributes.uv)gm.defines={HAS_UV:1};if(m.map){m.map.updateMatrix();gm.uniforms.uvT.value.copy(m.map.matrix);}
   const vert=o.geometry.attributes.lm.getZ(0)>0.5,px=vert?new THREE.Points(o.geometry,gm):new THREE.Mesh(o.geometry,gm);px.matrixAutoUpdate=false;px.matrixWorld.copy(o.matrixWorld);px.matrix.copy(o.matrixWorld);px.frustumCulled=false;gs.add(px);
   if(!vert){const wm=gbMat(m);if(o.geometry.attributes.uv)wm.defines={HAS_UV:1};if(m.map)wm.uniforms.uvT.value.copy(m.map.matrix);wm.wireframe=true;const wx=new THREE.Mesh(o.geometry,wm);wx.renderOrder=-1;wx.matrixAutoUpdate=false;wx.matrixWorld.copy(o.matrixWorld);wx.matrix.copy(o.matrixWorld);wx.frustumCulled=false;gs.add(wx);}});   // 三角形の辺も線で先に描く：画素より細い面（ドアの開口と隅の間の細い壁など）は、三角形だけだと画素の中心にかからず何も書かれない（表示でその空の画素を読んで黒い線になる）
  const cam0=new THREE.Camera();r.setRenderTarget(GB);r.setClearColor(0x000000,0);r.clear();gs.traverse(o=>{if(o.isMesh||o.isPoints)o.updateMatrixWorld=()=>{};});r.render(gs,cam0);
@@ -267,15 +268,16 @@ LM.tm.pre=performance.now()-LM.tm.t0;LM.bstep=8;let PGP,PGN;const MKD=new Uint8A
     let u0=1e9,u1=-1e9,v0=1e9,v1=-1e9;for(const A of [a0,a1])for(const B of [b0,b1]){const qx=px+ch.u[0]*A+ch.v[0]*B,qy=py+ch.u[1]*A+ch.v[1]*B,qz=pz+ch.u[2]*A+ch.v[2]*B,uu=c.u[0]*qx+c.u[1]*qy+c.u[2]*qz,vv=c.v[0]*qx+c.v[1]*qy+c.v[2]*qz;if(uu<u0)u0=uu;if(uu>u1)u1=uu;if(vv<v0)v0=vv;if(vv>v1)v1=vv;}const nu=c.w-2*PADB,nv=c.h-2*PADB;
     for(let kv=Math.max(0,Math.floor((v0-c.v0)/c.sv)+1);kv<=Math.min(nv-1,Math.ceil((v1-c.v0)/c.sv)-1);kv++)for(let ku=Math.max(0,Math.floor((u0-c.u0)/c.su)+1);ku<=Math.min(nu-1,Math.ceil((u1-c.u0)/c.su)-1);ku++){const m=(c.y+PADB+kv)*LMW+c.x+PADB+ku;if(P[m*4+3]===c.gid+1){BUR[m]=1;BURC.add(c.gid+1);}}}}
   LM.nBur=BUR.reduce((a,v)=>a+v,0);}
- // 隠れた画素の印（REG）：見えている画素はチャートの番号、隠れた画素はその負。隠れた画素＝ほかの部品の面がかぶさっている所（BUR）と、面から1cm手前の点がほかの大きな面の板（SLABX・MIDB＝壁・床・天井の中）に入る所（壁の下に入った床・壁の上の天井・壁の裏など）。
+ // 隠れた画素の印（REG）：見えている画素はチャートの番号、隠れた画素はその負。隠れた画素＝ほかの部品の面がかぶさっている所（BUR）と、面から1cm手前と3cm手前の点がどちらもほかの大きな面の板（SLABX・MIDB＝壁・床・天井の中）に入る所（壁の下に入った床・壁の上の天井・壁の裏など）。
  // 隠れた画素は、補う元にも照り返しの光る面の集計にも使わず（壁の中で影の判定の余裕から光を拾い、照り返しを出すと壁の向こうへにじむ）、表示用の値は同じチャートの隣の見えている画素から写す（sumMat）。部屋を区切る処理ではない（チャートは stg/pre.js の archSplit が建物の面の接する線で分けてある）
  const REG=new Float32Array(LMW*LMH);for(let i=0;i<LMW*LMH;i++){const w=P[i*4+3];REG[i]=BUR[i]?-Math.abs(w):Math.abs(w);}
  {const SB=LM.slabB,inSlab=(S,x,y,z)=>{const s=S.d-(S.n.x*x+S.n.y*y+S.n.z*z);return s>0&&s<S.T&&inPM(S,x,y,z);};   // 面の裏の板の中か
   const SBC=new Map(SB.map(S=>[S.c,S])),v3=new THREE.Vector3();LM.charts.forEach(c=>{const C=SBC.get(c);if(!C&&!(c.o&&c.o.userData.arch))return;const gid=c.gid+1,n=C?C.n:new THREE.Vector3(c.nx,c.ny,c.nz),bx=new THREE.Box3();   // 大きな面と、建物の面（壁・床・天井。小さく分かれた所も）のチャート
    for(let yy=0;yy<c.h;yy++)for(let xx=0;xx<c.w;xx++){const i=(c.y+yy)*LMW+c.x+xx;if(P[i*4+3]===gid)bx.expandByPoint(v3.set(P[i*4],P[i*4+1],P[i*4+2]));}if(bx.isEmpty())return;bx.expandByScalar(0.05);
-   const cand=SB.filter(S=>S!==C&&Math.abs(S.n.dot(n))<0.3&&S.box.clone().expandByScalar(S.T+0.02).intersectsBox(bx)).concat(MIDB.filter(S=>Math.abs(S.n.dot(n))<0.3&&S.bx.intersectsBox(bx)));if(!cand.length)return;
-   const ctr=bx.getCenter(new THREE.Vector3());for(let yy=0;yy<c.h;yy++)for(let xx=0;xx<c.w;xx++){const i=(c.y+yy)*LMW+c.x+xx;if(P[i*4+3]!==gid||REG[i]<0)continue;v3.set(ctr.x-P[i*4],ctr.y-P[i*4+1],ctr.z-P[i*4+2]);v3.addScaledVector(n,-v3.dot(n));const dl=v3.length(),sh=dl>0.015?0.015/dl:0;   // 面の端の画素は面の端の線（壁の面と同じ位置が多い）の上にあるので、調べる点を面の中ほどへ1.5cm寄せる
-    const X=P[i*4]+NN[i*4]*0.01+v3.x*sh,Y=P[i*4+1]+NN[i*4+1]*0.01+v3.y*sh,Z=P[i*4+2]+NN[i*4+2]*0.01+v3.z*sh;if(cand.some(S=>inSlab(S,X,Y,Z)))REG[i]=-gid;}});
+   const cand=SB.filter(S=>S!==C&&Math.abs(S.n.dot(n))<0.3&&S.box.clone().expandByScalar(S.T+0.02).intersectsBox(bx)).map(S=>[S,S.box.clone().expandByScalar(S.T+0.02)]).concat(MIDB.filter(S=>Math.abs(S.n.dot(n))<0.3&&S.bx.intersectsBox(bx)).map(S=>[S,S.bx]));if(!cand.length)return;
+   const ctr=bx.getCenter(new THREE.Vector3()),TB=new THREE.Box3();for(let ty=0;ty<c.h;ty+=16)for(let tx=0;tx<c.w;tx+=16){TB.makeEmpty();for(let yy=ty;yy<Math.min(c.h,ty+16);yy++)for(let xx=tx;xx<Math.min(c.w,tx+16);xx++){const i=(c.y+yy)*LMW+c.x+xx;if(P[i*4+3]===gid)TB.expandByPoint(v3.set(P[i*4],P[i*4+1],P[i*4+2]));}if(TB.isEmpty())continue;TB.expandByScalar(0.05);const tc=cand.filter(([S,b])=>b.intersectsBox(TB)).map(([S])=>S);if(!tc.length)continue;   // 16×16画素の区画ごとに、近くの板だけを調べる（大きな壁で候補が多いと遅いため。調べる点は画素から3.4cm 以内なので結果は同じ）
+    for(let yy=ty;yy<Math.min(c.h,ty+16);yy++)for(let xx=tx;xx<Math.min(c.w,tx+16);xx++){const i=(c.y+yy)*LMW+c.x+xx;if(P[i*4+3]!==gid||REG[i]<0)continue;v3.set(ctr.x-P[i*4],ctr.y-P[i*4+1],ctr.z-P[i*4+2]);v3.addScaledVector(n,-v3.dot(n));const dl=v3.length(),sh=dl>0.015?0.015/dl:0;   // 面の端の画素は面の端の線（壁の面と同じ位置が多い）の上にあるので、調べる点を面の中ほどへ1.5cm寄せる
+    const q=k=>[P[i*4]+NN[i*4]*k+v3.x*sh,P[i*4+1]+NN[i*4+1]*k+v3.y*sh,P[i*4+2]+NN[i*4+2]*k+v3.z*sh],a=q(0.03),S3=tc.find(S=>inSlab(S,...a));if(S3){const b=q(0.01);if(inSlab(S3,...b)||tc.some(S=>S!==S3&&inSlab(S,...b)))REG[i]=-gid;}}}});   // 調べる点は面の1cm手前と3cm手前の2つ（板の形は2cm の格子で縁を1.4cm 広げて見るので、1cm だけでは面の上で終わる隣の板の縁に入り、見えている面まで「中」になった：戸袋の口の見込み・垂れ壁。3cm だけでは面から4cm 離れて立つ部品の板に入った：LDK の北西の隅の枠の横の壁）
   LM.nHid=REG.reduce((a,v)=>a+(v<0?1:0),0);}
  // 閉じた扉に覆われた画素（DM）：ドアごとに、閉じた形の部品（扉・引手など）の箱（2mm広げる）の中にある画素（扉の下の床・扉に接する枠など。扉自身の画素は除く）に、そのドアの番号のビットを付ける。
  // そのドアが閉じている間は、隠れた画素と同じに扱う（補う元・照り返しの光る面の集計に使わず、表示用の値は同じチャートの隣から写す）。扉の下・裏は扉の向こうの光を影の判定の余裕の中で拾うため。扉の実際の形から求め、ドアごとの設定は使わない
@@ -298,7 +300,7 @@ LM.tm.pre=performance.now()-LM.tm.t0;LM.bstep=8;let PGP,PGN;const MKD=new Uint8A
    if(j!==undefined)D[i*4+3]=j+1;});
   LM.nGlass=G.length;}   // すりガラスの裏表の対応（裏の面は、表で受けた光の一部で光って見える）。裏の画素の番号＋1を LM.sideTex の4番目の値に入れる（別の画像を作らない。メモリ）
  const R=LM.bstep-1,COV=new Uint8Array(LMW*LMH);
- const set=(x,y)=>{const k=(y*LMW+x)*4;if(MKD[k]||REG[k/4]<0)return;MKD[k]=MKD[k+1]=MKD[k+2]=MKD[k+3]=255;PTS.push(x,y,0);const w=P[k+3];if(w<=0)return;
+ const set=(x,y)=>{const k=(y*LMW+x)*4;if(MKD[k]||REG[k/4]<0)return;MKD[k]=MKD[k+1]=MKD[k+2]=MKD[k+3]=255;PTS.push(x,y,0);const w=P[k+3];if(w<=0||DM[k/4])return;   // 閉じた扉に覆われることのある点は、まわりを補える点に数えない（扉を閉じると使えないので、まわりの画素はほかの点か自分を計算する）
   for(let j=Math.max(0,y-R);j<=Math.min(LMH-1,y+R);j++)for(let i=Math.max(0,x-R);i<=Math.min(LMW-1,x+R);i++)if(!COV[j*LMW+i]&&P[(j*LMW+i)*4+3]===w&&sideOK(j*LMW+i,y*LMW+x))COV[j*LMW+i]=1;};   // COV：同じチャートで、計算する画素から R 以内（補える）
  for(let y=0;y<LMH;y++)for(let x=0;x<LMW;x++){const k=y*LMW+x;if(P[k*4+3]<0)set(x,y);}   // 頂点ごとの画素は全部計算する
  const S=LM.bstep,BIGG=new Set(LM.slabB.map(B=>B.c.gid)),PDB=LM.pad||2;LM.charts.forEach(c=>{if(BIGG.has(c.gid)){const nu=c.w-2*PDB,nv=c.h-2*PDB,na=Math.ceil((nu-1)/S)+1,nb=Math.ceil((nv-1)/S)+1;
@@ -349,9 +351,9 @@ const ecClear=()=>{r.setRenderTarget(EC);r.setClearColor(0x000000,0);r.clear();}
 const fillMat=new THREE.ShaderMaterial({glslVersion:THREE.GLSL3,defines:{R:LM.bstep-1},depthTest:false,depthWrite:false,uniforms:{tE:{value:null},tP:{value:GB.textures[0]},tM:{value:MK.texture},tS:{value:LM.sideTex},closed:{value:0}},vertexShader:`void main(){gl_Position=vec4(position.xy,0.0,1.0);}`,
  fragmentShader:`uniform sampler2D tE,tP,tM,tS;uniform int closed;out vec4 o;void main(){ivec2 c=ivec2(gl_FragCoord.xy);float w=texelFetch(tP,c,0).w;if(w==0.0||texelFetch(tM,c,0).r>0.5){o=texelFetch(tE,c,0);return;}vec4 sc=texelFetch(tS,c,0);float rt=abs(sc.y);int ef=int(sc.x+0.5),fl=0;
  if(ef>0){ef-=1;fl=ef&3;c+=ivec2((ef>>2)%9-4,(ef>>2)/9-4);if(texelFetch(tM,c,0).r>0.5){o=texelFetch(tE,c,0);return;}}   // 余白の画素は、いちばん近い形の中の画素と同じ値にする
- vec3 s=vec3(0.0),s1=vec3(0.0);float ws=0.0,w1=0.0;for(int y=-R;y<=R;y++)for(int x=-R;x<=R;x++){ivec2 q=c+ivec2(x,y);vec4 sq=texelFetch(tS,q,0);if(texelFetch(tM,q,0).r<0.5||texelFetch(tP,q,0).w!=w||sq.y!=rt||(int(sq.z)&closed)!=0)continue;float k=(1.0-abs(float(x))/float(R+1))*(1.0-abs(float(y))/float(R+1));vec3 e=texelFetch(tE,q,0).rgb;s+=e*k;ws+=k;
+ vec3 s=vec3(0.0),s1=vec3(0.0),s0=vec3(0.0);float ws=0.0,w1=0.0,w0=0.0;for(int y=-R;y<=R;y++)for(int x=-R;x<=R;x++){ivec2 q=c+ivec2(x,y);vec4 sq=texelFetch(tS,q,0);if(texelFetch(tM,q,0).r<0.5||texelFetch(tP,q,0).w!=w||sq.y!=rt)continue;float k=(1.0-abs(float(x))/float(R+1))*(1.0-abs(float(y))/float(R+1));vec3 e=texelFetch(tE,q,0).rgb;if((int(sq.z)&closed)!=0){s0+=e*k;w0+=k;continue;}s+=e*k;ws+=k;   // 閉じた扉に覆われた点は、ほかに補う元が無いときだけ使う（小さな枠の面が0＝黒になった）
   if(fl!=0){int fq=int(sq.x+0.5);fq=fq>0?(fq-1)&3:0;if(((fl&1)!=0&&y==0&&(fq&1)!=0)||((fl&2)!=0&&x==0&&(fq&2)!=0)){s1+=e*k;w1+=k;}}}   // 縁の画素：同じ縁の上（同じ行・列で縁の印のある）計算した画素
- o=vec4(w1>0.0?s1/w1:ws>0.0?s/ws:vec3(0.0),1.0);}`});   // 計算していない画素は、同じチャートの見えている計算した画素から補う（R 画素以内、近いほど重く。閉じた扉に覆われた画素は使わない）
+ o=vec4(w1>0.0?s1/w1:ws>0.0?s/ws:w0>0.0?s0/w0:vec3(0.0),1.0);}`});   // 計算していない画素は、同じチャートの見えている計算した画素から補う（R 画素以内、近いほど重く。閉じた扉に覆われた画素は使わない）
 const fillQ=new THREE.Mesh(new THREE.PlaneGeometry(2,2),fillMat);fillQ.frustumCulled=false;const FILLS=new THREE.Scene();FILLS.add(fillQ);
 const closedMask=()=>SEALS.reduce((m,q,j)=>DS[q.k]?m:m|(1<<j),0);   // 閉じているドアのビット
 const fillTo=(src,dst)=>{fillMat.uniforms.closed.value=closedMask();fillMat.uniforms.tE.value=src.texture;r.setRenderTarget(dst);r.render(FILLS,CAM0);};
@@ -398,6 +400,9 @@ LMU.zCau={value:ZU.zCau.value};LMU.zCauK={value:ZU.zCauK.value};LMU.g1P={value:G
 // ===== 光る部品・ガラス：色の仕上げで露出がかかるので、露出の分を先に打ち消す。布・天井などの「明るさの補いの光る色」は使わない =====
 const GLOW=[];scene.traverse(o=>{if(o.isMesh&&o.material.isMeshBasicMaterial&&!FROST.includes(o)&&!GLOW.some(g=>g.m===o.material))GLOW.push({m:o.material,c:o.material.color.clone()});});
 const EMIT=[],FAKE=[];scene.traverse(o=>{const m=o.material;if(!o.isMesh||!m.emissive||EMIT.includes(m)||FAKE.includes(m))return;(m.transparent||m.emissiveMap?EMIT:FAKE).push(m);});
+// シェードの生地：閉じた所は、窓から入る外の光が布を通って光って見える（外の鉛直面の照度は玄関ドアの型ガラスと同じ求め方、布の透過率0.5＝シェードを閉じたとき窓の光を半分にするのと同じ値）。部屋側の明るさはライトマップ（stg/pre.js の shadeProxies）
+const SHADEM=(typeof SHADES!=='undefined'?SHADES:[]).filter(sh=>sh.px).map(sh=>{const m=sh.fab.material;[EMIT,FAKE].forEach(L=>{const i=L.indexOf(m);if(i>=0)L.splice(i,1);});m.emissiveMap=m.map;m.needsUpdate=true;return {m,out:new THREE.Vector3(0,0,-1).applyQuaternion(sh.fab.parent.getWorldQuaternion(new THREE.Quaternion()))};});
+const shadeGlow=()=>SHADEM.forEach(({m,out})=>{const Ev=(SKY_LUX*0.5+(night?0:SUN_LUX*SUN_K*Math.max(SUNDIR.dot(out),0)))*(night?MOON:1);m.emissive.copy(night?lumColor(0xdfe4f2):lumColor(0xfaf7f0)).multiplyScalar(Ev*0.5/Math.PI);m.emissiveIntensity=1;});
 let lastExp=1;function updateGlow(){lastExp=r.toneMappingExposure;GLOW.forEach(g=>{g.m.color.copy(g.c).multiplyScalar(1/lastExp);});EMIT.forEach(m=>m.emissiveIntensity=1/lastExp);}
 {const _e=envAll;envAll=function(){GLOW.forEach(g=>g.m.color.copy(g.c));_e();FAKE.forEach(m=>m.emissive.setRGB(0,0,0));GLOW.forEach(g=>{g.c.copy(g.m.color);g.m.color.multiplyScalar(1/Math.max(lastExp,1e-6));});};}
 
@@ -405,7 +410,7 @@ let lastExp=1;function updateGlow(){lastExp=r.toneMappingExposure;GLOW.forEach(g
 const lum=c=>0.2126*c.r+0.7152*c.g+0.0722*c.b;
 let lastShade=-1;const WBC=new THREE.Color(1,1,1).lerp(lumColor(KCOL[2700]),0.35);WBC.multiplyScalar(1/lum(WBC));   // 白の合わせ：電球色を35%だけ白に寄せる（全状態で同じ）
 LM.EXPO=0.05;   // 露出（全状態で同じ。画像で見て調整した値）
-function relight(chg){envAll();syncDoors();sealUpd();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=1;
+function relight(chg){envAll();shadeGlow();syncDoors();sealUpd();const sh=bedS.shadeP||0,tr=(1-sh)+sh*0.5;SC=1;
  r.setRenderTarget(ED);r.setClearColor(0x000000,0);r.clear();
  const t0=performance.now();let n=0;
  r.setRenderTarget(EG);r.clear();G1L.intensity=0;G1L.shadow.needsUpdate=true;
