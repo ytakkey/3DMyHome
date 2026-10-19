@@ -36,20 +36,20 @@ function cutAtDoors(g,C){if(!C.length)return {g,TG:null};const P=g.attributes.po
   const b=(a+1)%3,c=(a+2)%3,pa=lerp(V[a],V[b],dd[a]/(dd[a]-dd[b])),pc=lerp(V[a],V[c],dd[a]/(dd[a]-dd[c]));
   push([V[a],pa,pc],side*(j+1));push([pa,V[b],V[c]],-side*(j+1));push([pa,V[c],pc],-side*(j+1));cut++;}
  const h=new THREE.BufferGeometry();keys.forEach((k,ai)=>h.setAttribute(k,new THREE.BufferAttribute(new Float32Array(out[ai]),A[ai].itemSize)));g.dispose();LM.doorCut=(LM.doorCut||0)+cut;return {g:h,TG:Int16Array.from(TG)};}
-// 建物の面が接する線（壁の根元・天井の際・部屋の隅・階の境）：建物の面（userData.arch。壁・床・天井）の縁の辺のうち、ほかの建物の面の平面の上（4.5mm以内。2mm高い石の床と、床の1mm下まで下げた開口の内側の面の間が3mm）にあってその面とほぼ直角な物を「接する線」とする。
+// 建物の面が接する線（壁の根元・天井の際・部屋の隅・階の境）：建物の面（userData.arch。壁・床・天井）の縁の辺のうち、ほかの建物の面の平面の上（4.5mm以内。2mm高い石の床と、床の1mm下まで下げた開口の内側の面の間が3mm）にあってその面とほぼ直角で、相手の面がこの面の表側（部屋の側）へ伸びている物を「接する線」とする（裏側で接する面＝壁の中の空洞をふさぐ面などは、表から見える面を分けない）。
 // その面の三角形を接する線（と線の両端の直角の線）で切り、線の上の辺ではチャートをつなげない（BAR）。壁の下に入った床・壁の上の天井・壁の裏に隠れた部分などが見えている面と別のチャートになり、隠れた所の値を見えている所が補う元に使わない（光の計算は区切らない）。
 // 幅1mm未満のつぶれた三角形の辺は使わない（床の段などの細い面は、建物の面の印を付けない）
 function archContacts(objs){const E=[],q=v=>Math.round(v*1e4);
  objs.forEach(o=>{if(!o.userData.arch)return;const g=(o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone()).applyMatrix4(o.matrixWorld),P=g.attributes.position.array;g.dispose();const cnt=new Map(),ed=[];
   for(let t=0;t<P.length/9;t++){const v=[0,1,2].map(i=>new THREE.Vector3(P[t*9+i*3],P[t*9+i*3+1],P[t*9+i*3+2])),cr=v[1].clone().sub(v[0]).cross(v[2].clone().sub(v[0])),ar=cr.length(),L=Math.max(v[0].distanceTo(v[1]),v[1].distanceTo(v[2]),v[2].distanceTo(v[0]));if(!(ar>0))continue;const thin=ar/L<0.001,n=cr.normalize();
-   for(let e=0;e<3;e++){const a=v[e],b=v[(e+1)%3],ka=q(a.x)+','+q(a.y)+','+q(a.z),kb=q(b.x)+','+q(b.y)+','+q(b.z),k=ka<kb?ka+'|'+kb:kb+'|'+ka;cnt.set(k,(cnt.get(k)||0)+1);ed.push({k,a,b,n,thin});}}
-  ed.forEach(x=>{if(!x.thin&&cnt.get(x.k)===1)E.push({a:x.a,b:x.b,n:x.n,o});});});   // 縁の辺（その形の中で1つの三角形だけが使う辺）
+   for(let e=0;e<3;e++){const a=v[e],b=v[(e+1)%3],c3=v[(e+2)%3],ed0=b.clone().sub(a).normalize(),bd=c3.clone().sub(a);bd.addScaledVector(ed0,-bd.dot(ed0)).normalize();const ka=q(a.x)+','+q(a.y)+','+q(a.z),kb=q(b.x)+','+q(b.y)+','+q(b.z),k=ka<kb?ka+'|'+kb:kb+'|'+ka;cnt.set(k,(cnt.get(k)||0)+1);ed.push({k,a,b,n,thin,bd});}}
+  ed.forEach(x=>{if(!x.thin&&cnt.get(x.k)===1)E.push({a:x.a,b:x.b,n:x.n,bd:x.bd,o});});});   // 縁の辺（その形の中で1つの三角形だけが使う辺）
  if(new URLSearchParams(location.search).get('lm')==='dbg')LM.edges=E.map(e=>[e.a.toArray().map(v=>+v.toFixed(4)),e.b.toArray().map(v=>+v.toFixed(4)),e.n.toArray().map(v=>+v.toFixed(2))]);   // 確認用
  return E;}
 // 1つの形（家全体の座標・index なし）について、接する線を求め、その線で三角形を切って、線の上の辺（BAR）を返す
 function archSplit(g,o,E){const P0=g.attributes.position.array,PL=[],bb=new THREE.Box3();for(let t=0;t<P0.length/9;t++){const a=new THREE.Vector3(P0[t*9],P0[t*9+1],P0[t*9+2]),b=new THREE.Vector3(P0[t*9+3],P0[t*9+4],P0[t*9+5]),c=new THREE.Vector3(P0[t*9+6],P0[t*9+7],P0[t*9+8]),n=b.clone().sub(a).cross(c.clone().sub(a));if(!(n.length()>1e-12))continue;n.normalize();const d=n.dot(a);
   let p=PL.find(p=>p.n.dot(n)>0.9995&&Math.abs(p.d-d)<1e-3);if(!p){p={n,d,box:new THREE.Box3()};PL.push(p);}p.box.expandByPoint(a).expandByPoint(b).expandByPoint(c);bb.expandByPoint(a).expandByPoint(b).expandByPoint(c);}
- bb.expandByScalar(0.006);const S=[],eb=new THREE.Box3();E.forEach(e=>{if(e.o===o)return;eb.makeEmpty().expandByPoint(e.a).expandByPoint(e.b);if(!bb.intersectsBox(eb))return;PL.forEach(p=>{if(Math.abs(p.n.dot(e.a)-p.d)>0.0045||Math.abs(p.n.dot(e.b)-p.d)>0.0045||Math.abs(p.n.dot(e.n))>0.5)return;if(!p.box.clone().expandByScalar(0.006).intersectsBox(eb))return;   // 辺がその面の広がりと重なれば（辺の一部が面の外へ出ていてもよい。開口の内側の面の下の辺は壁の厚さいっぱいにある）
+ bb.expandByScalar(0.006);const S=[],eb=new THREE.Box3();E.forEach(e=>{if(e.o===o)return;eb.makeEmpty().expandByPoint(e.a).expandByPoint(e.b);if(!bb.intersectsBox(eb))return;PL.forEach(p=>{if(Math.abs(p.n.dot(e.a)-p.d)>0.0045||Math.abs(p.n.dot(e.b)-p.d)>0.0045||Math.abs(p.n.dot(e.n))>0.5||e.bd.dot(p.n)<0.5)return;if(!p.box.clone().expandByScalar(0.006).intersectsBox(eb))return;   // 辺がその面の広がりと重なれば（辺の一部が面の外へ出ていてもよい。開口の内側の面の下の辺は壁の厚さいっぱいにある）
   const a=e.a.clone().addScaledVector(p.n,p.d-p.n.dot(e.a)),b=e.b.clone().addScaledVector(p.n,p.d-p.n.dot(e.b)),L=a.distanceTo(b);if(L<0.001)return;const dir=b.clone().sub(a).multiplyScalar(1/L);S.push({a,b,L,dir,m:dir.clone().cross(p.n).normalize()});});});
  if(!S.length)return {g,BAR:null};
  if(new URLSearchParams(location.search).get('lm')==='dbg')(LM.segs||(LM.segs=[])).push(...S.map(x=>[x.a.toArray().map(v=>+v.toFixed(4)),x.b.toArray().map(v=>+v.toFixed(4))]));   // 確認用（?lm=dbg のときだけ、接する線を残す）
@@ -86,10 +86,20 @@ function mergeStatic(scene){scene.updateMatrixWorld(true);const olds=[],dyns=[],
  olds.forEach(o=>{o.parent.remove(o);o.geometry.dispose();});
  const merged=[];buckets.forEach(b=>{const m=new THREE.Mesh(new THREE.BufferGeometry(),b.m);scene.add(m);merged.push({b,m});});
  dyns.forEach(o=>{if(!lmLit(o,o.material))return;const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();lmPrepare(o,g);});
- lmPack();   // ここで各部品の形に lm が付く（まとめる前の部品の分は、下でまとめる）
+ shadeProxies();
+ lmPack();SHADES.forEach(setShadeLm);   // ここで各部品の形に lm が付く（まとめる前の部品の分は、下でまとめる）
  merged.forEach(({b,m})=>{const keys=b.parts[0].g.attributes.lm?[...b.keys,'lm']:b.keys;keys.forEach(k=>{let n=0;b.parts.forEach(p=>n+=p.g.attributes[k].array.length);const arr=new Float32Array(n);let off=0;b.parts.forEach(p=>{arr.set(p.g.attributes[k].array,off);off+=p.g.attributes[k].array.length;});m.geometry.setAttribute(k,new THREE.BufferAttribute(arr,b.parts[0].g.attributes[k].itemSize));});
   b.parts.forEach(p=>p.g.dispose());if(b.mode>=0)m.userData.lmMode=b.mode;});
  LM.items=LM.items.filter(it=>it.o.isMesh);}   // まとめた部品の仮の Object3D は外す（まとめた形が lm を持つ）
+// シェードの生地：生地は開け閉めで長さが変わる（動く部品）ので、閉じきった大きさの見えない面（px）を明るさの画像に入れ、表示の生地と下のバーはその画像の同じ位置を読む（setShadeLm。開け閉めのたびに付け直す）。
+// 外の光が布を通って光る分は stg/lm.js（shadeGlow）。材質はシェードごとに分ける（窓の向きで日差しが違うため）
+const SHADES=[];{const _aw=addWindow;addWindow=function(...a){const n=shades?shades.length:0,res=_aw.apply(this,a);if(shades)for(let i=n;i<shades.length;i++)SHADES.push(shades[i]);return res;};}
+function shadeProxies(){SHADES.forEach(sh=>{const m=sh.fab.material.clone();sh.fab.material=m;const g0=uvPlane(sh.w,sh.max,0,0,sh.w,0.035),g=g0.toNonIndexed();g0.dispose();const px=new THREE.Mesh(g,m);px.position.set(sh.um,sh.top-sh.max/2,sh.z||-0.07);px.visible=false;px.userData.dyn=true;sh.fab.parent.add(px);px.updateMatrixWorld(true);sh.px=px;lmPrepare(px,g);});}
+function setShadeLm(sh){const px=sh.px;if(!px||!px.geometry.attributes.lm)return;const P=px.geometry.attributes.position,L=px.geometry.attributes.lm,x0=P.getX(0),y0=P.getY(0),x1=P.getX(1),y1=P.getY(1),x2=P.getX(2),y2=P.getY(2),det=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+ const f=k=>{const q0=L.getComponent(0,k),q1=L.getComponent(1,k),q2=L.getComponent(2,k),a=((q1-q0)*(y2-y0)-(q2-q0)*(y1-y0))/det,b=((q2-q0)*(x1-x0)-(q1-q0)*(x2-x0))/det;return (x,y)=>q0+a*(x-x0)+b*(y-y0);},U=f(0),V=f(1),gid=L.getW(0);   // 面の上で lm は (x,y) の1次式
+ [sh.fab,sh.rail].forEach(ms=>{if(!ms)return;ms.userData.lmView=1;const g=ms.geometry,p=g.attributes.position,A=new Float32Array(p.count*4),dx=ms.position.x-px.position.x,dy=ms.position.y-px.position.y;
+  for(let i=0;i<p.count;i++){const x=Math.max(-sh.w/2,Math.min(sh.w/2,p.getX(i)+dx)),y=Math.max(-sh.max/2,Math.min(sh.max/2,p.getY(i)+dy));A[i*4]=U(x,y);A[i*4+1]=V(x,y);A[i*4+2]=0;A[i*4+3]=gid;}g.setAttribute('lm',new THREE.BufferAttribute(A,4));});}
+{const _as=applyShades;applyShades=function(list,p){_as(list,p);list.forEach(setShadeLm);};}
 // 窓の位置・向き・大きさを記録する（窓ごとの空の光のため）。窓の光はすべて addDaylight を通る
 const BAKE_WINDOWS=[];
 {const _ad=addDaylight;addDaylight=function(g,um,ym,w,hh,shadeable){g.updateMatrixWorld(true);const c=g.localToWorld(new THREE.Vector3(um,ym,0)),q=g.getWorldQuaternion(new THREE.Quaternion());
