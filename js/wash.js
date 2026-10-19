@@ -115,7 +115,7 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
 // 廊下（洗面所とリビングの間。南は玄関ホールへ続く）。壁は玄関と同じIC-5016
 buildWall(wallGroup(CX0,0,PZ1,0),-CX0,H1,[],wm,1,true);                                                                                 // 北（仕切り壁の南側）
 buildWall(wallGroup(0,0,PZ1+0.0025,0),CX1,H1,[],wm,1,false);                                                                             // 北：X=0から東（LDKの仕切り壁の面から2.5mm離して重ねる＝ちらつかない。幅木はLDKの仕切り壁のもの）
-arch(vplane(0.0025,H1,wm,0,H1/2,PZ1+0.00125,-Math.PI/2,1));                                                                                     // 上の2枚の壁の2.5mmの段（X=0）をふさぐ面（西へ向く。壁と仕切り壁の間のすき間を廊下へ開けない）
+vplane(0.0025,H1,wm,0,H1/2,PZ1+0.00125,-Math.PI/2,1);                                                                                     // 上の2枚の壁の2.5mmの段（X=0）をふさぐ面（西へ向く。壁と仕切り壁の間のすき間を廊下へ開けない）
 buildWall(wallGroup(CX0,0,EN.Z0,Math.PI/2),EN.Z0-PZ1,H1,[{a:EN.Z0-s33B,b:EN.Z0-s33A,y1:0,y2:2.0,door:'swing',T:CX0-SX1,toggle:'sg33'}],wm,1,true);   // 西（SG33：北側吊元で廊下側へ開く。開閉できる）。南端は玄関ホールの北の壁の面
 
 // ===== 玄関（玄関ホール・土間・土間収納）とトイレ =====
