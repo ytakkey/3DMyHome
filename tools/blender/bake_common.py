@@ -1,6 +1,7 @@
 # 焼き込みの共通部分：house.blend（build_house.py）に、Cycles の設定・材質（拡散の反射率）・照明・空と太陽・窓のポータル・窓のふさぎを付ける
 # 単位：照明は光束（lm）、空・太陽は照度（lux）。Blender ではどちらも ÷683 で W にする（CLAUDE.md 1章「焼き込みの決めごと」）
 import bpy, math, os
+import numpy as np
 from mathutils import Vector, Matrix
 
 LM2W = 1 / 683
@@ -44,7 +45,16 @@ def setup(samples=128, devices=('HIP', 'CPU')):
         if m.node_tree:
             for n in m.node_tree.nodes:
                 if n.type == 'BSDF_PRINCIPLED':
-                    col = tuple(n.inputs['Base Color'].default_value); alpha = n.inputs['Alpha'].default_value
+                    bc_ = n.inputs['Base Color']
+                    col = tuple(bc_.default_value); alpha = n.inputs['Alpha'].default_value
+                    if bc_.is_linked:   # 柄のある材質は、柄の平均の色を反射率にする
+                        src = bc_.links[0].from_node
+                        if src.type == 'TEX_IMAGE' and src.image and src.image.size[0]:
+                            px = np.empty(len(src.image.pixels), dtype=np.float32); src.image.pixels.foreach_get(px)
+                            mc = px.reshape(-1, 4)[:, :3].mean(0)
+                            if not src.image.is_float:   # 8bit の画像は sRGB の値なので線形へ
+                                mc = np.where(mc <= 0.04045, mc / 12.92, ((mc + 0.055) / 1.055) ** 2.4)
+                            col = tuple(float(c) for c in mc) + (1,)
                     break
                 if n.type in ('EMISSION', 'RGB'):
                     col = tuple(n.inputs['Color'].default_value) if n.type == 'EMISSION' else tuple(n.outputs[0].default_value)
