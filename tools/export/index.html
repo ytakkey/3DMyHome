@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>家具の書き出し（Blender 用）</title>
+</head>
+<body>
+<!-- 家具・家電・照明器具を GLTF で書き出すページ（本番とは別）。本番の js をそのまま読み、部品ごとに「どのコードの行で作られたか」を記録して、建物と家具を分ける（分け方は export.js の BLD） -->
+<script src="../../js/three.min.js"></script>
+<script>   // 部品が追加されたときの呼び出し元を記録する（Object3D.add を包む）
+Error.stackTraceLimit=60;
+{const add0=THREE.Object3D.prototype.add;THREE.Object3D.prototype.add=function(...a){a.forEach(o=>{if(o&&o.isMesh&&!o.userData.src)o.userData.src=new Error().stack;});return add0.apply(this,a);};}
+</script>
+<script src="../../js/common.js"></script>
+<script src="../../js/bedroom.js"></script>
+<script src="../../js/study.js"></script>
+<script src="../../js/kitchen_panel.js"></script>
+<script src="../../js/ldk.js"></script>
+<script src="../../js/wash.js"></script>
+<script src="../../js/bath.js"></script>
+<script src="../../js/lighting.js"></script>
+<script>mergeStatic=()=>{};setupZones=()=>{};</script>   <!-- 部品をまとめず、光の範囲のシェーダーも付けない -->
+<script src="../../js/build.js"></script>
+<script src="GLTFExporter.js"></script>
+<script src="export.js"></script>
+</body>
+</html>

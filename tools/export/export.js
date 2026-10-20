@@ -1,0 +1,22 @@
+// 家具の書き出し：部品ごとの呼び出し元（index.html で記録）から、建物と家具を分けて GLTF にする
+// 部品の「場所」＝呼び出し元のうち、形を作るだけの関数（HELP）を除いた一番内側の行（ファイル名:行）
+const HELP=new Set(['box','lbox','lboxOpen','wbox','vplane','rbox','tmat']);
+function frames(st){return st.split('\n').slice(1).map(l=>{const m=l.match(/at (?:(\S+) \()?.*\/(\w+)\.js:(\d+):(\d+)/);return m?{fn:m[1]||'',file:m[2],line:+m[3],col:+m[4]}:null;}).filter(f=>f&&f.file!=='three'&&f.file!=='export');}
+function site(fr){const f=fr.find(f=>!HELP.has(f.fn));return f?f.file+':'+f.line:'?';}
+const room=fr=>{const f=fr.map(f=>f.file);return ['wash','bath'].find(x=>f.includes(x))||['bedroom','study','ldk'].find(x=>f.includes(x))||'common';};
+function meshes(){const a=[];scene.updateMatrixWorld(true);scene.traverse(o=>{if(o.isMesh&&o.userData.src)a.push(o);});return a;}
+// 一覧：場所ごとに数・範囲・色・呼び出しの関数名
+function survey(){const S={};meshes().forEach(o=>{const fr=frames(o.userData.src),k=site(fr),b=new THREE.Box3().setFromObject(o);const e=S[k]||(S[k]={n:0,room:room(fr),fns:fr.map(f=>f.fn||'-').slice(0,6).join('<'),min:[1e9,1e9,1e9],max:[-1e9,-1e9,-1e9],col:new Set(),dyn:0});
+ e.n++;['x','y','z'].forEach((c,i)=>{e.min[i]=Math.min(e.min[i],b.min[c]);e.max[i]=Math.max(e.max[i],b.max[c]);});if(o.material&&o.material.color)e.col.add(o.material.color.getHexString());if(o.userData.dyn)e.dyn++;});
+ Object.values(S).forEach(e=>{e.col=[...e.col].slice(0,4).join(',');e.min=e.min.map(v=>+v.toFixed(3));e.max=e.max.map(v=>+v.toFixed(3));});return S;}
+const save=(path,body)=>fetch('/save?path=bake/work/export/'+path,{method:'POST',body});
+// 建物（書き出さない）の場所。common.js は家具（シェード 219〜221・エアコン acUnit 370〜379）以外すべて建物
+const BLD={bedroom:[11,12,13,14],   // 西の壁のアクセント面・腰壁・天板・幅木
+ ldk:[11,15,17,20,21,22,23,24,25,26,27,28,31,32,35,36,37,38,39,43,44,45,46,47,48,49,50,51,   // 床・壁・天井・建具・仕切り壁と幅木・押入・下がり天井・2階廊下
+  61,63,64,66,67,75,76,281]};   // 階段の踏板・裏の鉄板・14段目の段鼻・タレ壁・ササラ桁と受け金物、カップボード横のうす壁
+const isBld=k=>{const [f,l]=k.split(':'),n=+l;if(f==='common')return !((n>=219&&n<=221)||(n>=370&&n<=379));return (BLD[f]||[]).includes(n);};
+// 書き出し：試作の範囲（寝室・WIC・書斎・2階廊下・吹抜け・LDK・階段）の家具。脱衣室・洗面所・玄関・トイレ・浴室（wash.js・bath.js から作られた物）は除く
+function pick(){return meshes().filter(o=>{const fr=frames(o.userData.src),k=site(fr);return !fr.some(f=>f.file==='wash'||f.file==='bath')&&!isBld(k);});}
+function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].forEach(S=>S.setShade(0));   // シェードは全開（開度は焼き込みでは光の量で扱う）
+ pick().forEach(o=>{const k=site(frames(o.userData.src)),m=new THREE.Mesh(o.geometry,o.material);o.matrixWorld.decompose(m.position,m.quaternion,m.scale);cnt[k]=(cnt[k]||0)+1;m.name=k.replace(':','_')+'_'+cnt[k];out.add(m);});
+ return new Promise(res=>new THREE.GLTFExporter().parse(out,glb=>save('furniture.glb',glb).then(()=>res(out.children.length)),{binary:true}));}
