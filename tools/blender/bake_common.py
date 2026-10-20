@@ -35,7 +35,8 @@ def setup(samples=128, devices=('HIP', 'CPU')):
     sc.cycles.device = 'GPU' if any(d.use and d.type != 'CPU' for d in pref.devices) else 'CPU'
     print('devices', [(d.name, d.type) for d in pref.devices if d.use], sc.cycles.device, flush=True)
     c = sc.cycles
-    c.samples = samples; c.use_denoising = False; c.max_bounces = 8; c.diffuse_bounces = 6; c.glossy_bounces = 2
+    db = int(os.environ.get('BAKE_BOUNCES', '6'))   # 拡散の反射回数（比べるときは環境変数で変える）
+    c.samples = samples; c.use_denoising = False; c.max_bounces = max(8, db + 2); c.diffuse_bounces = db; c.glossy_bounces = 2
     c.transmission_bounces = 4; c.transparent_max_bounces = 8; c.caustics_reflective = False; c.caustics_refractive = False
     c.sample_clamp_indirect = 1.0
     sc.render.use_persistent_data = True

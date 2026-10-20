@@ -45,6 +45,23 @@ elif a[0] == 'bake':   # 焼く：bake [サンプル数] [層,...]（済んだ�
             os.rename(LAY, LAY + '_old_' + time.strftime('%m%d%H%M'))
         a = a[:1] + a[2:]
     blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'bake_layers.py', 'bake', LAY, *(a[1:3] or ['2048']))
+elif a[0] == 'bounce':   # 反射回数の比較：代表の層を反射回数 1〜4 で焼き（bake/work/lm_b<回数>）、今の6回（lm）と同じ視点で撮って、状態ごとに1枚に並べる
+    import shutil
+    L3 = ['bdl@SG311o_SG500wo_SG33so', 'j1@SG311o_SG500wo', 'sky_bed@SG311o_SG500wo_SG33so']
+    for b in (1, 2, 3, 4):
+        d = os.path.join(W, 'lm_b%d' % b)
+        env = dict(os.environ, BAKE_BOUNCES=str(b))
+        subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.join(T, 'bake_layers.py'), '--', 'bake', d, '8192', ','.join(L3)], capture_output=True, env=env)
+    views = 'bedroom,bed_to_wic_study,hall_to_bed,wic'
+    for st, ly, ex in (('night_bdl', L3[0], '80'), ('night_j1', L3[1], '80'), ('day_sky', L3[2], '1500')):
+        cmp = os.path.join(W, 'view', 'bounce_' + st)
+        os.makedirs(cmp, exist_ok=True)
+        for b, d in [(1, 'lm_b1'), (2, 'lm_b2'), (3, 'lm_b3'), (4, 'lm_b4'), (6, 'lm')]:
+            out = os.path.join(W, 'view', 'b%d_%s' % (b, st))
+            blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'view_baked.py', os.path.join(W, d), out, 'SG311o_SG500wo_SG33so', ly, ex, views)
+            for f in os.listdir(out):
+                shutil.copy(os.path.join(out, f), os.path.join(cmp, '%s__b%d.png' % (f.split('__')[1][:-4], b)))
+        subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), cmp, os.path.join(W, 'view', 'bounce_' + st + '.jpg'), '5', '384'])
 elif a[0] == 'py':   # 調べる用：py <スクリプト> [引数...]（bake_uv.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
