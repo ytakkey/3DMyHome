@@ -1,4 +1,4 @@
-// 焼き込みの検証ページ（trial/）で、決まった視点・状態を撮って bake/work/trial_cmp/ に保存する（解像度・圧縮の比較用）
+// 焼き込みの検証ページ（STG/）で、決まった視点・状態を撮って bake/work/trial_cmp/ に保存する（解像度・圧縮の比較用）
 // 使い方：検証ページを ?lm=<方式>_r<縮小> で開き、eval(await (await fetch('/tools/trial_cap.js')).text()); await capAll('<方式>_r<縮小>')
 const CAPV={   // 名前：[目, 見る点, 視野角]（three.js の座標）
  hall_to_bed:[[-0.05,4.1,2.85],[-0.05,3.8,4.5],80],
