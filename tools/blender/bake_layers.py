@@ -35,6 +35,28 @@ def room_of(x, y, z):
         return 'bed'
     return 'wic' if z < 5.4 else 'study'
 DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50, 2.85, 5.0, 4.05, 5.65), 'SG33s': (0.30, 1.30, 2.85, 5.0, 6.33, 7.17)}   # x0,x1,y0,y1,z0,z1
+VMAX, VSMALL, VFACE = 1.2, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 1.2m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物）
+VEDGE = 0.04                            # 頂点で焼く物は、辺を 4cm 以下に分ける（大きな面の中の明るさの変化を拾う）
+def vlit(o, bb):
+    dim = max(max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3))
+    if dim <= VSMALL:
+        return True
+    if dim > VMAX:
+        return False
+    me = o.data; me.calc_loop_triangles(); mw = o.matrix_world
+    if len(me.polygons) < 40:
+        return False
+    area = sum(((mw @ me.vertices[t.vertices[1]].co) - (mw @ me.vertices[t.vertices[0]].co)).cross((mw @ me.vertices[t.vertices[2]].co) - (mw @ me.vertices[t.vertices[0]].co)).length / 2 for t in me.loop_triangles)
+    return area / len(me.polygons) < VFACE
+def subdivide(o, maxlen):
+    bm = bmesh.new(); bm.from_mesh(o.data); mw = o.matrix_world
+    for _ in range(7):
+        long = [e for e in bm.edges if ((mw @ e.verts[0].co) - (mw @ e.verts[1].co)).length > maxlen]
+        if not long:
+            break
+        bmesh.ops.subdivide_edges(bm, edges=long, cuts=1, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+    bm.to_mesh(o.data); bm.free()
 def door_of(x, y, z):
     for k, (x0, x1, y0, y1, z0, z1) in DOORBOX.items():
         if x0 <= x <= x1 and y0 <= y <= y1 and z0 <= z <= z1:
@@ -78,7 +100,8 @@ def prep(out):
         parts[g] = [o]
     bpy.data.objects.remove(bld)
     # ほかの部品（建具・幅木・窓・階段・家具）を物体の中心で振り分ける。扉は開いた形・閉じた形ごと
-    leaves = {}
+    # 小さい物・曲面の物は、ライトマップ（1画素2cm）では画素が足りず隣の部品の値がにじむので、頂点ごとの明るさで焼く（2026-10-21 ユーザー了承）：V_<アトラス>
+    leaves, vparts = {}, {}
     for cn in ('fixtures', 'stairs', 'furniture', 'doors_open', 'doors_closed'):
         for o in list(bpy.data.collections[cn].objects):
             if o.type != 'MESH' or o.name.endswith('_glass'):   # 窓のガラスはまとめない（焼き込みでは外し、窓の位置からポータルを作る）
@@ -91,6 +114,9 @@ def prep(out):
                 leaves.setdefault((dk, cn[6:]), []).append(o)
                 continue
             g = 'door_' + dk if dk else room_of(x, y, z)
+            if vlit(o, bb):
+                vparts.setdefault(g, []).append(o)
+                continue
             parts.setdefault(g, []).append(o)
     def join(objs, name):
         bpy.ops.object.select_all(action='DESELECT')
@@ -110,6 +136,14 @@ def prep(out):
         o = join(objs, 'A_' + g); o['atlas'] = g; atlas.setdefault(g, []).append(o)
     for (dk, st), objs in leaves.items():
         o = join(objs, 'L_%s_%s' % (dk, st)); o['atlas'] = 'door_' + dk; o['door'] = dk; o['state'] = st; atlas['door_' + dk].append(o)
+    for g, objs in vparts.items():   # 頂点で焼く物：アトラスごとに1つの物体。焼いた値は点（頂点）ごと、ページでは _VID（頂点の番号）で引く
+        o = join(objs, 'V_' + g); o['atlas'] = g; o['vlit'] = 1
+        subdivide(o, VEDGE)
+        me = o.data
+        if 'BAKE' not in me.color_attributes:
+            me.color_attributes.new('BAKE', 'FLOAT_COLOR', 'POINT')
+        a = me.attributes.new('_VID', 'FLOAT', 'POINT'); a.data.foreach_set('value', np.arange(len(me.vertices), dtype=np.float32))
+        print('vlit', g, len(objs), 'objects', len(me.vertices), 'verts', flush=True)
     # ライトマップの UV：アトラスごとに自動で展開し、粗くする面を縮め、1枚に詰める
     info = {}
     for g, objs in atlas.items():
@@ -206,12 +240,21 @@ def layers():
             out.append((name, src, op))
     return out
 
+def vsmooth(o, v, it=2):
+    """頂点の値のノイズを、辺でつながった隣の頂点と軽くならす（ライトマップのノイズ除去の代わり）"""
+    me = o.data; e = np.empty(len(me.edges) * 2, np.int64); me.edges.foreach_get('vertices', e); e = e.reshape(-1, 2)
+    deg = np.bincount(e.ravel(), minlength=len(v)).astype(np.float64)
+    for _ in range(it):
+        s = np.zeros_like(v); np.add.at(s, e[:, 0], v[e[:, 1]]); np.add.at(s, e[:, 1], v[e[:, 0]])
+        v = np.where(deg[:, None] > 0, 0.5 * v + 0.5 * s / np.maximum(deg, 1)[:, None], v)
+    return v
 def bake_main(outdir, samples, only):
     os.makedirs(outdir, exist_ok=True)
     sc = bc.setup(samples)
     lamps = bc.add_lamps(sc)
     sky = bc.add_sky_sun(sc)
-    objs = [o for o in bpy.data.objects if 'atlas' in o and o['atlas'] != 'exterior']
+    objs = [o for o in bpy.data.objects if 'atlas' in o and o['atlas'] != 'exterior' and 'vlit' not in o]
+    vobjs = [o for o in bpy.data.objects if 'vlit' in o]
     names = sorted({o['atlas'] for o in objs})
     imgs, res = {}, {}
     for g in names:
@@ -342,6 +385,17 @@ def bake_main(outdir, samples, only):
             q = denoise(q.astype(np.float32).ravel(), r).reshape(r, r, 4)
             lux = np.maximum(q[:, :, :3], 0) * math.pi / bc.LM2W
             np.save(os.path.join(ld, g + '.npy'), lux.astype(np.float16))
+        vt = [o for o in vobjs if o['atlas'] in A]   # 頂点で焼く物
+        if vt:
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in vt:
+                o.select_set(True); o.data.color_attributes.active_color = o.data.color_attributes['BAKE']
+            bpy.context.view_layer.objects.active = vt[0]
+            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, target='VERTEX_COLORS', use_clear=True)
+            for o in vt:
+                me = o.data; n = len(me.vertices); a = np.empty(n * 4, np.float32); me.color_attributes['BAKE'].data.foreach_get('color', a)
+                v = np.maximum(a.reshape(-1, 4)[:, :3].astype(np.float64), 0) * math.pi / bc.LM2W
+                np.save(os.path.join(ld, 'V_' + o['atlas'] + '.npy'), vsmooth(o, v).astype(np.float32))
         open(os.path.join(ld, 'done'), 'w').write('ok')
         log[name] = {'atlases': sorted(A), 'sec': round(time.time() - t0, 1)}
         json.dump(log, open(log_path, 'w'), indent=1)
