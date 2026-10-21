@@ -1,0 +1,252 @@
+// ===== 焼き込みの検証ページ（本番とは別。CLAUDE.md 1章「照明とドア」）=====
+// 模型：house.glb（tools/blender/export_gltf.py。uv＝元の柄、uv2＝ライトマップ）。光：lm/index.json と層ごと・アトラスごとの画像（tools/blender/lm_images.py）
+// 点灯している光源・ドアの開閉・昼夜・シェードが変わったときだけ、要る層をアトラスごとに1枚（半精度）へ足し合わせ、普段の描画はその1枚を読むだけ
+// ?lm=<方式>_r<縮小>（例 rgbm_r2）で、bake/work/trial_lm/ の比較用の画像を読む（手元の確認用。無指定は trial/lm/）
+const $=id=>document.getElementById(id);
+const Q=new URLSearchParams(location.search);
+const LMV=Q.get('lm')||'',LMDIR=LMV?'../bake/work/trial_lm/'+LMV+'/':'lm/';
+const TEX_BUDGET=(+Q.get('budget')||128)*2**20,BYTE_BUDGET=64*2**20;   // GPU に置いておく層の画像・取得済みのファイルの上限（超えたら、いまの状態で使わない物から捨てる）
+const LMK=32;   // まとめた画像には lux/32 を入れる（半精度の最大 65504 を超えないように）。表示で ×32
+const EXPO={day:1500,night:80};   // 白（反射率1）が 1.0 になる照度（lux）。Blender の確認の表示（view_baked.py）と同じ
+const MOON=1/1000,MOONC=[0.6,0.7,1.0];   // 夜の月明かり：空の層を弱めて青く（仮）
+const EMIT=3000;   // 点灯している照明器具の発光面の明るさ（lux 相当。仮）
+const SHADE_T=p=>1-0.5*p;   // シェードを閉めた割合 p で、その窓から入る光の割合（閉めても5割通す）
+// 焼いた層の組み合わせ（bake_layers.py の COMBOS と同じ）。層の名前＝光源@ドアの開閉（関係するドアだけ）
+const COMBOS={bdl:['SG311','SG500w','SG33s'],bbr:['SG311','SG500w','SG33s'],sky_bed:['SG311','SG500w','SG33s'],sun_bed:['SG311','SG500w','SG33s'],
+ j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311'],h1:[],sun_void:[],sky_ldk1F:[],sun_ldk1F:[]};
+const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F'];
+const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
+const LG=[['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],['リビング',[['階段','h1']]]];   // 照明のボタン（焼いた照明だけ）
+const LS={bdl:false,bbr:false,j1:false,l1:false,k1:false,h1:false};
+const DS={sg311:false,sg500w:false,sg33s:false};   // 試作のドア（ほかのドアは閉じたまま）
+const dk=d=>d.toLowerCase();
+let night=false,shadeP=0,yaw=0,pitch=0,ready=false;
+
+// ===== 描画の準備。表示の色＝反射率×照度÷露出を AgX で（Blender の確認の表示と同じ見え方）=====
+THREE.ShaderChunk.tonemapping_pars_fragment=THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }',`
+vec3 agxCurve(vec3 x){vec3 x2=x*x;vec3 x4=x2*x2;return 15.5*x4*x2-40.14*x4*x+31.96*x4-6.868*x2*x+0.4298*x2+0.1191*x-0.00232;}
+vec3 CustomToneMapping(vec3 color){
+ const mat3 S2R=mat3(vec3(0.6274,0.0691,0.0164),vec3(0.3293,0.9195,0.0880),vec3(0.0433,0.0113,0.8956));
+ const mat3 R2S=mat3(vec3(1.6605,-0.1246,-0.0182),vec3(-0.5876,1.1329,-0.1006),vec3(-0.0728,-0.0083,1.1187));
+ const mat3 INS=mat3(vec3(0.856627153315983,0.137318972929847,0.11189821299995),vec3(0.0951212405381588,0.761241990602591,0.0767994186031903),vec3(0.0482516061458583,0.101439036467562,0.811302368396859));
+ const mat3 OUTS=mat3(vec3(1.1271005818144368,-0.1413297634984383,-0.14132976349843826),vec3(-0.11060664309660323,1.157823702216272,-0.11060664309660294),vec3(-0.016493938717834573,-0.016493938717834257,1.2519364065950405));
+ color=INS*(S2R*(color*toneMappingExposure));
+ color=clamp((log2(max(color,1e-10))+12.47393)/16.5,0.0,1.0);
+ color=OUTS*agxCurve(color);
+ return clamp(R2S*pow(max(color,vec3(0.0)),vec3(2.2)),0.0,1.0);}`);
+const r=new THREE.WebGLRenderer({antialias:true});
+r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+r.setSize(window.innerWidth,window.innerHeight);
+r.outputEncoding=THREE.sRGBEncoding;r.toneMapping=THREE.CustomToneMapping;
+document.body.prepend(r.domElement);
+const cam=new THREE.PerspectiveCamera(85,window.innerWidth/window.innerHeight,0.05,80);cam.rotation.order='YXZ';
+const scene=new THREE.Scene();
+function look(px,py,pz,ya,pi,f){cam.position.set(px,py,pz);cam.fov=f;cam.updateProjectionMatrix();yaw=ya;pitch=pi;draw();}
+function draw(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.render(scene,cam);}
+function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribute('role')==='switch'?'aria-checked':(el.getAttribute('role')==='tab'?'aria-selected':'aria-pressed'),on);}
+const sRGB=h=>new THREE.Color(h).convertSRGBToLinear();
+const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
+
+// ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
+async function decodePNG(buf){const dv=new DataView(buf);let p=8,w=0,h=0,depth=8,ct=6;const parts=[];
+ while(p<buf.byteLength){const len=dv.getUint32(p),t=String.fromCharCode(dv.getUint8(p+4),dv.getUint8(p+5),dv.getUint8(p+6),dv.getUint8(p+7));
+  if(t==='IHDR'){w=dv.getUint32(p+8);h=dv.getUint32(p+12);depth=dv.getUint8(p+16);ct=dv.getUint8(p+17);}else if(t==='IDAT')parts.push(new Uint8Array(buf,p+8,len));else if(t==='IEND')break;p+=12+len;}
+ const raw=new Uint8Array(await new Response(new Blob(parts).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer());
+ const ch=ct===6?4:3,bpp=ch*depth/8,st=w*bpp,out=new Uint8Array(h*st);
+ for(let y=0;y<h;y++){const f=raw[y*(st+1)],s=y*(st+1)+1,o=y*st;
+  if(f===0){out.set(raw.subarray(s,s+st),o);continue;}
+  for(let i=0;i<st;i++){const a=i>=bpp?out[o+i-bpp]:0,b=y?out[o-st+i]:0;let pr;
+   if(f===1)pr=a;else if(f===2)pr=b;else if(f===3)pr=(a+b)>>1;else{const c=(y&&i>=bpp)?out[o-st+i-bpp]:0,q=a+b-c,pa=Math.abs(q-a),pb=Math.abs(q-b),pc=Math.abs(q-c);pr=(pa<=pb&&pa<=pc)?a:(pb<=pc?b:c);}
+   out[o+i]=(raw[s+i]+pr)&255;}}
+ return {w,h,depth,ch,data:out};}
+
+// ===== 層の画像：取得（ファイルのまま持つ）→ GPU の画像（使い終わっても上限までは置いておく）=====
+let IDX=null,netBytes=0,tick=0;
+const byteCache=new Map(),texCache=new Map();   // ファイル名 → {p:Promise<ArrayBuffer>,n,used} ／ {tex,n,used}
+function fetchBytes(f){let c=byteCache.get(f);if(!c){c={p:fetch(LMDIR+f).then(x=>{if(!x.ok)throw new Error(f);return x.arrayBuffer();}).then(b=>{c.n=b.byteLength;netBytes+=b.byteLength;return b;}),n:0};byteCache.set(f,c);}c.used=++tick;return c.p;}
+async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c.tex;}
+ const buf=await fetchBytes(e.file);let w,h,data,type=THREE.UnsignedByteType,n;
+ if(IDX.enc==='logj'){const bmp=await createImageBitmap(new Blob([buf],{type:'image/jpeg'}),{colorSpaceConversion:'none',premultiplyAlpha:'none'});w=bmp.width;h=bmp.height;
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.drawImage(bmp,0,0);data=new Uint8Array(cx.getImageData(0,0,w,h).data.buffer);bmp.close();n=w*h*4;}
+ else{const im=await decodePNG(buf);w=im.w;h=im.h;
+  if(im.depth===16){const s=im.data;data=new Uint16Array(w*h*4);type=THREE.HalfFloatType;for(let i=0,j=0;i<w*h;i++,j+=6){data[i*4]=s[j]<<8|s[j+1];data[i*4+1]=s[j+2]<<8|s[j+3];data[i*4+2]=s[j+4]<<8|s[j+5];data[i*4+3]=0x3c00;}n=w*h*8;}
+  else{data=im.data;n=w*h*4;}}
+ c=texCache.get(e.file);if(c)return c.tex;   // 同時に読んだとき
+ const tex=new THREE.DataTexture(data,w,h,THREE.RGBAFormat,type);tex.minFilter=tex.magFilter=THREE.NearestFilter;tex.generateMipmaps=false;tex.flipY=false;tex.needsUpdate=true;
+ tex.onUpdate=()=>{tex.image.data=null;};   // GPU へ送ったら CPU の画素は捨てる
+ texCache.set(e.file,{tex,n,used:++tick});return tex;}
+function evict(keep){
+ let t=[...texCache.values()].reduce((s,c)=>s+c.n,0);
+ for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;c.tex.dispose();texCache.delete(f);t-=c.n;}
+ let b=[...byteCache.values()].reduce((s,c)=>s+c.n,0);
+ for(const [f,c] of [...byteCache].sort((a,b)=>a[1].used-b[1].used)){if(b<=BYTE_BUDGET)break;if(keep.has(f))continue;byteCache.delete(f);b-=c.n;}}
+
+// ===== 足し合わせ：アトラスごとの半精度の画像へ、層を重み付きで足す（GPU で1回ずつ）=====
+const comp={};   // アトラス → 描画先（WebGLRenderTarget）
+function compRT(g){if(!comp[g]){const n=IDX.res[g];comp[g]=new THREE.WebGLRenderTarget(n,n,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false});comp[g].texture.generateMipmaps=false;}return comp[g];}
+const cScene=new THREE.Scene(),cCam=new THREE.Camera();
+const cMat=new THREE.ShaderMaterial({uniforms:{t:{value:null},mode:{value:1},w:{value:new THREE.Vector3()},p:{value:new THREE.Vector2()}},
+ vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+ fragmentShader:`uniform sampler2D t;uniform int mode;uniform vec3 w;uniform vec2 p;varying vec2 vUv;
+void main(){vec4 c=texture2D(t,vUv);vec3 v;
+ if(mode==0)v=c.rgb;
+ else if(mode==1)v=c.rgb*c.a*c.a;
+ else{vec3 q=floor(c.rgb*255.0+0.5);v=exp2(p.x+(q-1.0)/254.0*(p.y-p.x))*step(0.5,q);}
+ gl_FragColor=vec4(v*w,1.0);}`,
+ blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,depthTest:false,depthWrite:false});
+{const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cMat);m.frustumCulled=false;cScene.add(m);}
+function layerName(src,ds){return src+'@'+(COMBOS[src].map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
+function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
+ Object.keys(LS).forEach(k=>{if(st.LS[k])add(k,1);});
+ NATURAL.forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
+ const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);for(const g in ent)if(ent[g])items.push({g,e:ent[g],w});});return items;}
+const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
+let ver=0,shown=null,stat={};
+async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st);
+ const texs=await Promise.all(items.map(it=>getTex(it.e)));if(v!==ver)return false;
+ const t1=performance.now(),ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;
+ for(const g in IDX.res){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
+  items.forEach((it,i)=>{if(it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
+   u.mode.value=IDX.enc==='h16'?0:IDX.enc==='rgbm'?1:2;const k=(IDX.enc==='rgbm'?e.max:1)/LMK;u.w.value.set(it.w[0]*k,it.w[1]*k,it.w[2]*k);u.p.value.set(e.lo||0,e.hi||0);r.render(cScene,cCam);});}
+ r.setRenderTarget(rt0);r.autoClear=ac;r.getContext().finish();
+ shown=st;applyShown();evict(new Set(items.map(it=>it.e.file)));
+ stat.load=Math.round(t1-t0);stat.gpu=Math.round(performance.now()-t1);stat.layers=items.length;draw();showStat();prefetch();return true;}
+// 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜）の層のファイルを先に取っておく（GPU には送らない）
+function prefetch(){const st=cur(),fs=new Set();const add=s=>wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});
+ Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));add({...st,night:!st.night});
+ [...fs].reduce((p,f)=>p.then(()=>fetchBytes(f)).catch(()=>{}),Promise.resolve());}
+let pending=null;function changed(){if(!pending)pending=Promise.resolve().then(()=>{pending=null;return recompose();});return pending;}
+
+// ===== 模型：材質は元の色・柄のまま、光はアトラスの1枚（uv2）から =====
+const DOORN={},LAMPM=[],DOORM=[];   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
+function info(o){for(;o;o=o.parent)if(o.userData&&o.userData.atlas)return o.userData;return null;}
+function setupModel(root){const mc=new Map();
+ root.traverse(o=>{if(o.userData&&o.userData.door){const d=dk(o.userData.door);(DOORN[d]=DOORN[d]||{open:[],closed:[]})[o.userData.state].push(o);}
+  if(!o.isMesh)return;const u=info(o),m=o.material;
+  if(!u){o.material=glassMat;return;}
+  const key=m.uuid+'|'+u.atlas;let nm=mc.get(key);
+  if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:m.vertexColors,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
+    lightMap:compRT(u.atlas).texture,lightMapIntensity:LMK});mc.set(key,nm);}
+  o.material=nm;
+  if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.opacity})});
+  if(u.door)DOORM.push(o);});
+ scene.add(root);}
+function applyShown(){const s=shown;
+ for(const d in DOORN){DOORN[d].open.forEach(o=>o.visible=s.DS[d]);DOORN[d].closed.forEach(o=>o.visible=!s.DS[d]);}
+ LAMPM.forEach(l=>l.o.material=s.LS[l.k]?l.on:l.off);
+ r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);
+ glassMat.color.copy(sRGB(s.night?0x141c28:0xcfdfec));scene.background=sRGB(s.night?0x0b1018:0xcfdfec);}
+
+// ===== 移動範囲（本番の ui.js と同じ。範囲は本番から書き出した move.json）=====
+let MOVE,MB,MO;
+const DSv=k=>!!DS[k];   // 試作のドア以外は閉じたまま
+function updMove(){MB=MOVE.boxes.filter(x=>!x.door||DSv(x.door));MO=MOVE.obs.filter(x=>(!x.shut||!DSv(x.shut))&&(!x.opn||DSv(x.opn)));}
+const inB=(x,q,m)=>{const b=x.b;return q.x>=b[0]-m&&q.x<=b[1]+m&&q.y>=b[2]&&q.y<=b[3]&&q.z>=b[4]-m&&q.z<=b[5]+m;};
+const okPos=q=>MB.some(b=>inB(b,q,0))&&!MO.some(b=>inB(b,q,MOVE.wallMargin));
+function toggleDoor(k){const was=okPos(cam.position);DS[k]=!DS[k];updMove();if(was&&!okPos(cam.position)){DS[k]=!DS[k];updMove();return;}changed();}
+const rcast=new THREE.Raycaster();
+function tapAt(x,y){cam.rotation.set(pitch,yaw,0);cam.updateMatrixWorld();rcast.setFromCamera({x:x/window.innerWidth*2-1,y:-(y/window.innerHeight)*2+1},cam);rcast.far=80;
+ const vis=o=>{for(;o;o=o.parent)if(!o.visible)return false;return true;};
+ const h=rcast.intersectObjects(DOORM,false).find(i=>vis(i.object));if(!h)return;const u=info(h.object),k=dk(u.door);
+ rcast.far=h.distance-0.003;   // 手前に壁などがあれば開閉しない（ドアの枠・透明な物は除く）
+ if(rcast.intersectObjects(scene.children,true).some(i=>{const v=info(i.object);return vis(i.object)&&v&&v.atlas!==u.atlas&&!(i.object.material.transparent&&i.object.material.opacity<0.5);}))return;
+ toggleDoor(k);}
+
+// ===== 画面：視点・昼夜・照明・シェード・検証（本番と同じ部品）=====
+let VIEWS=[];
+function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}
+function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
+function buildUI(){
+ const vr=$('viewRow');vr.innerHTML='';['寝室','2F廊下','リビング','キッチン'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
+ const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
+  const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
+ $('roomLbl').textContent='焼いた照明';$('tAllRooms').hidden=true;
+ const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 比較用の画像（bake/work/）は手元のサーバーでだけ選べる
+ const sel=$('lmSel');[['','trial/lm（公開用）'],...(local?['h16','rgbm','logj']:[]).flatMap(e=>[1,2,4].map(k=>[e+'_r'+k,{h16:'半精度',rgbm:'RGBM',logj:'対数JPEG'}[e]+'・'+{1:'原寸',2:'1/2',4:'1/4'}[k]]))].forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);});
+ sel.value=LMV;sel.onchange=()=>{const q=new URLSearchParams(location.search);if(sel.value)q.set('lm',sel.value);else q.delete('lm');location.search=q.toString();};}
+function syncLights(){const ks=Object.keys(LS),n=ks.filter(k=>LS[k]).length;mark($('tAllOn'),n===ks.length);mark($('tAllOff'),n===0);$('bLight').classList.toggle('lit',n>0);$('indList').querySelectorAll('button[data-k]').forEach(b=>mark(b,LS[b.dataset.k]));}
+function setAll(v){Object.keys(LS).forEach(k=>LS[k]=v);syncLights();changed();}
+$('tAllOn').onclick=()=>setAll(true);$('tAllOff').onclick=()=>setAll(false);
+let openK=null;
+function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();}
+$('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');
+function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');changed();}
+$('bDay').onclick=()=>setNight(!night);
+function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100)+'%閉';}
+$('shade').oninput=e=>{shadeP=Number(e.target.value)/100;shadeLabel(shadeP);changed();};
+// 検証の数字：画像の容量と、GPU に置いている量の見積もり（MB）
+const MB_=n=>(n/2**20).toFixed(1);
+function memory(){const o={rt:0,lay:0,layN:texCache.size,tex:0,geo:0,bytes:0};for(const g in comp)o.rt+=comp[g].width*comp[g].height*8;texCache.forEach(c=>o.lay+=c.n);byteCache.forEach(c=>o.bytes+=c.n);
+ const ts=new Set(),gs=new Set();scene.traverse(x=>{if(!x.isMesh)return;gs.add(x.geometry);const m=x.material;if(m.map)ts.add(m.map);});
+ ts.forEach(t=>{const i=t.image;if(i)o.tex+=i.width*i.height*4*4/3;});gs.forEach(g=>{for(const k in g.attributes)o.geo+=g.attributes[k].array.byteLength;if(g.index)o.geo+=g.index.array.byteLength;});return o;}
+function showStat(){if(!IDX||openK!=='trial')return;const m=memory(),hp=performance.memory?performance.memory.usedJSHeapSize:0;
+ $('stat').textContent=`画像：${IDX.enc}・1/${IDX.scale}（全52層 ${MB_(IDX.bytes)}MB）
+取得 ${MB_(netBytes)}MB・手元に ${MB_(m.bytes)}MB
+GPU：まとめた画像 ${MB_(m.rt)}・層 ${m.layN}枚 ${MB_(m.lay)}・柄 ${MB_(m.tex)}・形 ${MB_(m.geo)}
+いまの層 ${stat.layers}枚：読み込み ${stat.load}ms・足し合わせ ${stat.gpu}ms
+描画 ${r.info.render.calls}回・三角形 ${Math.round(r.info.render.triangles/1000)}k${hp?`・JS ${MB_(hp)}MB`:''}`;}
+
+// 全画面（非対応のブラウザではボタンを隠す）
+const de=document.documentElement,fsReq=de.requestFullscreen||de.webkitRequestFullscreen,fsExit=document.exitFullscreen||document.webkitExitFullscreen,fsEl=()=>document.fullscreenElement||document.webkitFullscreenElement;
+if(!fsReq)$('tFs').hidden=true;
+$('tFs').onclick=()=>{if(fsEl())fsExit.call(document);else fsReq.call(de);};
+const onFs=()=>{const l=fsEl()?'全画面解除':'全画面';$('tFs').setAttribute('aria-label',l);$('tFs').title=l;mark($('tFs'),!!fsEl());};
+document.addEventListener('fullscreenchange',onFs);document.addEventListener('webkitfullscreenchange',onFs);
+
+// 移動：前後左右＋上下。家具・階段は通り抜け、壁・閉じたドア・天井は越えない（本番の ui.js と同じ）
+const keys={f:0,b:0,l:0,r:0,u:0,d:0},joy={f:0,r:0},SPEED=1.8,VSPEED=1.2;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let moving=false,last=0;
+function step(t){const dt=clamp((t-last)/1000,0,0.05);last=t;const mf=keys.f-keys.b+joy.f,mr=keys.r-keys.l+joy.r,mu=keys.u-keys.d;if(!mf&&!mr&&!mu){moving=false;return;}
+const p=cam.position,o=p.clone();
+if(mf||mr){const h=Math.hypot(mf,mr),n=h/Math.min(1,h),fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);p.x+=(fx*mf+rx*mr)/n*SPEED*dt;p.z+=(fz*mf+rz*mr)/n*SPEED*dt;}
+p.y+=mu*VSPEED*dt;
+if(okPos(o)&&!okPos(p)){const d=p.clone().sub(o);p.copy(o);['x','z','y'].forEach(k=>{const v=p[k];p[k]+=d[k];if(!okPos(p))p[k]=v;});}
+draw();requestAnimationFrame(step);}
+function startMove(){clearView();if(!moving){moving=true;last=performance.now();requestAnimationFrame(step);}}
+document.querySelectorAll('#move button[data-k]').forEach(b=>{const k=b.dataset.k;
+b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);keys[k]=1;b.classList.add('on');startMove();});
+const off=()=>{keys[k]=0;b.classList.remove('on');};
+b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);
+b.addEventListener('contextmenu',e=>e.preventDefault());b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});});
+{const jb=$('joy'),kn=jb.querySelector('.knob'),DEAD=0.10;let pid=null;
+ const set=e=>{const rc=jb.getBoundingClientRect(),RAD=rc.width*0.34;let dx=e.clientX-(rc.left+rc.width/2),dy=e.clientY-(rc.top+rc.height/2);const d=Math.hypot(dx,dy);if(d>RAD){dx*=RAD/d;dy*=RAD/d;}
+  kn.style.transform=`translate(${dx}px,${dy}px)`;const m=Math.min(1,d/RAD),a=m<DEAD?0:1;const dd=Math.hypot(dx,dy);joy.r=dd?dx/dd*a:0;joy.f=dd?-dy/dd*a:0;if(joy.r||joy.f)startMove();};
+ const end=()=>{pid=null;joy.f=joy.r=0;kn.style.transform='';jb.classList.remove('on');};
+ jb.addEventListener('pointerdown',e=>{e.preventDefault();pid=e.pointerId;jb.setPointerCapture(pid);jb.classList.add('on');set(e);});
+ jb.addEventListener('pointermove',e=>{if(e.pointerId===pid)set(e);});
+ ['pointerup','pointercancel','lostpointercapture'].forEach(t=>jb.addEventListener(t,e=>{if(e.pointerId===pid)end();}));
+ jb.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});jb.addEventListener('contextmenu',e=>e.preventDefault());}
+r.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+document.addEventListener('contextmenu',e=>e.preventDefault());
+const keyMap={ArrowUp:'f',KeyW:'f',ArrowDown:'b',KeyS:'b',ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',KeyE:'u',PageUp:'u',KeyQ:'d',PageDown:'d'};
+window.addEventListener('keydown',e=>{const k=keyMap[e.code];if(!k)return;e.preventDefault();keys[k]=1;startMove();});
+window.addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0;});
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});
+// ドラッグで見回し、ピンチ・ホイールで拡大縮小、タップでドアの開閉
+const cvs=r.domElement,pts=new Map();let pinch=0,tap=null;
+function setFov(f){cam.fov=Math.max(40,Math.min(100,f));cam.updateProjectionMatrix();draw();}
+cvs.addEventListener('pointerdown',e=>{tap=(pts.size===0&&e.button===0)?{id:e.pointerId,x:e.clientX,y:e.clientY}:null;});
+cvs.addEventListener('pointermove',e=>{if(tap&&e.pointerId===tap.id&&Math.hypot(e.clientX-tap.x,e.clientY-tap.y)>8)tap=null;});
+cvs.addEventListener('pointerup',e=>{if(tap&&e.pointerId===tap.id&&!moving){if(openK)openSheet(null);else tapAt(e.clientX,e.clientY);}tap=null;});
+cvs.addEventListener('pointercancel',()=>{tap=null;});
+cvs.addEventListener('pointerdown',e=>{pts.set(e.pointerId,[e.clientX,e.clientY]);cvs.setPointerCapture(e.pointerId);if(pts.size===2){const [a,b]=[...pts.values()];pinch=Math.hypot(a[0]-b[0],a[1]-b[1]);}});
+cvs.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;clearView();const prev=pts.get(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);if(pts.size===1){yaw+=(e.clientX-prev[0])*0.004;pitch=Math.max(-1.3,Math.min(1.3,pitch+(e.clientY-prev[1])*0.004));draw();}else if(pts.size===2){const [a,b]=[...pts.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]);setFov(cam.fov-(d-pinch)*0.1);pinch=d;}});
+const endP=e=>{pts.delete(e.pointerId);};
+cvs.addEventListener('pointerup',endP);cvs.addEventListener('pointercancel',endP);
+cvs.addEventListener('wheel',e=>{e.preventDefault();clearView();setFov(cam.fov+e.deltaY*0.03);},{passive:false});
+window.addEventListener('resize',()=>{r.setSize(window.innerWidth,window.innerHeight);cam.aspect=window.innerWidth/window.innerHeight;cam.updateProjectionMatrix();draw();});
+
+// ===== 読み込み：一覧と移動範囲 → 模型 → 最初の状態の層（そろうまで読み込み中の表示）。開いたとき：寝室の視点・昼・照明すべて消灯・ドアは閉 =====
+const bar=$('ldBar'),ldBox=$('loading');
+function fail(e){console.error(e);ldBox.querySelector('span').textContent='読み込みに失敗しました';ldBox.querySelector('.spin').hidden=true;}
+// 確認用（自動で撮るとき）：T.set({night,LS,DS,shade})→まとめ終わるまで待つ、T.view(名前)、T.pose([x,y,z,yaw,pitch,fov])
+window.T={async set(s){if('night' in s)night=s.night;if('shade' in s)shadeP=s.shade;Object.assign(LS,s.LS||{});Object.assign(DS,s.DS||{});updMove();syncLights();return changed();},view:setView,pose:a=>look(...a),memory,stat:()=>stat};
+(async()=>{
+ const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;MOVE=mv;updMove();buildUI();bar.style.width='10%';
+ const g=await new Promise((res,rej)=>new THREE.GLTFLoader().load('house.glb',res,e=>{if(e.total)bar.style.width=(10+e.loaded/e.total*50)+'%';},rej));
+ setupModel(g.scene);bar.style.width='70%';
+ ready=true;syncLights();shadeLabel(0);setView('寝室');
+ await recompose();bar.style.width='100%';
+ ldBox.classList.add('done');setTimeout(()=>ldBox.remove(),400);
+})().catch(fail);

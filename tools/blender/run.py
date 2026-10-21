@@ -4,6 +4,7 @@
 #  py <スクリプト> [引数...]：bake_uv.blend を開いてスクリプトを動かす（調べる用）
 #  prep：焼き込みの準備（bake_uv.blend）　bake [サンプル数] [層,...]：焼く（bake/work/lm）
 #  status：焼き込みの進み具合（bake/work/layers）
+#  gltf：検証ページ用の模型（trial/house.glb）　lmimg：焼いた層を検証ページ用の画像に（trial/lm/）　crop：比較の画像の同じ範囲を並べる
 import sys, os, subprocess, json
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BL = r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
@@ -14,7 +15,7 @@ a = sys.argv[1:]
 def blender(blend, script, *args):
     r = subprocess.run([BL, '-b', blend, '-P', os.path.join(T, script), '--', *args], capture_output=True, text=True, encoding='utf-8', errors='replace')
     for line in (r.stdout + r.stderr).splitlines():
-        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases')):
+        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases', 'emit', 'V_ faces', 'gltf', 'lmimg')):
             print(line)
 if a[0] == 'view':
     state, layers = a[1], a[2]
@@ -65,6 +66,18 @@ elif a[0] == 'bounce':   # 反射回数の比較：代表の層を反射回数 1
 elif a[0] == 'py':   # 調べる用：py <スクリプト> [引数...]（bake_uv.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
+elif a[0] == 'gltf':   # 検証ページ（trial/）用の模型：bake_uv.blend → trial/house.glb
+    blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(ROOT, 'trial', 'house.glb'))
+elif a[0] == 'lmimg':   # 焼いた層を検証ページ用の画像に：lmimg <h16|rgbm|logj|all> <1|2|4> [trial]（出力は bake/work/trial_lm/<方式>_r<縮小>。trial を付けると trial/lm/ へ）
+    encs = ['h16', 'rgbm', 'logj'] if a[1] == 'all' else [a[1]]
+    ks = ['1', '2', '4'] if a[1] == 'all' else [a[2]]
+    for e in encs:
+        for k in ks:
+            out = os.path.join(ROOT, 'trial', 'lm') if a[3:4] == ['trial'] else os.path.join(W, 'trial_lm', '%s_r%s' % (e, k))
+            r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'lm_images.py'), '--', LAY, out, e, k], capture_output=True, text=True, encoding='utf-8', errors='replace')
+            print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('lmimg total', 'lmimg nonfinite', '  '))))
+elif a[0] == 'crop':   # 比較の画像の同じ範囲を拡大して並べる：crop <視点__状態> <x0,y0,x1,y1> <倍率> <出力> [方式,...]
+    subprocess.run([sys.executable, '-I', os.path.join(T, 'cmp_crop.py'), os.path.join(W, 'trial_cmp'), *a[1:]])
 elif a[0] == 'sheet':
     subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), *a[1:]])
 elif a[0] == 'status':
