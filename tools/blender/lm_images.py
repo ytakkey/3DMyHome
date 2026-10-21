@@ -1,4 +1,4 @@
-# 焼いた層（bake/work/lm/<層>/<アトラス>.npy。lux の RGB、float16）を、ブラウザの検証ページ（trial/）で読む画像に変換する
+# 焼いた層（bake/work/lm/<層>/<アトラス>.npy。lux の RGB、float16）を、ブラウザの検証ページ（STG/）で読む画像に変換する
 # 使い方：blender -b --factory-startup -P tools/blender/lm_images.py -- <層のフォルダ> <出力のフォルダ> <方式> <縮小>（run.py lmimg）
 #  方式：h16＝半精度そのまま（16bit の PNG の RGB に float16 のビットを入れる。値は焼いたまま＝圧縮なし）
 #        rgbm＝RGBM（8bit の PNG の RGBA。lux＝RGB×A²×S、S は画像ごとの最大値）
