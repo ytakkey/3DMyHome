@@ -20,3 +20,7 @@ function pick(){return meshes().filter(o=>{const fr=frames(o.userData.src),k=sit
 function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].forEach(S=>S.setShade(0));   // シェードは全開（開度は焼き込みでは光の量で扱う）
  pick().forEach(o=>{const k=site(frames(o.userData.src)),m=new THREE.Mesh(o.geometry,o.material);o.matrixWorld.decompose(m.position,m.quaternion,m.scale);cnt[k]=(cnt[k]||0)+1;m.name=k.replace(':','_')+'_'+cnt[k];out.add(m);});
  return new Promise(res=>new THREE.GLTFExporter().parse(out,glb=>save('furniture.glb',glb).then(()=>res(out.children.length)),{binary:true}));}
+// 検証ページ（trial/）用：移動範囲・通れない所（ui.js の MBA・MOA と同じ）と、視点（リビング・キッチン・寝室・2F廊下）→ bake/work/export/move.json
+function exportMove(){const J=b=>({b:[...b],door:b.door,shut:b.shut,opn:b.opn}),V={};
+ [['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()]].forEach(([n,f])=>{f();V[n]=[cam.position.x,cam.position.y,cam.position.z,yaw,pitch,cam.fov];});
+ return save('move.json',JSON.stringify({boxes:[...ldkS.boxes,...stS.boxes,...washS.boxes,...bathS.boxes].map(J),obs:[...ldkS.obs,...stS.obs,...washS.obs,...bathS.obs].map(J),wallMargin:HOUSE.wallMargin,DS,views:V}));}
