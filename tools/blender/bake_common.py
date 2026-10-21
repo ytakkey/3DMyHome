@@ -41,21 +41,36 @@ def setup(samples=128, devices=('HIP', 'CPU')):
     c.sample_clamp_indirect = 1.0
     sc.render.use_persistent_data = True
     # 材質：すべて拡散だけ（反射率＝色）。光る面（MeshBasicMaterial から来た発光）は光らせない。半透明（アクリル板など）は透過のまま
+    def mean_rgb(sock, depth=0):
+        """色の入力の平均の色（線形）。柄は画像の平均、色×柄（glTF の読み込みの Mix）は掛け算"""
+        if not sock.is_linked or depth > 6:
+            v = sock.default_value
+            return np.array(v[:3] if hasattr(v, '__len__') else (v, v, v), np.float64)
+        n = sock.links[0].from_node
+        if n.type == 'TEX_IMAGE' and n.image and n.image.size[0]:
+            px = np.empty(len(n.image.pixels), dtype=np.float32); n.image.pixels.foreach_get(px)
+            mc = px.reshape(-1, 4)[:, :3].astype(np.float64)
+            if not n.image.is_float and n.image.colorspace_settings.name == 'sRGB':   # 8bit の画像の画素は sRGB の値なので線形へ
+                mc = np.where(mc <= 0.04045, mc / 12.92, ((mc + 0.055) / 1.055) ** 2.4)
+            return mc.mean(0)
+        if n.type == 'MIX' and n.data_type == 'RGBA':
+            a, b = mean_rgb(n.inputs[6], depth + 1), mean_rgb(n.inputs[7], depth + 1)
+            f = n.inputs['Factor'].default_value
+            return a * (1 - f) + (a * b if n.blend_type == 'MULTIPLY' else b) * f
+        if n.type == 'MIX_RGB':
+            a, b = mean_rgb(n.inputs[1], depth + 1), mean_rgb(n.inputs[2], depth + 1)
+            f = n.inputs[0].default_value
+            return a * (1 - f) + (a * b if n.blend_type == 'MULTIPLY' else b) * f
+        if n.type == 'RGB':
+            return np.array(n.outputs[0].default_value[:3], np.float64)
+        return np.array((0.8, 0.8, 0.8))
     for m in bpy.data.materials:
         col, alpha = (0.8, 0.8, 0.8, 1), 1.0
         if m.node_tree:
             for n in m.node_tree.nodes:
                 if n.type == 'BSDF_PRINCIPLED':
                     bc_ = n.inputs['Base Color']
-                    col = tuple(bc_.default_value); alpha = n.inputs['Alpha'].default_value
-                    if bc_.is_linked:   # 柄のある材質は、柄の平均の色を反射率にする
-                        src = bc_.links[0].from_node
-                        if src.type == 'TEX_IMAGE' and src.image and src.image.size[0]:
-                            px = np.empty(len(src.image.pixels), dtype=np.float32); src.image.pixels.foreach_get(px)
-                            mc = px.reshape(-1, 4)[:, :3].mean(0)
-                            if not src.image.is_float:   # 8bit の画像は sRGB の値なので線形へ
-                                mc = np.where(mc <= 0.04045, mc / 12.92, ((mc + 0.055) / 1.055) ** 2.4)
-                            col = tuple(float(c) for c in mc) + (1,)
+                    col = tuple(float(c) for c in mean_rgb(bc_)) + (1,); alpha = n.inputs['Alpha'].default_value
                     break
                 if n.type in ('EMISSION', 'RGB'):
                     col = tuple(n.inputs['Color'].default_value) if n.type == 'EMISSION' else tuple(n.outputs[0].default_value)

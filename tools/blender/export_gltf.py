@@ -1,6 +1,6 @@
 # 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（STG/）用に glTF で書き出す
 # 使い方：blender -b bake_uv.blend -P tools/blender/export_gltf.py -- <出力の .glb>（run.py gltf）
-#  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・窓のガラス（*_glass）
+#  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・頂点で焼く物（V_<アトラス>。頂点の番号 _VID 付き）・窓のガラス（*_glass）
 #  UV：1つ目＝元の柄の UV（UVMap。無い物は 0 の UV を足す）、2つ目＝ライトマップの UV（LM）→ glTF の TEXCOORD_0／TEXCOORD_1（three.js の uv／uv2）
 #  材質は元のまま。光る材質（three.js の MeshBasicMaterial から来た物）のうち照明器具の発光面は、近い照明の組のキー（bake_common.LAMPS）を extras の lamp に書く
 import bpy, sys, os, json
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bake_common as bc
 
 out = sys.argv[sys.argv.index('--') + 1]
-keep = lambda o: o.type == 'MESH' and ((o.name.startswith('A_') and o.name != 'A_exterior') or o.name.startswith('L_') or o.name.endswith('_glass'))
+keep = lambda o: o.type == 'MESH' and ((o.name.startswith('A_') and o.name != 'A_exterior') or o.name.startswith(('L_', 'V_')) or o.name.endswith('_glass'))
 for o in list(bpy.data.objects):
     if not keep(o):
         bpy.data.objects.remove(o)
@@ -28,8 +28,8 @@ for o in bpy.data.objects:
     if lm is not None:
         me.uv_layers.new(name='LM').data.foreach_set('uv', lm)
     me.uv_layers.active = me.uv_layers[0]
-    if 'atlas' in o:
-        o['atlas'] = o['atlas']   # extras に残す（ページでアトラスを引く）
+    if 'BAKE' in me.color_attributes:   # 焼き込み用の色（書き出さない。頂点の番号 _VID は glTF の _VID になる）
+        me.color_attributes.remove(me.color_attributes['BAKE'])
 # 照明器具の発光面：材質ごとに、面の中心に一番近い照明（30cm 以内）
 lamps = [(g, bc.B(*p)) for g, ls in bc.LAMPS.items() for _, p, _ in ls]
 def is_emit(m):
@@ -59,5 +59,5 @@ for o in bpy.data.objects:
             used[n] = used.get(n, 0) + 1
 print('V_ faces', {k: v for k, v in used.items() if k.startswith('V_')}, flush=True)
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', export_extras=True, export_normals=False, export_texcoords=True,
-                          export_materials='EXPORT', export_cameras=False, export_lights=False, export_apply=False, export_yup=True)
+                          export_materials='EXPORT', export_attributes=True, export_cameras=False, export_lights=False, export_apply=False, export_yup=True)
 print('gltf', out, os.path.getsize(out), flush=True)

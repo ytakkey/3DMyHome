@@ -468,9 +468,20 @@ for k, x in enumerate((SX0 + 0.2275, SX1 - 0.2275)):
         side_prism('bracket%d_%02d' % (k, i), [(d, max(0, yy)) for d, yy in pts], x - BWs / 2, x + BWs / 2, lambda d: Z1 - d, 'steel', 'stairs')
 
 # ===== 9. 家具（three.js から書き出した GLTF） =====
+def srgb_factors(mats):
+    """本番（three.js r128、出力は線形のまま）の色の数値は画面の色（sRGB）そのもの。GLTF は線形として読むので、色の数値（柄の画像は除く）を線形へ直す"""
+    for m in mats:
+        if not m.node_tree:
+            continue
+        for n in m.node_tree.nodes:
+            for sk in n.inputs:
+                if sk.type == 'RGBA' and not sk.is_linked:
+                    v = sk.default_value; sk.default_value = (srgb2lin(v[0]), srgb2lin(v[1]), srgb2lin(v[2]), v[3])
+        m.diffuse_color = tuple(srgb2lin(c) for c in m.diffuse_color[:3]) + (m.diffuse_color[3],)
 if GLB:
-    before = set(bpy.data.objects)
+    before = set(bpy.data.objects); mb = set(bpy.data.materials)
     bpy.ops.import_scene.gltf(filepath=GLB)
+    srgb_factors(set(bpy.data.materials) - mb)
     for o in set(bpy.data.objects) - before:
         for c in o.users_collection:
             c.objects.unlink(o)
@@ -480,6 +491,64 @@ if GLB:
             b = m.node_tree.nodes.get('Principled BSDF')
             if b and not b.inputs['Base Color'].is_linked:
                 m.diffuse_color = b.inputs['Base Color'].default_value
+# ===== 10. 本番の材質（色・柄・柄の向きと大きさ）を移す =====
+# 本番の建物の部品（tools/export の exportBuilding → building.glb。柄の繰り返し・回転は UV に焼き込み済み）から、面ごとに一番近い同じ向きの本番の三角形を探し、
+# その材質と、三角形の UV を面の上へ延ばした UV（平面の上で一次の式）を付ける。見つからない面（2cm 以内に無い）は上の仮の色のまま
+PROD = GLB.replace('furniture.glb', 'building.glb') if GLB else ''
+def apply_prod():
+    import os
+    if not PROD or not os.path.exists(PROD):
+        print('no building.glb'); return
+    before = set(bpy.data.objects); mb = set(bpy.data.materials)
+    bpy.ops.import_scene.gltf(filepath=PROD)
+    srgb_factors(set(bpy.data.materials) - mb)
+    pobjs = [o for o in set(bpy.data.objects) - before if o.type == 'MESH']
+    tris = []   # (3頂点, 3UV, 材質)
+    for o in pobjs:
+        me = o.data; mw = o.matrix_world; me.calc_loop_triangles()
+        uvl = me.uv_layers[0].data if me.uv_layers else None
+        for t in me.loop_triangles:
+            ps = [mw @ me.vertices[v].co for v in t.vertices]
+            uvs = [Vector(uvl[l].uv) if uvl else Vector((0, 0)) for l in t.loops]
+            tris.append((ps, uvs, me.materials[t.material_index] if me.materials else None))
+    bvh = BVHTree.FromPolygons([v for t in tris for v in t[0]], [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tris))], epsilon=0.0)
+    def uv_at(t, q):   # 三角形の平面の上で、q（平面へ投影）の UV（三角形の外は延ばす）
+        a, b, c = t[0]; n = (b - a).cross(c - a); nn = n.length_squared
+        if nn < 1e-14:
+            return t[1][0]
+        q = q - n * ((q - a).dot(n) / nn)
+        w0 = (b - q).cross(c - q).dot(n) / nn; w1 = (c - q).cross(a - q).dot(n) / nn; w2 = 1 - w0 - w1
+        return t[1][0] * w0 + t[1][1] * w1 + t[1][2] * w2
+    targets = [solid] + [o for cn in ('fixtures', 'stairs', 'doors_open', 'doors_closed') for o in COLS[cn].objects if o.type == 'MESH' and not o.name.endswith('_glass')]
+    hit = miss = 0; misses = {}
+    for o in targets:
+        me = o.data; mw = o.matrix_world; nm = mw.to_3x3()
+        if 'UVMap' not in me.uv_layers:
+            me.uv_layers.new(name='UVMap')
+        uvl = me.uv_layers['UVMap'].data
+        slot = {m.name: i for i, m in enumerate(me.materials) if m}
+        for p in me.polygons:
+            n = (nm @ p.normal).normalized(); c = mw @ p.center
+            best = None   # 同じ向きの面だけ（裏向きの面＝扉や見込みの下の面などを拾わない）。近くの面を順に見る
+            for d in (0.0005, 0.003):   # 面の中心から少し部屋の側に出た点で探す
+                for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, 0.02), key=lambda t: t[3]):
+                    if pn.normalized().dot(n) > 0.9:
+                        best = tris[i]; break
+                if best:
+                    break
+            if best is None or best[2] is None:
+                miss += 1; misses[o.name.split('.')[0][:14]] = misses.get(o.name.split('.')[0][:14], 0) + 1; continue
+            hit += 1
+            m = best[2]
+            if m.name not in slot:
+                me.materials.append(m); slot[m.name] = len(me.materials) - 1
+            p.material_index = slot[m.name]
+            for li, vi in zip(p.loop_indices, p.vertices):
+                uvl[li].uv = uv_at(best, mw @ me.vertices[vi].co)
+    for o in pobjs:
+        bpy.data.objects.remove(o)
+    print('prod materials: faces', hit, 'not found', miss, misses, flush=True)
+apply_prod()
 for c in ('doors_open',):
     COLS[c].hide_render = True; COLS[c].hide_viewport = True
 if OUT:

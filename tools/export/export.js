@@ -24,3 +24,12 @@ function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].fo
 function exportMove(){const J=b=>({b:[...b],door:b.door,shut:b.shut,opn:b.opn}),V={};
  [['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()]].forEach(([n,f])=>{f();V[n]=[cam.position.x,cam.position.y,cam.position.z,yaw,pitch,cam.fov];});
  return save('move.json',JSON.stringify({boxes:[...ldkS.boxes,...stS.boxes,...washS.boxes,...bathS.boxes].map(J),obs:[...ldkS.obs,...stS.obs,...washS.obs,...bathS.obs].map(J),wallMargin:HOUSE.wallMargin,DS,views:V}));}
+// 建物の材質の書き出し（Blender の建物に、本番の色・柄・柄の向きと大きさを移すため）：試作の範囲の建物の部品（BLD）を、柄の繰り返し・回転を UV に焼き込んで GLTF に → bake/work/export/building.glb
+function exportBuilding(){const out=new THREE.Scene(),cnt={},mc=new Map();
+ meshes().filter(o=>{const fr=frames(o.userData.src);return !fr.some(f=>f.file==='wash'||f.file==='bath')&&isBld(site(fr));}).forEach(o=>{const m0=o.material,k=site(frames(o.userData.src));if(Array.isArray(m0))return;
+  let g=o.geometry.clone();const mp=m0.map;
+  if(mp&&g.attributes.uv){mp.updateMatrix();const uv=g.attributes.uv,v=new THREE.Vector3();for(let i=0;i<uv.count;i++){v.set(uv.getX(i),uv.getY(i),1).applyMatrix3(mp.matrix);uv.setXY(i,v.x,v.y);}}
+  let m=mc.get(m0);if(!m){m=new THREE.MeshStandardMaterial({color:m0.color?m0.color.clone():new THREE.Color(1,1,1),roughness:1,metalness:0,side:m0.side});
+   if(mp){const t=new THREE.Texture(mp.image);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.flipY=mp.flipY;t.needsUpdate=true;m.map=t;}m.name=(m0.name||'b')+'_'+mc.size;mc.set(m0,m);}
+  const n=new THREE.Mesh(g,m);o.matrixWorld.decompose(n.position,n.quaternion,n.scale);cnt[k]=(cnt[k]||0)+1;n.name='P_'+k.replace(':','_')+'_'+cnt[k];out.add(n);});
+ return new Promise(res=>new THREE.GLTFExporter().parse(out,glb=>save('building.glb',glb).then(()=>res([out.children.length,mc.size])),{binary:true}));}

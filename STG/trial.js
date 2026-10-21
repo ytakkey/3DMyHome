@@ -18,7 +18,8 @@ const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void'
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
 const LG=[['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],['リビング',[['階段','h1']]]];   // 照明のボタン（焼いた照明だけ）
 const LS={bdl:false,bbr:false,j1:false,l1:false,k1:false,h1:false};
-const DS={sg311:false,sg500w:false,sg33s:false};   // 試作のドア（ほかのドアは閉じたまま）
+const DS={sg311:false,sg500w:false,sg33s:false};   // 試作のドア（ほかのドアは閉じたまま）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
+if(Q.get('doors')==='open')for(const k in DS)DS[k]=true;
 const dk=d=>d.toLowerCase();
 let night=false,shadeP=0,yaw=0,pitch=0,ready=false;
 
@@ -75,6 +76,8 @@ async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c
  const tex=new THREE.DataTexture(data,w,h,THREE.RGBAFormat,type);tex.minFilter=tex.magFilter=THREE.NearestFilter;tex.generateMipmaps=false;tex.flipY=false;tex.needsUpdate=true;
  tex.onUpdate=()=>{tex.image.data=null;};   // GPU へ送ったら CPU の画素は捨てる
  texCache.set(e.file,{tex,n,used:++tick});return tex;}
+const vtxCache=new Map();   // 頂点の明るさのファイル → 読んだ画素（RGBM、小さいので取っておく）
+async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodePNG).then(im=>im.data);vtxCache.set(e.file,c);}return c;}
 function evict(keep){
  let t=[...texCache.values()].reduce((s,c)=>s+c.n,0);
  for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;c.tex.dispose();texCache.delete(f);t-=c.n;}
@@ -99,34 +102,40 @@ function layerName(src,ds){return src+'@'+(COMBOS[src].map(d=>d+(ds[dk(d)]?'o':'
 function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
  Object.keys(LS).forEach(k=>{if(st.LS[k])add(k,1);});
  NATURAL.forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
- const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);for(const g in ent)if(ent[g])items.push({g,e:ent[g],w});});return items;}
+ const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w}:{g,e:ent[g],w});});return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
 let ver=0,shown=null,stat={};
 async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st);
- const texs=await Promise.all(items.map(it=>getTex(it.e)));if(v!==ver)return false;
+ const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));if(v!==ver)return false;
+ const acc={};for(const g in VMESH)acc[g]=new Float32Array(((IDX.vn||{})[g]||0)*3);   // 頂点で焼く物：アトラスごとに点の明るさ（lux）を CPU で足す
+ items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255;a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
+ for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid,o=m.orig;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=(a[b]||0)*(o?o[j*3]:1);c[j*3+1]=(a[b+1]||0)*(o?o[j*3+1]:1);c[j*3+2]=(a[b+2]||0)*(o?o[j*3+2]:1);}m.col.needsUpdate=true;});
  const t1=performance.now(),ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;
  for(const g in IDX.res){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
-  items.forEach((it,i)=>{if(it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
+  items.forEach((it,i)=>{if(it.v||it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
    u.mode.value=IDX.enc==='h16'?0:IDX.enc==='rgbm'?1:2;const k=(IDX.enc==='rgbm'?e.max:1)/LMK;u.w.value.set(it.w[0]*k,it.w[1]*k,it.w[2]*k);u.p.value.set(e.lo||0,e.hi||0);r.render(cScene,cCam);});}
  r.setRenderTarget(rt0);r.autoClear=ac;r.getContext().finish();
  shown=st;applyShown();evict(new Set(items.map(it=>it.e.file)));
  stat.load=Math.round(t1-t0);stat.gpu=Math.round(performance.now()-t1);stat.layers=items.length;draw();showStat();prefetch();return true;}
 // 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜）の層のファイルを先に取っておく（GPU には送らない）
-function prefetch(){const st=cur(),fs=new Set();const add=s=>wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});
+function prefetch(){const st=cur(),fs=new Set();const add=s=>{try{wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});}catch(e){}};   // 焼いていない組み合わせ（試しに焼いた一部の層だけのとき）は飛ばす
  Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));add({...st,night:!st.night});
  [...fs].reduce((p,f)=>p.then(()=>fetchBytes(f)).catch(()=>{}),Promise.resolve());}
 let pending=null;function changed(){if(!pending)pending=Promise.resolve().then(()=>{pending=null;return recompose();});return pending;}
 
 // ===== 模型：材質は元の色・柄のまま、光はアトラスの1枚（uv2）から =====
-const DOORN={},LAMPM=[],DOORM=[];   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
+const DOORN={},LAMPM=[],DOORM=[],VMESH={};   // VMESH：アトラス → 頂点で焼く物の形（{col:色の属性, vid:元の頂点の番号, orig:元の頂点の色}）   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
 function info(o){for(;o;o=o.parent)if(o.userData&&o.userData.atlas)return o.userData;return null;}
 function setupModel(root){const mc=new Map();
  root.traverse(o=>{if(o.userData&&o.userData.door){const d=dk(o.userData.door);(DOORN[d]=DOORN[d]||{open:[],closed:[]})[o.userData.state].push(o);}
   if(!o.isMesh)return;const u=info(o),m=o.material;
   if(!u){o.material=glassMat;return;}
-  const key=m.uuid+'|'+u.atlas;let nm=mc.get(key);
-  if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:m.vertexColors,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:compRT(u.atlas).texture,lightMapIntensity:LMK});mc.set(key,nm);}
+  const vl=!!u.vlit,key=m.uuid+'|'+u.atlas+'|'+vl;let nm=mc.get(key);
+  if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
+   const ca=g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,orig=m.vertexColors&&ca?Float32Array.from({length:n*3},(_,j)=>ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs):null;   // 元の頂点の色（あれば明るさに掛ける）
+   const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,orig});}
+  if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||m.vertexColors,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});mc.set(key,nm);}
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.opacity})});
   if(u.door)DOORM.push(o);});
@@ -176,7 +185,7 @@ function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100
 $('shade').oninput=e=>{shadeP=Number(e.target.value)/100;shadeLabel(shadeP);changed();};
 // 検証の数字：画像の容量と、GPU に置いている量の見積もり（MB）
 const MB_=n=>(n/2**20).toFixed(1);
-function memory(){const o={rt:0,lay:0,layN:texCache.size,tex:0,geo:0,bytes:0};for(const g in comp)o.rt+=comp[g].width*comp[g].height*8;texCache.forEach(c=>o.lay+=c.n);byteCache.forEach(c=>o.bytes+=c.n);
+function memory(){const o={rt:0,lay:0,layN:texCache.size,tex:0,geo:0,bytes:0};for(const g in comp)o.rt+=comp[g].width*comp[g].height*8;for(const g in VMESH)VMESH[g].forEach(m=>o.rt+=m.col.array.byteLength);texCache.forEach(c=>o.lay+=c.n);byteCache.forEach(c=>o.bytes+=c.n);
  const ts=new Set(),gs=new Set();scene.traverse(x=>{if(!x.isMesh)return;gs.add(x.geometry);const m=x.material;if(m.map)ts.add(m.map);});
  ts.forEach(t=>{const i=t.image;if(i)o.tex+=i.width*i.height*4*4/3;});gs.forEach(g=>{for(const k in g.attributes)o.geo+=g.attributes[k].array.byteLength;if(g.index)o.geo+=g.index.array.byteLength;});return o;}
 function showStat(){if(!IDX||openK!=='trial')return;const m=memory(),hp=performance.memory?performance.memory.usedJSHeapSize:0;

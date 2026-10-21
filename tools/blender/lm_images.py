@@ -4,6 +4,7 @@
 #        rgbm＝RGBM（8bit の PNG の RGBA。lux＝RGB×A²×S、S は画像ごとの最大値）
 #        logj＝対数の JPEG（8bit の RGB。lux＝2^(lo＋(値−1)/254×(hi−lo))、値0は0。画質90）
 #  縮小：1＝焼いたまま、2・4＝縦横 1/2・1/4（2×2・4×4 の平均）
+#  頂点で焼く物（V_<アトラス>.npy）は、方式によらず RGBM の PNG（幅1024。index の vn に頂点の数）
 #  画像の行は上が v＝1（glTF の UV の向き。three.js で flipY なしで読む）。一覧は <出力>/index.json（層→アトラス→ファイルと値の範囲）
 import sys, os, json, zlib, struct, math
 import numpy as np
@@ -54,6 +55,17 @@ for L in sorted(os.listdir(LD)):
             continue
         g = f[:-4]
         a = np.load(os.path.join(d, f)).astype(np.float32)
+        if g.startswith('V_'):   # 頂点で焼く物（点ごとの RGB）：方式によらず RGBM の PNG（幅1024の行に並べる）
+            a = np.nan_to_num(np.maximum(a, 0), posinf=65504.0); n = len(a); index.setdefault('vn', {})[g[2:]] = n
+            mx = float(a.max()); name = '%s__%s' % (L.replace('@', '_'), g)
+            if mx <= 0:
+                ent[g] = None; continue
+            rows = (n + 1023) // 1024; b = np.zeros((rows * 1024, 3), np.float32); b[:n] = a; b = b.reshape(rows, 1024, 3)
+            c = b.max(2); m8 = np.ceil(np.sqrt(np.clip(c / mx, 0, 1)) * 255); M = (m8 / 255) ** 2 * mx
+            rgb = np.where(M[..., None] > 0, np.round(b / np.maximum(M, 1e-30)[..., None] * 255), 0)
+            fn = name + '.png'; png(os.path.join(OUT, fn), np.concatenate([np.clip(rgb, 0, 255), m8[..., None]], 2).astype(np.uint8), 8)
+            ent[g] = {'max': mx, 'n': n, 'file': fn, 'bytes': os.path.getsize(os.path.join(OUT, fn))}; total += ent[g]['bytes']
+            continue
         if not np.isfinite(a).all():
             print('lmimg nonfinite', L, g, int((~np.isfinite(a)).sum()), flush=True)
             a = np.nan_to_num(a, nan=0.0, posinf=65504.0)
