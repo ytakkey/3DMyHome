@@ -3,7 +3,7 @@ import sys, os
 from PIL import Image, ImageDraw, ImageFont
 d, out, ncol, cw = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
 keys = sys.argv[5].split(',') if len(sys.argv) > 5 else None
-fs = sorted(f for f in os.listdir(d) if f.endswith('.png') and (not keys or any(f.startswith(k) for k in keys)))
+fs = sorted(f for f in os.listdir(d) if f.endswith(('.png', '.jpg')) and (not keys or any(f.startswith(k) for k in keys)))
 ims = [Image.open(os.path.join(d, f)) for f in fs]
 ch = round(cw * ims[0].height / ims[0].width)
 nrow = (len(ims) + ncol - 1) // ncol
