@@ -106,6 +106,20 @@ const RH=0.8,PS=0.03,WT=0.04,WW=0.07,MT=0.012,MW=0.03,xr=SX0+0.02,zr=VZ-0.03,zTo
   const g=new THREE.ExtrudeGeometry(sh,{depth:BZ,bevelEnabled:true,bevelThickness:0.001,bevelSize:0.001,bevelSegments:2,curveSegments:16});g.translate(0,0,-BZ/2);
   const pa=g.attributes.position;for(let j=0;j<pa.count;j++){const f=Math.min(1,Math.max(0,(pa.getY(j)-(yr-BH))/BH));pa.setY(j,pa.getY(j)-pa.getZ(j)*SL*f);}g.computeVertexNormals();   // 上ほど笠木の傾きに合わせてずらす（受けの面が笠木の下面に沿う。壁の下端は水平のまま）
   const m=new THREE.Mesh(g,L(steel));m.position.z=z;s.add(m);});}
+// ロボット掃除機 roborock Qrevo Curv 2 Flow：ステーション W450×D450×H450、本体 φ353×H119（製品の寸法図から）。階段の下、背を東の壁から100あけ、正面をテレビの方（西）へ向ける。本体はステーションに収まった状態（ユーザーの指定）
+// 南北は、階段に当たらない範囲でいちばん南（ユーザーの指定）：東のササラ桁（x 4.60〜4.68）の下端がステーションの上面（450）より約2cm上になる南の端 z=5.535、中心 z=5.31。形は写真から：上は白い本体（上の角を大きく丸める）、下は灰色の台（前に本体が入る口、床に乗り入れの板）
+{const g=new THREE.Group();g.position.set(W-0.1-0.225,0,5.31);g.rotation.y=-Math.PI/2;s.add(g);   // ローカル：+z＝前（西）、x＝幅
+ const rbW=P({color:0xf3f3f1,specular:0x333333,shininess:30}),rbG=P({color:0xb6b7b8,specular:0x1a1a1a,shininess:12}),rbD=P({color:0xa9aaab,specular:0x111111,shininess:8}),HB=0.19,CW=0.39,CD=0.40;   // HB：灰色の台の高さ、CW・CD：本体が入る口の幅・奥行
+ {const sh=new THREE.Shape(),r=0.07,a=0.205,y0=HB+0.02,y1=0.43;sh.moveTo(-a,y0);sh.lineTo(a,y0);sh.lineTo(a,y1-r);sh.absarc(a-r,y1-r,r,0,Math.PI/2,false);sh.lineTo(-a+r,y1);sh.absarc(-a+r,y1-r,r,Math.PI/2,Math.PI,false);sh.lineTo(-a,y0);   // 白い本体の側面の形（前後の上の角を丸める。押し出しの面取り2cmで外形が450×260に）
+  const ge=new THREE.ExtrudeGeometry(sh,{depth:0.41,bevelEnabled:true,bevelThickness:0.02,bevelSize:0.02,bevelSegments:4,curveSegments:16});ge.translate(0,0,-0.205);ge.rotateY(Math.PI/2);g.add(new THREE.Mesh(ge,rbW));}   // 形のx＝ローカルの−z、押し出し＝幅
+ {const sh=new THREE.Shape(),h=0.225,c=CW/2,r=0.03;sh.moveTo(-c,-h);sh.lineTo(-h,-h);sh.lineTo(-h,h-r);sh.absarc(-h+r,h-r,r,Math.PI,Math.PI/2,true);sh.lineTo(h-r,h);sh.absarc(h-r,h-r,r,Math.PI/2,0,true);sh.lineTo(h,-h);sh.lineTo(c,-h);sh.lineTo(c,h-0.05);sh.lineTo(-c,h-0.05);sh.lineTo(-c,-h);   // 灰色の台の平面の形（コの字。前が口）
+  const ge=new THREE.ExtrudeGeometry(sh,{depth:HB,bevelEnabled:false,curveSegments:8});ge.rotateX(-Math.PI/2);g.add(new THREE.Mesh(ge,rbG));}   // 形のy＝ローカルの−z、押し出し＝上
+ lbox(g,CW,0.003,CD,0,HB-0.0045,0.225-CD/2,rbG);   // 口の天井（白い本体の下面から3mm下）
+ lbox(g,CW,0.008,CD,0,0.004,0.225-CD/2,rbD);[-0.11,0.11].forEach(x=>lbox(g,0.05,0.002,CD-0.02,x,0.009,0.225-CD/2,rbG));   // 乗り入れの板と、車輪の通る2本の帯
+ const bz=0.225-CD+0.1765+0.005,cy=(r,h,y,z,m)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,48),m);c.position.set(0,y,z);g.add(c);return c;};   // bz：本体の中心（口の奥から5mm）
+ cy(0.1765,0.082,0.015+0.041,bz,rbW);cy(0.174,0.006,0.012,bz,rbG);   // 本体（白）と下の縁（灰）
+ cy(0.042,0.022,0.097+0.011,bz+0.03,rbW);cy(0.0435,0.006,0.104,bz+0.03,P({color:0x8c8e90,specular:0x666666,shininess:60}));   // 上のレーザーセンサー（高さ119まで）と銀の帯
+ lbox(g,0.06,0.03,0.006,0,0.058,bz+0.1765,0x26282a);}   // 前の表示の窓（黒）
 
 // キッチンの東の壁のパネル：アイカ工業 セラール セレント CFN10304ZD クランチコンクリート ダークグレー（柄は商品画像）。幅はキッチンの奥行（KZ0〜KZ1）、高さは幅木の上から下がり天井（2300）まで、厚さ1（幅木にはかぶせない）
 {const img=new Image(),tx=new THREE.Texture(img);img.onload=()=>{tx.needsUpdate=true;draw();};img.src=KITCHEN_PANEL_JPG;
