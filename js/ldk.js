@@ -108,27 +108,30 @@ const RH=0.8,PS=0.03,WT=0.04,WW=0.07,MT=0.012,MW=0.03,xr=SX0+0.02,zr=VZ-0.03,zTo
   const m=new THREE.Mesh(g,L(steel));m.position.z=z;s.add(m);});}
 // ロボット掃除機 roborock Qrevo Curv 2 Flow：ステーション W450×D450×H450、本体 φ353×H119（製品の寸法図から）。階段の下、背を東の壁から120あけ、正面をテレビの方（西）へ向ける。本体はステーションに収まった状態（ユーザーの指定）
 // 南北：階段に余裕を持たせる（ユーザーの指定）。東のササラ桁（x 4.60〜4.68）の下端がステーションの上面（450）より約10cm上になる南の端 z=5.455、中心 z=5.23
-// 形は写真から：上は白い本体（横に少しふくらみ、肩を大きく丸め、上から見ても角が丸い）。下は灰色の台（前の口の上に細い帯、口の両側は床へ向かって前へ反り出す）、床に乗り入れの板（前へ約4cm出て角が丸い）
+// ドックの形は写真から：下の灰色の台は床へ向かって横へ少し広がり、前は床へ向かって前へ反り出す（すくい形）。前の口の両側は台の丸い前の角。床に乗り入れの板（口の前まで）
+// 上の白い本体は台より細く、少し奥に下がって乗る（横に少しふくらみ、肩を大きく丸め、上から見ても角が丸い）。本体（ロボット）の前は白い本体の前とほぼそろう
 {const g=new THREE.Group();g.position.set(W-0.12-0.225,0,5.23);g.rotation.y=-Math.PI/2;s.add(g);   // ローカル：+z＝前（西）、x＝幅
- const rbW=P({color:0xf3f3f1,specular:0x333333,shininess:30}),rbG=P({color:0xa6a7a8,specular:0x1a1a1a,shininess:12}),rbD=P({color:0x9a9b9c,specular:0x111111,shininess:8}),NS=3,HO=0.18,HB=0.215,CW=0.38,CZ=-0.175;   // NS：上から見た角の丸み（超楕円の指数）、HO：口の高さ、HB：灰色の台の高さ、CW：口の幅、CZ：口の奥
- const se=(t,a)=>{const c=Math.cos(t),si=Math.sin(t);return [a*Math.sign(c)*Math.abs(c)**(2/NS),a*Math.sign(si)*Math.abs(si)**(2/NS)];};   // 上から見た外形（角の丸い四角）の点：[x, z]
- {const N=96,R=0.11,rings=[[HB,0.2245],[0.25,0.225],[0.29,0.225],[0.33,0.2235]];for(let k=1;k<=8;k++){const f=k/8*Math.PI/2;rings.push([0.34+R*Math.sin(f),0.2235-R+R*Math.cos(f)]);}   // 白い本体：高さごとの半分の幅（下の台の外形にそろえ、上は肩の丸み R110）
-  const pos=[],idx=[];rings.forEach(([y,a])=>{for(let i=0;i<N;i++){const [x,z]=se(i/N*Math.PI*2,a);pos.push(x,y,z);}});const top=pos.length/3,yT=rings[rings.length-1][0];pos.push(0,yT,0);
-  for(let k=0;k+1<rings.length;k++)for(let i=0;i<N;i++){const a=k*N+i,b=k*N+(i+1)%N,c=a+N,d=b+N;idx.push(a,c,b,b,c,d);}
-  for(let i=0;i<N;i++){const a=(rings.length-1)*N+i,b=(rings.length-1)*N+(i+1)%N;idx.push(a,top,b);}
-  const ge=new THREE.BufferGeometry();ge.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));ge.setIndex(idx);ge.computeVertexNormals();g.add(new THREE.Mesh(ge,rbW));}
- const ext=(pts,dep,m,y0)=>{const sh=new THREE.Shape(pts.map(([x,z])=>new THREE.Vector2(x,-z)));const ge=new THREE.ExtrudeGeometry(sh,{depth:dep,bevelEnabled:false});ge.rotateX(-Math.PI/2);ge.translate(0,y0,0);g.add(new THREE.Mesh(ge,m));};   // 上から見た形を上へ押し出す
- {const t0=Math.acos((CW/2/0.225)**(NS/2)),pts=[];for(let i=0;i<=72;i++){const t=t0-(Math.PI+2*t0)*i/72;pts.push(se(t,0.225));}   // 灰色の台の下（口の高さまで）：口の両端から後ろを回る外形＋口
-  ext([...pts,[-CW/2,CZ],[CW/2,CZ]],HO,rbG,0);
-  ext(Array.from({length:96},(_,i)=>se(i/96*Math.PI*2,0.225)),HB-HO,rbG,HO);}   // 口の上の帯（下面が口の天井）
- [1,-1].forEach(sd=>{const pts=[];for(let i=0;i<=16;i++){const t=i/16;pts.push(new THREE.Vector2(0.15+0.105*(1-Math.cos(t*Math.PI/2)),HO*(1-t)));}pts.push(new THREE.Vector2(0.12,0),new THREE.Vector2(0.12,HO));   // 口の両側：前の縁が床へ向かって前へ反り出す
-  const ge=new THREE.ExtrudeGeometry(new THREE.Shape(pts),{depth:0.023,bevelEnabled:false});ge.rotateY(-Math.PI/2);ge.translate(sd>0?0.215:-0.192,0,0);g.add(new THREE.Mesh(ge,rbG));});   // 形のx＝ローカルのz、押し出し＝幅の向き（x 0.192〜0.215）
- {const r=0.05,arc=(cx,cz,a0,a1)=>Array.from({length:9},(_,i)=>{const a=a0+(a1-a0)*i/8;return [cx+r*Math.cos(a),cz+r*Math.sin(a)];});   // 乗り入れの板：口の床から前へ出て、前の角が丸い
-  ext([[-CW/2,CZ],[CW/2,CZ],[CW/2,0.15],[0.215,0.15],...arc(0.165,0.215,0,Math.PI/2),...arc(-0.165,0.215,Math.PI/2,Math.PI),[-0.215,0.15],[-CW/2,0.15]],0.008,rbD,0);}
- [-0.11,0.11].forEach(x=>lbox(g,0.05,0.002,0.41,x,0.009,0.045,rbG));   // 車輪の通る2本の帯
- [0.05,0.075,0.1,0.125,0.15].forEach(y=>lbox(g,0.002,0.004,0.05,-0.2228,y,-0.05,0x7e7f80));   // 右の側面の通気口（横のすき間。側面の平らに近い所に置き、面からほぼ出さない）
- lbox(g,0.2,0.002,0.008,0,0.4515,0.09,0xd0d1d2);   // 上のふたの合わせ目
- const bz=CZ+0.1765+0.005,cy=(r,h,y,z,m,x)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,64),m);c.position.set(x||0,y,z);g.add(c);return c;};   // bz：本体の中心（口の奥から5mm）
+ const rbW=P({color:0xf3f3f1,specular:0x333333,shininess:30}),rbG=P({color:0xa6a7a8,specular:0x1a1a1a,shininess:12}),rbG2=P({color:0xa6a7a8,specular:0x1a1a1a,shininess:12,side:THREE.DoubleSide}),rbD=P({color:0x9a9b9c,specular:0x111111,shininess:8});
+ const NS=3,HO=0.165,HB=0.195,TW=0.015,XO=0.182;   // NS：上から見た角の丸み（超楕円の指数）、HO：口の高さ、HB：灰色の台の高さ、TW：台の壁の厚さ、XO：口の幅の半分
+ const se=(t,a,b,cz)=>{const c=Math.cos(t),si=Math.sin(t);return [a*Math.sign(c)*Math.abs(c)**(2/NS),cz+b*Math.sign(si)*Math.abs(si)**(2/NS)];};   // 上から見た外形（角の丸い四角）の点：[x, z]。a・b：幅・奥行の半分、cz：中心
+ const ring=y=>{const f=((HO-Math.max(0,Math.min(HO,y)))/HO)**2;return [0.21+0.015*f,0.195+0.03*f,-0.03+0.03*f];};   // 台の高さごとの外形 [幅の半分, 奥行の半分, 中心]：上（口の高さ）で白い本体の下にそろい、床へ向かって横へ広がり前へ反り出す（後ろの面はまっすぐ）
+ const xo=y=>y<=0.125?XO:XO-(0.04-Math.sqrt(Math.max(0,0.0016-(y-0.125)**2)));   // 口の幅の半分：本体より上（125〜165）で上の角を半径40で丸める（写真から）
+ const mesh=(pos,idx,m)=>{const ge=new THREE.BufferGeometry();ge.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));ge.setIndex(idx);ge.computeVertexNormals();g.add(new THREE.Mesh(ge,m));};
+ const loft=(R,closed,flip,m,top)=>{const n=R[0].length,pos=[],idx=[];R.forEach(r=>r.forEach(p=>pos.push(...p)));   // 輪を下から順に面でつなぐ（top：上の輪の中心でふたをする）
+  for(let k=0;k+1<R.length;k++)for(let i=0;i<(closed?n:n-1);i++){const a=k*n+i,b=k*n+(i+1)%n,c=a+n,d=b+n;flip?idx.push(a,b,c,b,d,c):idx.push(a,c,b,b,c,d);}
+  if(top){const t=pos.length/3,r=R[R.length-1];pos.push(r.reduce((s,p)=>s+p[0],0)/n,r[0][1],r.reduce((s,p)=>s+p[2],0)/n);for(let i=0;i<n;i++){const a=(R.length-1)*n+i,b=(R.length-1)*n+(i+1)%n;idx.push(a,t,b);}}
+  mesh(pos,idx,m);};
+ {const R=[],rs=[[HB,0.21,0.195],[0.26,0.2155,0.2005],[0.31,0.215,0.2],[0.34,0.214,0.199]];for(let k=1;k<=10;k++){const f=k/10*Math.PI/2,q=0.11*(1-Math.cos(f));rs.push([0.34+0.11*Math.sin(f),0.214-q,0.199-q]);}   // 白い本体：高さ・幅の半分・奥行の半分（肩の丸み R110、上は 450）
+  rs.forEach(([y,a,b])=>R.push(Array.from({length:96},(_,i)=>{const [x,z]=se(-Math.PI+i/96*Math.PI*2,a,b,-0.03);return [x,y,z];})));loft(R,true,false,rbW,true);}
+ {const J=14,arcs=w=>{const O=[],I=[];for(let j=0;j<=J;j++){const y=HO*j/J,[a,b,cz]=ring(y);[[a,b,O],[a-TW,b-TW,I]].forEach(([aa,bb,L])=>{const t0=Math.acos((xo(y)/aa)**(NS/2));L.push(Array.from({length:65},(_,i)=>{const [x,z]=se(-Math.PI-t0+(Math.PI+2*t0)*i/64,aa,bb,cz);return [x,y,z];}));});}return [O,I];},[O,I]=arcs();   // 台の壁：外の面・内の面（口の両端 x＝±XO で切る）
+  loft(O,false,false,rbG);loft(I,false,true,rbG);
+  [0,64].forEach(e=>{const pos=[],idx=[];for(let j=0;j<=J;j++){pos.push(...O[j][e],...I[j][e]);if(j<J)idx.push(2*j,2*j+1,2*j+2,2*j+1,2*j+3,2*j+2);}mesh(pos,idx,rbG2);});   // 口の両端の切り口（両面）
+  const [a,b,cz]=ring(HO),top=Array.from({length:96},(_,i)=>se(-Math.PI+i/96*Math.PI*2,a,b,cz));loft([top.map(([x,z])=>[x,HO,z]),top.map(([x,z])=>[x,HB,z])],true,false,rbG);   // 口の上の帯（白い本体の下の外形）
+  const fl=new THREE.Shape(top.map(([x,z])=>new THREE.Vector2(x,z))),fg=new THREE.ShapeGeometry(fl);fg.rotateX(Math.PI/2);fg.translate(0,HO,0);g.add(new THREE.Mesh(fg,rbG));   // 口の天井（下向き）
+  const [a0,b0,c0]=ring(0),tray=Array.from({length:96},(_,i)=>se(i/96*Math.PI*2,a0-TW,b0-TW,c0));const tg=new THREE.ExtrudeGeometry(new THREE.Shape(tray.map(([x,z])=>new THREE.Vector2(x,-z))),{depth:0.008,bevelEnabled:false});tg.rotateX(-Math.PI/2);g.add(new THREE.Mesh(tg,rbD));}   // 乗り入れの板（台の床の内側いっぱい、口の前まで）
+ [-0.11,0.11].forEach(x=>lbox(g,0.05,0.002,0.4,x,0.009,0.0,rbG));   // 車輪の通る2本の帯
+ lbox(g,0.2,0.002,0.008,0,0.4515,0.04,0xd0d1d2);   // 上のふたの合わせ目
+ const bz=-0.21+0.1765+0.005,cy=(r,h,y,z,m,x)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,64),m);c.position.set(x||0,y,z);g.add(c);return c;};   // bz：本体の中心（台の奥の内の面から5mm）
  cy(0.1765,0.082,0.015+0.041,bz,rbW);cy(0.174,0.006,0.012,bz,rbG);cy(0.1768,0.003,0.091,bz,P({color:0xdcdcda}));   // 本体（白）、下の縁（灰）、上のふたの合わせ目
  cy(0.042,0.012,0.097+0.006,bz-0.01,rbW);cy(0.0425,0.01,0.109+0.005,bz-0.01,P({color:0x3b3d3f,specular:0x333333,shininess:40}));cy(0.042,0.005,0.119-0.0025,bz-0.01,rbW);   // 上のレーザーセンサー（白・黒いすき間の帯・白いふた、高さ119まで）
  const fz=bz+0.1765;lbox(g,0.09,0.05,0.012,0,0.056,fz-0.003,P({color:0xe6e7e8}));lbox(g,0.05,0.022,0.004,0,0.063,fz+0.0045,0x26282a);[-0.012,0.012].forEach(x=>lbox(g,0.014,0.008,0.004,x,0.042,fz+0.0045,0x55585b));   // 前の表示の窓：明るい灰の台に黒い画面とボタン2つ
