@@ -31,7 +31,8 @@ for o in bpy.data.objects:
     if 'BAKE' in me.color_attributes:   # 焼き込み用の色（書き出さない。頂点の番号 _VID は glTF の _VID になる）
         me.color_attributes.remove(me.color_attributes['BAKE'])
 # 照明器具の発光面：材質ごとに、面の中心に一番近い照明（30cm 以内）
-lamps = [(g, bc.B(*p)) for g, ls in bc.LAMPS.items() for _, p, _ in ls]
+lamps = [(g, bc.B(*t[1])) for g, ls in bc.LAMPS.items() for t in ls]
+bulbs = [(g, bc.B(*t[1]), t[3]) for g, ls in bc.LAMPS.items() for t in ls if t[0] == 'bulb']   # 電球のガラス（光る材質ではない）も、点灯で光らせる
 def is_emit(m):
     return m and m.node_tree and any(n.type == 'EMISSION' for n in m.node_tree.nodes)
 found = {}
@@ -39,9 +40,12 @@ for o in bpy.data.objects:
     me = o.data; mw = o.matrix_world
     for p in me.polygons:
         m = me.materials[p.material_index] if p.material_index < len(me.materials) else None
-        if not is_emit(m):
-            continue
         c = mw @ p.center
+        if not is_emit(m):
+            bg = next((g for g, q, rr in bulbs if (c - q).length < rr + 0.01), None)
+            if m and bg and any(n.type == 'BSDF_PRINCIPLED' and n.inputs['Alpha'].default_value < 0.99 for n in m.node_tree.nodes):   # 透けるガラスだけ（真鍮の器具は除く）
+                found.setdefault(m.name, {}).setdefault(bg, 0); found[m.name][bg] += 1
+            continue
         g, d = min(((g, (c - q).length) for g, q in lamps), key=lambda t: t[1])
         found.setdefault(m.name, {}).setdefault(g if d < 0.3 else '-', 0)
         found[m.name][g if d < 0.3 else '-'] += 1

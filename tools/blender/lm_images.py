@@ -10,6 +10,41 @@ import sys, os, json, zlib, struct, math
 import numpy as np
 argv = sys.argv[sys.argv.index('--') + 1:]
 LD, OUT, ENC, K = argv[0], argv[1], argv[2], int(argv[3])
+SIT, SRNG = int(os.environ.get('LM_SMOOTH_IT', '50')), float(os.environ.get('LM_SMOOTH_RANGE', '0.45'))   # ならす回数・明るさの差の幅（対数 2 の底）
+
+def vgsmooth(a, e, it=SIT, rng=SRNG):
+    """頂点で焼く物：辺でつながった頂点どうし、明るさが近いものをならす（頂点の焼き込みのノイズ＝ベッドなどの広い面のまだらを消す。影の縁は残す）"""
+    n = len(a); e0, e1 = e[:, 0], e[:, 1]
+    for _ in range(it):
+        y = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
+        w = np.exp(-((y[e0] - y[e1]) ** 2) / (2 * rng * rng))
+        ws = 1 + np.bincount(e0, w, n) + np.bincount(e1, w, n)
+        a = np.stack([(a[:, c] + np.bincount(e0, a[e1, c] * w, n) + np.bincount(e1, a[e0, c] * w, n)) / ws for c in range(3)], 1)
+    return a
+
+def ismooth(a, L, it=SIT, rng=SRNG):
+    """ライトマップの島の中だけ、隣の画素と明るさが近いものどうしで少しずつならす（3×3 を it 回。光が回り込むだけの暗い所に残る、ノイズ除去のまだら＝黒いモヤを消す）。
+    明るさの比が大きい所（影の縁・照明のすぐ近く）は、明るさの差の重み（対数で rng）でほとんど混ぜない。島の外（埋めた画素）はそのまま"""
+    h, w = L.shape; inside = L >= 0
+    for _ in range(it):
+        y = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
+        acc = a.copy(); wsum = np.ones((h, w))
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+            ws = 0.5 if dx and dy else 1.0
+            ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+            src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+            wt = ws * np.exp(-((y[src] - y[dst]) ** 2) / (2 * rng * rng)) * ((L[src] == L[dst]) & inside[dst])
+            acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
+        a = np.where(inside[..., None], acc / wsum[..., None], a)
+    for _ in range(2):   # 最後に明るさの差を問わず軽くぼかす（画素の段々＝日なたの縁のギザギザを和らげる。E4）
+        acc = a.copy(); wsum = np.ones((h, w))
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+            src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+            wt = 0.5 * ((L[src] == L[dst]) & inside[dst])
+            acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
+        a = np.where(inside[..., None], acc / wsum[..., None], a)
+    return a
 os.makedirs(OUT, exist_ok=True)
 
 def png(path, a, depth):
@@ -57,6 +92,9 @@ for L in sorted(os.listdir(LD)):
         a = np.load(os.path.join(d, f)).astype(np.float32)
         if g.startswith('V_'):   # 頂点で焼く物（点ごとの RGB）：方式によらず RGBM の PNG（幅1024の行に並べる）
             a = np.nan_to_num(np.maximum(a, 0), posinf=65504.0); n = len(a); index.setdefault('vn', {})[g[2:]] = n
+            ef = os.path.join(LD, '_labels', g + '_edges.npy')
+            if SIT > 0 and os.path.exists(ef):
+                a = vgsmooth(a.astype(np.float64), np.load(ef)).astype(np.float32)
             mx = float(a.max()); name = '%s__%s' % (L.replace('@', '_'), g)
             if mx <= 0:
                 ent[g] = None; continue
@@ -70,6 +108,9 @@ for L in sorted(os.listdir(LD)):
             print('lmimg nonfinite', L, g, int((~np.isfinite(a)).sum()), flush=True)
             a = np.nan_to_num(a, nan=0.0, posinf=65504.0)
         a = np.maximum(a, 0)
+        lf = os.path.join(LD, '_labels', g + '.npy')
+        if SIT > 0 and os.path.exists(lf):
+            a = ismooth(a.astype(np.float64), np.load(lf)).astype(np.float32)
         if K > 1:
             r = a.shape[0] // K
             a = a[:r * K, :r * K].reshape(r, K, r, K, 3).mean((1, 3))
