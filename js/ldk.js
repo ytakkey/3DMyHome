@@ -108,21 +108,21 @@ const RH=0.8,PS=0.03,WT=0.04,WW=0.07,MT=0.012,MW=0.03,xr=SX0+0.02,zr=VZ-0.03,zTo
   const m=new THREE.Mesh(g,L(steel));m.position.z=z;s.add(m);});}
 // ロボット掃除機 roborock Qrevo Curv 2 Flow：ステーション W450×D450×H450、本体 φ353×H119（製品の寸法図から）。階段の下、背を東の壁から120あけ、正面をテレビの方（西）へ向ける。本体はステーションに収まった状態（ユーザーの指定）
 // 南北：階段に余裕を持たせる（ユーザーの指定）。東のササラ桁（x 4.60〜4.68）の下端がステーションの上面（450）より約10cm上になる南の端 z=5.455、中心 z=5.23
-// ドックの形は写真から：下の灰色の台は床へ向かって横へ少し広がり、前は床へ向かって前へ反り出す（すくい形）。前の口の両側は台の丸い前の角。床に乗り入れの板（口の前まで）
-// 上の白い本体は台より細く、少し奥に下がって乗る（横に少しふくらみ、肩を大きく丸め、上から見ても角が丸い）。本体（ロボット）の前は白い本体の前とほぼそろう
+// ドックの形は写真から：全体はドーム状で、くびれは無い（上へ行くほど細く、下の幅が上の幅を下回らない。ユーザーの指定）。外形は寸法図の W450×D450×H450（いちばん下で450角、高さ450）
+// 下の灰色の台（高さ150、全体の約1/3）は床へ向かってわずかに広がり、前は床へ向かって前へ反り出す（すくい形）。前の口の両側は台の丸い前の角、口の上の角は丸い。床に乗り入れの板（口の前まで）。上の白い本体は台の上の外形から続けて細くなり、肩を大きく丸める
 {const g=new THREE.Group();g.position.set(W-0.12-0.225,0,5.23);g.rotation.y=-Math.PI/2;s.add(g);   // ローカル：+z＝前（西）、x＝幅
  const rbW=P({color:0xf3f3f1,specular:0x333333,shininess:30}),rbG=P({color:0xa6a7a8,specular:0x1a1a1a,shininess:12}),rbG2=P({color:0xa6a7a8,specular:0x1a1a1a,shininess:12,side:THREE.DoubleSide}),rbD=P({color:0x9a9b9c,specular:0x111111,shininess:8});
- const NS=3,HO=0.165,HB=0.195,TW=0.015,XO=0.182;   // NS：上から見た角の丸み（超楕円の指数）、HO：口の高さ、HB：灰色の台の高さ、TW：台の壁の厚さ、XO：口の幅の半分
+ const NS=3,HO=0.128,HB=0.15,TW=0.015,XO=0.182;   // NS：上から見た角の丸み（超楕円の指数）、HO：口の高さ、HB：灰色の台の高さ、TW：台の壁の厚さ、XO：口の幅の半分
  const se=(t,a,b,cz)=>{const c=Math.cos(t),si=Math.sin(t);return [a*Math.sign(c)*Math.abs(c)**(2/NS),cz+b*Math.sign(si)*Math.abs(si)**(2/NS)];};   // 上から見た外形（角の丸い四角）の点：[x, z]。a・b：幅・奥行の半分、cz：中心
- const ring=y=>{const f=((HO-Math.max(0,Math.min(HO,y)))/HO)**2;return [0.21+0.015*f,0.195+0.03*f,-0.03+0.03*f];};   // 台の高さごとの外形 [幅の半分, 奥行の半分, 中心]：上（口の高さ）で白い本体の下にそろい、床へ向かって横へ広がり前へ反り出す（後ろの面はまっすぐ）
- const xo=y=>y<=0.125?XO:XO-(0.04-Math.sqrt(Math.max(0,0.0016-(y-0.125)**2)));   // 口の幅の半分：本体より上（125〜165）で上の角を半径40で丸める（写真から）
+ const ring=y=>{const f=((HO-Math.max(0,Math.min(HO,y)))/HO)**2;return [0.222+0.003*f,0.1975+0.0275*f,-0.0275+0.0275*f];};   // 台の高さごとの外形 [幅の半分, 奥行の半分, 中心]（後ろの面は z＝−0.225 でまっすぐ）：上（口の高さ）で白い本体の下にそろい、床へ向かって横へ広がり前へ反り出す（後ろの面はまっすぐ）
+ const xo=y=>y<=0.1?XO:XO-(0.028-Math.sqrt(Math.max(0,0.028**2-(y-0.1)**2)));   // 口の幅の半分：本体の上面（97）より上（100〜128）で上の角を半径28で丸める（写真から）
  const mesh=(pos,idx,m)=>{const ge=new THREE.BufferGeometry();ge.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));ge.setIndex(idx);ge.computeVertexNormals();g.add(new THREE.Mesh(ge,m));};
  const loft=(R,closed,flip,m,top)=>{const n=R[0].length,pos=[],idx=[];R.forEach(r=>r.forEach(p=>pos.push(...p)));   // 輪を下から順に面でつなぐ（top：上の輪の中心でふたをする）
   for(let k=0;k+1<R.length;k++)for(let i=0;i<(closed?n:n-1);i++){const a=k*n+i,b=k*n+(i+1)%n,c=a+n,d=b+n;flip?idx.push(a,b,c,b,d,c):idx.push(a,c,b,b,c,d);}
   if(top){const t=pos.length/3,r=R[R.length-1];pos.push(r.reduce((s,p)=>s+p[0],0)/n,r[0][1],r.reduce((s,p)=>s+p[2],0)/n);for(let i=0;i<n;i++){const a=(R.length-1)*n+i,b=(R.length-1)*n+(i+1)%n;idx.push(a,t,b);}}
   mesh(pos,idx,m);};
- {const R=[],rs=[[HB,0.21,0.195],[0.26,0.2155,0.2005],[0.31,0.215,0.2],[0.34,0.214,0.199]];for(let k=1;k<=10;k++){const f=k/10*Math.PI/2,q=0.11*(1-Math.cos(f));rs.push([0.34+0.11*Math.sin(f),0.214-q,0.199-q]);}   // 白い本体：高さ・幅の半分・奥行の半分（肩の丸み R110、上は 450）
-  rs.forEach(([y,a,b])=>R.push(Array.from({length:96},(_,i)=>{const [x,z]=se(-Math.PI+i/96*Math.PI*2,a,b,-0.03);return [x,y,z];})));loft(R,true,false,rbW,true);}
+ {const R=[],rs=[[HB,0.222,0.1975],[0.25,0.2205,0.196],[0.34,0.2175,0.193]];for(let k=1;k<=12;k++){const f=k/12*Math.PI/2,q=0.11*(1-Math.cos(f));rs.push([0.34+0.11*Math.sin(f),0.2175-q,0.193-q,-0.032]);}   // 白い本体：高さ・幅の半分・奥行の半分。台の上の外形から上へ少しずつ細くなり、肩は半径110で丸めて上は450（上は広めの丸い面）
+  rs.forEach(([y,a,b,cz])=>R.push(Array.from({length:96},(_,i)=>{const [x,z]=se(-Math.PI+i/96*Math.PI*2,a,b,cz===undefined?-0.225+b:cz);return [x,y,z];})));loft(R,true,false,rbW,true);}   // まっすぐな所は後ろの面を台とそろえ（z＝−0.225）、肩は前後同じに丸める
  {const J=14,arcs=w=>{const O=[],I=[];for(let j=0;j<=J;j++){const y=HO*j/J,[a,b,cz]=ring(y);[[a,b,O],[a-TW,b-TW,I]].forEach(([aa,bb,L])=>{const t0=Math.acos((xo(y)/aa)**(NS/2));L.push(Array.from({length:65},(_,i)=>{const [x,z]=se(-Math.PI-t0+(Math.PI+2*t0)*i/64,aa,bb,cz);return [x,y,z];}));});}return [O,I];},[O,I]=arcs();   // 台の壁：外の面・内の面（口の両端 x＝±XO で切る）
   loft(O,false,false,rbG);loft(I,false,true,rbG);
   [0,64].forEach(e=>{const pos=[],idx=[];for(let j=0;j<=J;j++){pos.push(...O[j][e],...I[j][e]);if(j<J)idx.push(2*j,2*j+1,2*j+2,2*j+1,2*j+3,2*j+2);}mesh(pos,idx,rbG2);});   // 口の両端の切り口（両面）
@@ -130,10 +130,10 @@ const RH=0.8,PS=0.03,WT=0.04,WW=0.07,MT=0.012,MW=0.03,xr=SX0+0.02,zr=VZ-0.03,zTo
   const fl=new THREE.Shape(top.map(([x,z])=>new THREE.Vector2(x,z))),fg=new THREE.ShapeGeometry(fl);fg.rotateX(Math.PI/2);fg.translate(0,HO,0);g.add(new THREE.Mesh(fg,rbG));   // 口の天井（下向き）
   const [a0,b0,c0]=ring(0),tray=Array.from({length:96},(_,i)=>se(i/96*Math.PI*2,a0-TW,b0-TW,c0));const tg=new THREE.ExtrudeGeometry(new THREE.Shape(tray.map(([x,z])=>new THREE.Vector2(x,-z))),{depth:0.008,bevelEnabled:false});tg.rotateX(-Math.PI/2);g.add(new THREE.Mesh(tg,rbD));}   // 乗り入れの板（台の床の内側いっぱい、口の前まで）
  [-0.11,0.11].forEach(x=>lbox(g,0.05,0.002,0.4,x,0.009,0.0,rbG));   // 車輪の通る2本の帯
- lbox(g,0.2,0.002,0.008,0,0.4515,0.04,0xd0d1d2);   // 上のふたの合わせ目
+ lbox(g,0.1,0.002,0.008,0,0.4515,-0.011,0xd0d1d2);   // 上のふたの合わせ目
  const bz=-0.21+0.1765+0.005,cy=(r,h,y,z,m,x)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,64),m);c.position.set(x||0,y,z);g.add(c);return c;};   // bz：本体の中心（台の奥の内の面から5mm）
  cy(0.1765,0.082,0.015+0.041,bz,rbW);cy(0.174,0.006,0.012,bz,rbG);cy(0.1768,0.003,0.091,bz,P({color:0xdcdcda}));   // 本体（白）、下の縁（灰）、上のふたの合わせ目
- cy(0.042,0.012,0.097+0.006,bz-0.01,rbW);cy(0.0425,0.01,0.109+0.005,bz-0.01,P({color:0x3b3d3f,specular:0x333333,shininess:40}));cy(0.042,0.005,0.119-0.0025,bz-0.01,rbW);   // 上のレーザーセンサー（白・黒いすき間の帯・白いふた、高さ119まで）
+ cy(0.042,0.022,0.097+0.011,bz+0.03,rbW);cy(0.0435,0.006,0.104,bz+0.03,P({color:0x8c8e90,specular:0x666666,shininess:60}));   // 上のレーザーセンサー（高さ119まで）と銀の帯（前の形に戻す。部品の面を重ねない）
  const fz=bz+0.1765;lbox(g,0.09,0.05,0.012,0,0.056,fz-0.003,P({color:0xe6e7e8}));lbox(g,0.05,0.022,0.004,0,0.063,fz+0.0045,0x26282a);[-0.012,0.012].forEach(x=>lbox(g,0.014,0.008,0.004,x,0.042,fz+0.0045,0x55585b));   // 前の表示の窓：明るい灰の台に黒い画面とボタン2つ
  lbox(g,0.016,0.02,0.01,-0.075,0.025,bz+Math.sqrt(0.1765**2-0.075**2)-0.002,0xe0912a);}   // 前の下の橙色の部品（写真から）
 
