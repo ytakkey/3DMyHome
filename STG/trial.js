@@ -7,17 +7,21 @@ const Q=new URLSearchParams(location.search);
 const LMV=Q.get('lm')||'',LMDIR=LMV?'../bake/work/trial_lm/'+LMV+'/':'lm/';
 const TEX_BUDGET=(+Q.get('budget')||128)*2**20,BYTE_BUDGET=64*2**20;   // GPU に置いておく層の画像・取得済みのファイルの上限（超えたら、いまの状態で使わない物から捨てる）
 const LMK=32;   // まとめた画像には lux/32 を入れる（半精度の最大 65504 を超えないように）。表示で ×32
-const EXPO={day:1500,night:80};   // 白（反射率1）が 1.0 になる照度（lux）。Blender の確認の表示（view_baked.py）と同じ
+const EXPO={day:+Q.get('ed')||2500,night:+Q.get('en')||700};   // 白（反射率1）が 1.0 になる照度（lux）。本番の見え方に近くなるよう選んだ（?ed=・?en= で変えて比べられる）
+const GAM={day:+Q.get('gd')||0.6,night:+Q.get('gn')||0.75};   // 明るさの幅を縮める：照度を 露出×(照度/露出)^GAM にする（明るさだけ。暗い所の黒つぶれ・明るい所の白飛びを抑える。E7。見る場所によらず同じ式＝D1）
+// 照明の色（色温度。4章「照明」の色を線形にして明るさ1にそろえる）：焼き込みは白い光なので、層に掛ける
+const KC=h=>{const c=new THREE.Color(h).convertSRGBToLinear(),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return [c.r/y,c.g/y,c.b/y];},K2700=KC(0xffc68e),K3500=KC(0xffd9b4),K5000=KC(0xfff3e8),K2400=KC(0xffb066);
+const TINT={bdl:K2700,bbr:K2700,j1:K2700,h1:K3500,k1:K3500,l1:K5000,a1:K3500,a2:K3500,a4:K3500,a6:K3500,a3:K2700,a5:K2400};   // O1・O2・J1・A3 は 2700K、H1・K1・A1・A2・A4・A6 は 3500K、L1 は 5000K、A5（ペンダントの電球）は 2400K（js のコメント）
 const MOON=1/1000,MOONC=[0.6,0.7,1.0];   // 夜の月明かり：空の層を弱めて青く（仮）
 const EMIT=3000;   // 点灯している照明器具の発光面の明るさ（lux 相当。仮）
 const SHADE_T=p=>1-0.5*p;   // シェードを閉めた割合 p で、その窓から入る光の割合（閉めても5割通す）
 // 焼いた層の組み合わせ（bake_layers.py の COMBOS と同じ）。層の名前＝光源@ドアの開閉（関係するドアだけ）
 const COMBOS={bdl:['SG311','SG500w','SG33s'],bbr:['SG311','SG500w','SG33s'],sky_bed:['SG311','SG500w','SG33s'],sun_bed:['SG311','SG500w','SG33s'],
- j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311'],h1:[],sun_void:[],sky_ldk1F:[],sun_ldk1F:[]};
+ j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311'],h1:[],sun_void:[],sky_ldk1F:[],sun_ldk1F:[],a1:[],a2:[],a3:[],a4:[],a5:[],a6:[]};
 const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F'];
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
-const LG=[['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],['リビング',[['階段','h1']]]];   // 照明のボタン（焼いた照明だけ）
-const LS={bdl:false,bbr:false,j1:false,l1:false,k1:false,h1:false};
+const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]]];   // 照明のボタン（焼いた照明だけ。並びは本番の js/ui.js の LG と同じ）
+const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:false,k1:false};
 const DS={sg311:false,sg500w:false,sg33s:false};   // 試作のドア（ほかのドアは閉じたまま）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
 if(Q.get('doors')==='open')for(const k in DS)DS[k]=true;
 const dk=d=>d.toLowerCase();
@@ -46,6 +50,13 @@ function look(px,py,pz,ya,pi,f){cam.position.set(px,py,pz);cam.fov=f;cam.updateP
 function draw(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.render(scene,cam);}
 function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribute('role')==='switch'?'aria-checked':(el.getAttribute('role')==='tab'?'aria-selected':'aria-pressed'),on);}
 const sRGB=h=>new THREE.Color(h).convertSRGBToLinear();
+const UNI={uE:{value:EXPO.day},uG:{value:GAM.day}};   // 明るさの幅を縮める式の露出と指数（すべての材質で共有）
+const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
+function patchMat(m,vl){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ sh.fragmentShader='uniform float uE;uniform float uG;'+CMP+sh.fragmentShader;
+ if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor);');
+ else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL(lightMapTexelToLinear(lightMapTexel).rgb*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0);return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 
 // ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
@@ -100,7 +111,7 @@ void main(){vec4 c=texture2D(t,vUv);vec3 v;
 {const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cMat);m.frustumCulled=false;cScene.add(m);}
 function layerName(src,ds){return src+'@'+(COMBOS[src].map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
 function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
- Object.keys(LS).forEach(k=>{if(st.LS[k])add(k,1);});
+ Object.keys(LS).forEach(k=>{if(st.LS[k])add(k,1,TINT[k]);});
  NATURAL.forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
  const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w}:{g,e:ent[g],w});});return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
@@ -135,15 +146,15 @@ function setupModel(root){const mc=new Map();
    const ca=g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,orig=m.vertexColors&&ca?Float32Array.from({length:n*3},(_,j)=>ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs):null;   // 元の頂点の色（あれば明るさに掛ける）
    const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,orig});}
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||m.vertexColors,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});mc.set(key,nm);}
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl);mc.set(key,nm);}
   o.material=nm;
-  if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.opacity})});
+  if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
  scene.add(root);}
 function applyShown(){const s=shown;
  for(const d in DOORN){DOORN[d].open.forEach(o=>o.visible=s.DS[d]);DOORN[d].closed.forEach(o=>o.visible=!s.DS[d]);}
  LAMPM.forEach(l=>l.o.material=s.LS[l.k]?l.on:l.off);
- r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);
+ r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);UNI.uE.value=s.night?EXPO.night:EXPO.day;UNI.uG.value=s.night?GAM.night:GAM.day;
  glassMat.color.copy(sRGB(s.night?0x141c28:0xcfdfec));scene.background=sRGB(s.night?0x0b1018:0xcfdfec);}
 
 // ===== 移動範囲（本番の ui.js と同じ。範囲は本番から書き出した move.json）=====

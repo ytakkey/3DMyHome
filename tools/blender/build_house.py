@@ -162,7 +162,7 @@ box('K_wainscot', OX - 0.01, OX + 0.1, FL2 - 0.01, FL2 + 1.0, OZ - 0.01, OZ + BD
 DOOR_GAPS = []    # 幅木を止める所（平面の範囲）
 def gap(wl, u0, u1):
     a, b = wl.p(u0, 0, -0.2), wl.p(u1, 0, 0.05)
-    DOOR_GAPS.append((min(a[0], b[0]), max(a[0], b[0]), min(a[2], b[2]), max(a[2], b[2])))
+    DOOR_GAPS.append((min(a[0], b[0]), max(a[0], b[0]), min(a[2], b[2]), max(a[2], b[2]), a[1]))   # 最後は床の高さ（ほかの階の巾木を止めない）
 def cut(wl, name, u0, u1, y0, y1, w0, w1, m='frame'):
     return wl.box('C_' + name, u0, u1, y0, y1, w0, w1, m, 'cut_open')
 def casing(wl, name, a, b, h, c='fixtures'):
@@ -421,7 +421,9 @@ def baseboards(room, pts, skip_edges, y0):
         t0 = 0.012 if turn(i) > 0 else 0.0       # 始まり：入隅は前の幅木に突き付け
         t1 = L + (0.012 if turn((i + 1) % n) < 0 else 0.0)   # 終わり：出隅は回り込む
         ivs = []
-        for gx0, gx1, gz0, gz1 in DOOR_GAPS:      # ドアの所を除く
+        for gx0, gx1, gz0, gz1, gy in DOOR_GAPS:      # ドアの所を除く（同じ階のだけ。2階のドアが同じ線の上にある1階のテレビの壁の巾木を止めていた）
+            if abs(gy - y0) > 0.5:
+                continue
             corners = [(gx0, gz0), (gx1, gz0), (gx0, gz1), (gx1, gz1)]
             ws = [(cx - s[0]) * nrm[0] + (cz - s[1]) * nrm[1] for cx, cz in corners]
             if max(ws) < -0.001 or min(ws) > 0.013:
@@ -504,6 +506,16 @@ def apply_prod():
     srgb_factors(set(bpy.data.materials) - mb)
     pobjs = [o for o in set(bpy.data.objects) - before if o.type == 'MESH']
     tris = []   # (3頂点, 3UV, 材質)
+    segs = []   # 本番の部品の平らな面の外形の辺（両端、面の向き）：建物の面をこの線で切り分け、本番の部品ごとに材質と柄の位置を合わせる
+    for o in pobjs:
+        bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5); bm.to_mesh(o.data)
+        mw = o.matrix_world; nm3 = mw.to_3x3()
+        for e in bm.edges:
+            fs = e.link_faces
+            for f in fs:
+                if len(fs) == 1 or any(g is not f and g.normal.dot(f.normal) < 0.999 for g in fs):
+                    segs.append((mw @ e.verts[0].co, mw @ e.verts[1].co, (nm3 @ f.normal).normalized()))
+        bm.free()
     for o in pobjs:
         me = o.data; mw = o.matrix_world; me.calc_loop_triangles()
         uvl = me.uv_layers[0].data if me.uv_layers else None
@@ -519,6 +531,29 @@ def apply_prod():
         q = q - n * ((q - a).dot(n) / nn)
         w0 = (b - q).cross(c - q).dot(n) / nn; w1 = (c - q).cross(a - q).dot(n) / nn; w2 = 1 - w0 - w1
         return t[1][0] * w0 + t[1][1] * w1 + t[1][2] * w2
+    # 建物の固まりの面を、同じ平面にある本番の部品の外形の線で切る（窓・ドアの穴のある大きな面の中心が穴に落ちて材質を拾えない・1つの面に本番の材質が2つ以上ある、を防ぐ）
+    bm = bmesh.new(); bm.from_mesh(solid.data)
+    for f0 in list(bm.faces):
+        if not f0.is_valid or f0.calc_area() < 0.01:
+            continue
+        n = f0.normal.copy(); co = f0.verts[0].co.copy()
+        lo = Vector([min(v.co[i] for v in f0.verts) - 0.01 for i in range(3)]); hi = Vector([max(v.co[i] for v in f0.verts) + 0.01 for i in range(3)])
+        inb = lambda q: all(lo[i] <= q[i] <= hi[i] for i in range(3))
+        lines = {}
+        for a, b, sn in segs:
+            if sn.dot(n) < 0.999 or abs((a - co).dot(n)) > 0.02 or abs((b - co).dot(n)) > 0.02 or (a - b).length < 0.005:
+                continue
+            if not (inb(a) or inb(b) or inb((a + b) / 2)):
+                continue
+            d = (b - a).normalized(); pn = d.cross(n).normalized(); off = pn.dot(a)
+            if pn[max(range(3), key=lambda i: abs(pn[i]))] < 0:
+                pn, off = -pn, -off
+            lines[(round(pn.x, 3), round(pn.y, 3), round(pn.z, 3), round(off, 3))] = (pn, a)
+        for pn, a in lines.values():
+            fs = [f for f in bm.faces if f.is_valid and f.normal.dot(n) > 0.999 and abs((f.verts[0].co - co).dot(n)) < 1e-4 and inb(f.calc_center_median())]
+            if fs:
+                bmesh.ops.bisect_plane(bm, geom=list({v for f in fs for v in f.verts}) + list({e for f in fs for e in f.edges}) + fs, plane_co=a, plane_no=pn, dist=1e-5)
+    bm.to_mesh(solid.data); bm.free()
     targets = [solid] + [o for cn in ('fixtures', 'stairs', 'doors_open', 'doors_closed') for o in COLS[cn].objects if o.type == 'MESH' and not o.name.endswith('_glass')]
     hit = miss = 0; misses = {}
     for o in targets:
@@ -527,11 +562,16 @@ def apply_prod():
             me.uv_layers.new(name='UVMap')
         uvl = me.uv_layers['UVMap'].data
         slot = {m.name: i for i, m in enumerate(me.materials) if m}
+        me.calc_loop_triangles(); inner = {}   # 面の中の点：一番大きな三角形の重心（へこんだ形でも面の上）
+        for t in me.loop_triangles:
+            if t.polygon_index not in inner or t.area > inner[t.polygon_index][0]:
+                inner[t.polygon_index] = (t.area, sum((me.vertices[v].co for v in t.vertices), Vector()) / 3)
+        lim = 0.02 if o is solid else 0.004   # 建具・巾木などは本番の同じ部品がぴったり重なるときだけ（無ければ巾木が壁の材質を拾ってしまう）
         for p in me.polygons:
-            n = (nm @ p.normal).normalized(); c = mw @ p.center
+            n = (nm @ p.normal).normalized(); c = mw @ (inner[p.index][1] if p.index in inner else p.center)
             best = None   # 同じ向きの面だけ（裏向きの面＝扉や見込みの下の面などを拾わない）。近くの面を順に見る
-            for d in (0.0005, 0.003):   # 面の中心から少し部屋の側に出た点で探す
-                for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, 0.02), key=lambda t: t[3]):
+            for d in (0.0005, 0.003):   # 面の中の点から少し部屋の側に出た点で探す
+                for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, lim), key=lambda t: t[3]):
                     if pn.normalized().dot(n) > 0.9:
                         best = tris[i]; break
                 if best:

@@ -73,6 +73,12 @@ elif a[0] == 'py':   # 調べる用：py <スクリプト> [引数...]（bake_uv
     print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
 elif a[0] == 'gltf':   # 検証ページ（STG/）用の模型：bake_uv.blend → STG/house.glb
     blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(ROOT, 'STG', 'house.glb'))
+elif a[0] == 'lmimg' and any(x.startswith('smooth=') for x in a):   # smooth=<回数>[,<幅>]：ならす処理を変えて比べる（lm_images.py の LM_SMOOTH_IT・LM_SMOOTH_RANGE）
+    sm = next(x for x in a if x.startswith('smooth='))[7:].split(',')
+    os.environ['LM_SMOOTH_IT'] = sm[0]
+    if len(sm) > 1:
+        os.environ['LM_SMOOTH_RANGE'] = sm[1]
+    subprocess.run([sys.executable, '-I', os.path.abspath(__file__)] + [x for x in a if not x.startswith('smooth=')])
 elif a[0] == 'lmimg':   # 焼いた層を検証ページ用の画像に：lmimg <h16|rgbm|logj|all> <1|2|4> [stg|<名前> [層のフォルダ]]（出力は bake/work/trial_lm/<方式>_r<縮小>。stg を付けると STG/lm/ へ）
     encs = ['h16', 'rgbm', 'logj'] if a[1] == 'all' else [a[1]]
     ks = ['1', '2', '4'] if a[1] == 'all' else [a[2]]
@@ -84,10 +90,17 @@ elif a[0] == 'lmimg':   # 焼いた層を検証ページ用の画像に：lmimg 
             print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('lmimg total', 'lmimg nonfinite', '  '))))
 elif a[0] == 'crop':   # 比較の画像の同じ範囲を拡大して並べる：crop <視点__状態> <x0,y0,x1,y1> <倍率> <出力> [方式,...]
     subprocess.run([sys.executable, '-I', os.path.join(T, 'cmp_crop.py'), os.path.join(W, 'trial_cmp'), *a[1:]])
+elif a[0] == 'pairsheet':   # 見比べの並べ撮り（tools/pair_cap.js）を視点7つずつ1枚に：pairsheet <名前,名前,...（列）> [視点,...]。出力は bake/work/pairsheet_<番号>.jpg
+    import re
+    d = os.path.join(W, 'pair'); tags = a[1].split(',')
+    vs = a[2].split(',') if a[2:3] else sorted({f.split('__')[0] for f in os.listdir(d) if f.endswith('__' + tags[0] + '.png')}, key=lambda v: open(os.path.join(ROOT, 'tools', 'pair_cap.js'), encoding='utf-8').read().find(' ' + v + ':'))
+    for i in range(0, len(vs), 7):
+        keys = ','.join('%s__%s' % (v, t) for v in vs[i:i + 7] for t in tags)
+        subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), d, os.path.join(W, 'pairsheet_%d.jpg' % (i // 7)), str(len(tags)), '400', keys])
 elif a[0] == 'sheet':
     subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), *a[1:]])
 elif a[0] == 'status':
     d = LAY
     done = [x for x in os.listdir(d) if os.path.exists(os.path.join(d, x, 'done'))] if os.path.isdir(d) else []
     log = json.load(open(os.path.join(d, 'bake_log.json'))) if os.path.exists(os.path.join(d, 'bake_log.json')) else {}
-    print(len(done), '/ 52 done', 'avg %.0fs' % (sum(v['sec'] for v in log.values()) / max(1, len(log))))
+    print(len(done), '/ 58 done', 'avg %.0fs' % (sum(v['sec'] for v in log.values()) / max(1, len(log))))

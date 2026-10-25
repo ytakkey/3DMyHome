@@ -35,7 +35,7 @@ def room_of(x, y, z):
         return 'bed'
     return 'wic' if z < 5.4 else 'study'
 DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50, 2.85, 5.0, 4.05, 5.65), 'SG33s': (0.30, 1.30, 2.85, 5.0, 6.33, 7.17)}   # x0,x1,y0,y1,z0,z1
-VMAX, VSMALL, VFACE = 1.2, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 1.2m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物）
+VMAX, VSMALL, VFACE = 2.3, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 2.3m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物。ソファは頂点＝縫い目の黒い線が出ない、ベッド 2.4m はライトマップ＝頂点だと日なたの縁がギザギザ）
 VEDGE = 0.04                            # 頂点で焼く物は、辺を 4cm 以下に分ける（大きな面の中の明るさの変化を拾う）
 def vlit(o, bb):
     dim = max(max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3))
@@ -43,7 +43,7 @@ def vlit(o, bb):
         return True
     if dim > VMAX:
         return False
-    me = o.data; me.calc_loop_triangles(); mw = o.matrix_world
+    me = o.data; me.calc_loop_triangles(); mw = o.matrix_world   # 大きさによらず、丸みのある物（面が細かい物）は頂点で（ソファの縫い目のような UV の島の境に黒い線が出ていた。2026-10-25）
     if len(me.polygons) < 40:
         return False
     area = sum(((mw @ me.vertices[t.vertices[1]].co) - (mw @ me.vertices[t.vertices[0]].co)).cross((mw @ me.vertices[t.vertices[2]].co) - (mw @ me.vertices[t.vertices[0]].co)).length / 2 for t in me.loop_triangles)
@@ -176,7 +176,7 @@ def prep(out):
             for p in me.polygons:
                 n = (mw.to_3x3() @ p.normal).normalized(); c = mw @ p.center
                 fl = 2.9 if (g in ('bed', 'wic', 'study', 'hall') or g.startswith('door_')) else 0.0
-                coarse = n.z < -0.5 or (c.z - fl) > 2.0
+                coarse = n.z < -0.5 or ((c.z - fl) > 2.0 and n.z > 0.5)   # 天井・下向きの面と、高い所の上向きの面だけ粗く（壁は高い所も細かく：ブラケットの光が四角く出ていた。2026-10-25）
                 a = p.area * (COARSE ** 2 if coarse else 1.0)
                 area += a
                 if coarse:
@@ -214,7 +214,8 @@ def prep(out):
 COMBOS = {'bdl': DOORS, 'bbr': DOORS, 'sky_bed': DOORS, 'sun_bed': DOORS,
           'j1': ['SG311', 'SG500w'], 'l1': ['SG500w', 'SG311'],
           'k1': ['SG33s'], 'sky_study': ['SG33s'], 'sun_study': ['SG33s'], 'sky_void': ['SG311'],
-          'h1': [], 'sun_void': [], 'sky_ldk1F': [], 'sun_ldk1F': []}
+          'h1': [], 'sun_void': [], 'sky_ldk1F': [], 'sun_ldk1F': [],
+          'a1': [], 'a2': [], 'a3': [], 'a4': [], 'a5': [], 'a6': []}   # LDK の照明（2026-10-25 追加。光は 2階廊下・吹抜けと SG311 の周りまで）
 def atlases(src, op):
     """光源と開いたドアの組から、焼くアトラス（光の届く部屋とドアの周り）"""
     o311, o500, o33 = 'SG311' in op, 'SG500w' in op, 'SG33s' in op
@@ -275,12 +276,21 @@ def bake_main(outdir, samples, only):
             o.data.materials[i] = mc
     # 物体ごとの、UV が覆う画素（範囲の外を周りの値で埋めるとき・ノイズ除去の前に使う）
     cover = {}
+    lab = {g: np.full((res[g], res[g]), -1, np.int32) for g in names}   # 画素ごとの UV の島の番号（ならす処理を島の中だけにする）
+    from bpy_extras.mesh_utils import mesh_linked_uv_islands
+    nisl = 0
     for o in objs:
         r = res[o['atlas']]; me = o.data; me.calc_loop_triangles()
         uv = np.zeros(len(me.loops) * 2, dtype=np.float32); me.uv_layers['LM'].data.foreach_get('uv', uv); uv = uv.reshape(-1, 2) * r
         m = np.zeros((r, r), bool)
         tl = np.zeros(len(me.loop_triangles) * 3, dtype=np.int32); me.loop_triangles.foreach_get('loops', tl)
-        for tri in uv[tl].reshape(-1, 3, 2):
+        pid = np.zeros(len(me.polygons), np.int32)
+        for k, isl in enumerate(mesh_linked_uv_islands(me)):
+            pid[isl] = nisl + k
+        nisl = max(nisl, int(pid.max()) + 1) if len(pid) else nisl
+        tp = np.zeros(len(me.loop_triangles), dtype=np.int32); me.loop_triangles.foreach_get('polygon_index', tp)
+        L = lab[o['atlas']]
+        for ti, tri in enumerate(uv[tl].reshape(-1, 3, 2)):
             lo = np.maximum(np.floor(tri.min(0)).astype(int), 0); hi = np.minimum(np.ceil(tri.max(0)).astype(int), r)
             if hi[0] <= lo[0] or hi[1] <= lo[1]:
                 continue
@@ -288,10 +298,18 @@ def bake_main(outdir, samples, only):
             A, B_, C = tri
             d = lambda P, Q: (Q[0] - P[0]) * (ys - P[1]) - (Q[1] - P[1]) * (xs - P[0])
             w0, w1, w2 = d(B_, C), d(C, A), d(A, B_)
-            m[lo[1]:hi[1], lo[0]:hi[0]] |= ((w0 >= 0) & (w1 >= 0) & (w2 >= 0)) | ((w0 <= 0) & (w1 <= 0) & (w2 <= 0))
+            inside = ((w0 >= 0) & (w1 >= 0) & (w2 >= 0)) | ((w0 <= 0) & (w1 <= 0) & (w2 <= 0))
+            m[lo[1]:hi[1], lo[0]:hi[0]] |= inside
+            L[lo[1]:hi[1], lo[0]:hi[0]][inside] = pid[tp[ti]]
         for _ in range(2):
             m = m | np.roll(m, 1, 0) | np.roll(m, -1, 0) | np.roll(m, 1, 1) | np.roll(m, -1, 1)
         cover[o.name] = m
+    os.makedirs(os.path.join(outdir, '_labels'), exist_ok=True)
+    for g in names:
+        np.save(os.path.join(outdir, '_labels', g + '.npy'), lab[g])
+    for o in vobjs:   # 頂点で焼く物の辺（画像に変えるときに、つながった頂点どうしでならす）
+        e = np.empty(len(o.data.edges) * 2, np.int64); o.data.edges.foreach_get('vertices', e)
+        np.save(os.path.join(outdir, '_labels', 'V_' + o['atlas'] + '_edges.npy'), e.reshape(-1, 2).astype(np.int32))
     print('atlases', res, flush=True)
 
     def fill(a, m):   # 押し引き法：範囲の外を、範囲の中の値をなだらかに広げて埋める
@@ -383,7 +401,7 @@ def bake_main(outdir, samples, only):
             q = px.reshape(r, r, 4).astype(np.float64)
             q[:, :, :3] = fill(q[:, :, :3], m); q[:, :, 3] = 1
             q = denoise(q.astype(np.float32).ravel(), r).reshape(r, r, 4)
-            lux = np.maximum(q[:, :, :3], 0) * math.pi / bc.LM2W
+            lux = np.maximum(q[:, :, :3], 0) * math.pi / bc.LM2W   # ならす処理は画像に変えるとき（lm_images.py。島の番号は <出力>/_labels）
             np.save(os.path.join(ld, g + '.npy'), lux.astype(np.float16))
         vt = [o for o in vobjs if o['atlas'] in A]   # 頂点で焼く物
         if vt:

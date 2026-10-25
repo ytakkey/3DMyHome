@@ -20,6 +20,14 @@ LAMPS = {
  'h1': [('down', (4.43, H2, z), DL) for z in (4.35, 5.51)],                                             # H1×2 階段の上 RMW(P1)
  'l1': [('down', ((0.455 + 2.16) / 2 + 0.12, FL2 + 2.4, (3.6375 + 5.3425) / 2), DL)],                  # L1 ウォークイン RMN(P1)
  'k1': [('down', ((0.455 + 2.16) / 2, FL2 + 2.4, (5.4575 + 7.16) / 2), DL)],                            # K1 書斎 RMW(P1)
+ # LDK（js/ldk.js の位置。2026-10-25 追加：夜の LDK が真っ暗だったため）。'aim'：向き（x,y,z）・広がり（度）・発光面の径の円形の面光源、'bulb'：球の点光源（半径）
+ 'a1': [('down', (x, 2.4, 1.0), DL) for x in (2.63, 3.53, 4.30)],                                       # A1×3 キッチン通路 RMW(P1) 440lm
+ 'a4': [('down', (1.79, 2.4, z), DL) for z in (5.825 - 0.75, 5.825 + 0.75)],                             # A4×2 リビング RMW(P1)
+ 'a3': [('aim', (x, 2.3 - 0.006, 2.22), 326, (0, -1, 0), 40, 0.07) for x in (2.75, 3.53)],               # A3×2 下がり天井 SLD1035LLB1 326lm 集光40度
+ 'a6': [('aim', (0.455 - 0.06 + 0.5, 2.4 - 0.009, z), 320, (0.455 - 0.2 - 0.895, 0.5 - 2.39, 0), 55, 0.074) for z in (5.825 - 0.75, 5.825 + 0.75)],   # A6×2 テレビ前のウォールウォッシャ SLD1310VLB1 320lm（壁へ向けて傾ける）
+ 'a2': [('aim', (2.275 + 0.0815, 2.45 + d * 0.0345, z - x), 620, (0, d, 0), 62, 0.066) for z in (5.825 - 0.75, 5.825 + 0.75) for x, d in ((-0.07, 1), (0.07, -1))] +
+       [('aim', (4.05 - x, 2.45 + d * 0.0345, 7.16 - 0.0815), 620, (0, d, 0), 62, 0.066) for x, d in ((-0.07, 1), (0.07, -1))],   # A2×3 吹抜けの壁付けスポット RSP2W(K1) 1灯620lm（上下に1灯ずつ）
+ 'a5': [('bulb', (x, 0.70 + 0.75 + 0.0475, 2.12), 350, 0.0475) for x in (1.065, 1.415, 1.765)],           # A5×3 ペンダント OP252618LC＋ボール球Φ95 350lm
 }
 # 窓の組：窓の名前の頭（build_house.py の window() の名前）
 WINS = {'bed': ['FK2442a', 'FK2442b'], 'study': ['FK2442s'], 'void': ['FF2442E', 'FF2442S'], 'ldk1F': ['FF2020', 'FK2042', 'F8671']}
@@ -90,8 +98,19 @@ def setup(samples=128, devices=('HIP', 'CPU')):
 def add_lamps(sc):
     lamps = {}
     for g, ls in LAMPS.items():
-        for kind, p, lm in ls:
-            parts = [((0, 0, 0), 'DISK', 0.07, lm, (p[0], p[1] - 0.0075, p[2]))] if kind == 'down' else \
+        for t in ls:
+            kind, p, lm = t[:3]
+            if kind == 'bulb':   # 電球：球の点光源
+                ld = bpy.data.lights.new('L_' + g, type='POINT'); ld.shadow_soft_size = t[3]; ld.energy = lm * LM2W
+                lo = bpy.data.objects.new('lamp_' + g, ld); lo.location = B(*p); sc.collection.objects.link(lo); lamps.setdefault(g, []).append(lo)
+                continue
+            if kind == 'aim':    # 向きと広がりのある円形の面光源（Blender の面光源は -Z 向き）
+                d = B(*t[3]).normalized()
+                ld = bpy.data.lights.new('L_' + g, type='AREA'); ld.shape = 'DISK'; ld.size = t[5]; ld.energy = lm * LM2W; ld.spread = math.radians(t[4])
+                lo = bpy.data.objects.new('lamp_' + g, ld); lo.location = B(*p); lo.rotation_euler = (-d).to_track_quat('Z', 'Y').to_euler()
+                sc.collection.objects.link(lo); lamps.setdefault(g, []).append(lo)
+                continue
+            parts =[((0, 0, 0), 'DISK', 0.07, lm, (p[0], p[1] - 0.0075, p[2]))] if kind == 'down' else \
                     [((math.pi, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] + 0.0375, p[2])), ((0, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] - 0.0375, p[2]))]
             for rot, shape, size, l, pos in parts:
                 ld = bpy.data.lights.new('L_' + g, type='AREA'); ld.shape = shape; ld.size = size; ld.energy = l * LM2W
