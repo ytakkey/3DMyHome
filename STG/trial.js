@@ -52,11 +52,12 @@ function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribut
 const sRGB=h=>new THREE.Color(h).convertSRGBToLinear();
 const UNI={uE:{value:EXPO.day},uG:{value:GAM.day}};   // 明るさの幅を縮める式の露出と指数（すべての材質で共有）
 const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
-function patchMat(m,vl){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
- sh.fragmentShader='uniform float uE;uniform float uG;'+CMP+sh.fragmentShader;
- if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor);');
+function patchMat(m,vl,vo){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+CMP+sh.fragmentShader;
+ if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
+ if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
  else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL(lightMapTexelToLinear(lightMapTexel).rgb*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
- m.customProgramCacheKey=()=>'cmp'+(vl?1:0);return m;}
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0);return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 
 // ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
@@ -120,7 +121,7 @@ async function recompose(){const v=++ver,st=cur(),t0=performance.now();const ite
  const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));if(v!==ver)return false;
  const acc={};for(const g in VMESH)acc[g]=new Float32Array(((IDX.vn||{})[g]||0)*3);   // 頂点で焼く物：アトラスごとに点の明るさ（lux）を CPU で足す
  items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255;a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
- for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid,o=m.orig;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=(a[b]||0)*(o?o[j*3]:1);c[j*3+1]=(a[b+1]||0)*(o?o[j*3+1]:1);c[j*3+2]=(a[b+2]||0)*(o?o[j*3+2]:1);}m.col.needsUpdate=true;});
+ for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=a[b]||0;c[j*3+1]=a[b+1]||0;c[j*3+2]=a[b+2]||0;}m.col.needsUpdate=true;});
  const t1=performance.now(),ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;
  for(const g in IDX.res){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
   items.forEach((it,i)=>{if(it.v||it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
@@ -143,10 +144,12 @@ function setupModel(root){const mc=new Map();
   if(!u){o.material=glassMat;return;}
   const vl=!!u.vlit,key=m.uuid+'|'+u.atlas+'|'+vl;let nm=mc.get(key);
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
-   const ca=g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,orig=m.vertexColors&&ca?Float32Array.from({length:n*3},(_,j)=>ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs):null;   // 元の頂点の色（あれば明るさに掛ける）
-   const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,orig});}
-  if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||m.vertexColors,side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl);mc.set(key,nm);}
+   const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
+   if(g.attributes.color_1)g.deleteAttribute('color_1');if(orig)g.setAttribute('vorig',new THREE.BufferAttribute(orig,3));
+   const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id});}
+  const vo=vl&&!!o.geometry.attributes.vorig;
+  if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo);mc.set(key,nm);}
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
