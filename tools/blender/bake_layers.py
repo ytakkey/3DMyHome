@@ -57,6 +57,34 @@ def subdivide(o, maxlen):
         bmesh.ops.subdivide_edges(bm, edges=long, cuts=1, use_grid_fill=True)
         bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
     bm.to_mesh(o.data); bm.free()
+def widen_thin(objs, need=3):
+    """細い面（ドアの見込み・巾木の上面・丸い角の帯など）の UV の島を、細い向きにだけ広げて画素が need 個以上かかるようにする。
+    1画素より細い面は画素の中心が面に乗らず焼けないまま黒くなっていた（2026-10-26）。島の主な向きは UV の点の分布（主成分）で"""
+    from bpy_extras.mesh_utils import mesh_linked_uv_islands
+    wa = sum(sum(p.area for p in o.data.polygons) * abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3) for o in objs)
+    ua = uv_area(objs)
+    if ua <= 0:
+        return
+    k = math.sqrt(wa / ua)   # UV の1 → 実寸（m）
+    n = 0
+    for o in objs:
+        me = o.data; uvl = me.uv_layers['LM'].data
+        uv = np.zeros(len(me.loops) * 2, np.float32); uvl.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+        for isl in mesh_linked_uv_islands(me):
+            li = np.array([l for pi in isl for l in me.polygons[pi].loop_indices])
+            q = uv[li].astype(np.float64); c = q.mean(0); d = q - c
+            if len(q) < 3:
+                continue
+            w, v = np.linalg.eigh(d.T @ d)
+            ax = v[:, 0]   # 細い向き
+            t = d @ ax; e = (t.max() - t.min()) * k
+            if e >= need * TEXEL or e <= 0:
+                continue
+            sc = min(need * TEXEL / e, 40.0)
+            uv[li] = c + d + np.outer(t * (sc - 1), ax)
+            n += 1
+        uvl.foreach_set('uv', uv.ravel())
+    print('uvdbg widened islands', n, flush=True)
 def door_of(x, y, z):
     for k, (x0, x1, y0, y1, z0, z1) in DOORBOX.items():
         if x0 <= x <= x1 and y0 <= y <= y1 and z0 <= z <= z1:
@@ -183,6 +211,7 @@ def prep(out):
                     for li in p.loop_indices:
                         uvl[li].uv = uvl[li].uv * COARSE
         res = int(math.ceil(math.sqrt(area / TEXEL ** 2 / 0.6) / 64) * 64); res = max(256, min(2048, res))
+        widen_thin(objs)   # 粗くした後で（先に広げると、下向きの面を粗くしたときにまた1画素より細くなり、ほかの島の明るい値で埋まっていた）
         print('uvdbg', g, 'before pack', uv_area(objs), flush=True)
         def uvmax():
             return max(max(max(d.uv.x, d.uv.y) for d in o.data.uv_layers['LM'].data) for o in objs)
@@ -256,6 +285,18 @@ def bake_main(outdir, samples, only):
     sky = bc.add_sky_sun(sc)
     objs = [o for o in bpy.data.objects if 'atlas' in o and o['atlas'] != 'exterior' and 'vlit' not in o]
     vobjs = [o for o in bpy.data.objects if 'vlit' in o]
+    # 頂点で焼く物：焼くときだけ、頂点を面の内側へ 2mm 寄せる（面の端の頂点は床やとなりの部品に接していて、光の線が当たって真っ黒になっていた。
+    # 焼いた blend は保存しないので形は変わらない。2026-10-26）
+    for o in vobjs:
+        me = o.data; co = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+        acc = np.zeros_like(co); cnt = np.zeros(len(co))
+        for p in me.polygons:
+            c = np.array(p.center)
+            for v in p.vertices:
+                acc[v] += c; cnt[v] += 1
+        tgt = acc / np.maximum(cnt, 1)[:, None]; d = tgt - co; L = np.linalg.norm(d, axis=1)
+        ks = np.minimum(0.002 / np.maximum(L, 1e-9), 0.3) * (cnt > 0)
+        me.vertices.foreach_set('co', (co + d * ks[:, None]).ravel())
     names = sorted({o['atlas'] for o in objs})
     imgs, res = {}, {}
     for g in names:

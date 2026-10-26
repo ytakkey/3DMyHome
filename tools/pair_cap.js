@@ -28,7 +28,15 @@ var PAIRV={   // 名前：[目, 見る点, 視野角]（three.js の座標）
  ldk_ceil:[[2.4,1.2,4.8],[2.4,2.4,3.0],85],
  stool:[[3.5,1.3,4.2],[3.5,0.6,2.69],60],
  downlight:[[-0.47,4.6,4.7],[-0.47,5.3,5.44],70],
- aircon:[[-1.0,4.4,5.0],[-1.67,4.94,3.64],60]};
+ aircon:[[-1.0,4.4,5.0],[-1.67,4.94,3.64],60],
+ tvboard:[[1.5,0.7,5.6],[0.6,0.3,5.9],50],
+ table:[[2.2,1.3,2.9],[1.4,0.72,2.1],50],
+ kettle:[[3.3,1.5,1.2],[3.3,1.0,0.25],45],
+ ac_side:[[-0.6,4.6,4.3],[-1.25,4.95,3.75],40],
+ jamb33s_in:[[-0.3,3.4,6.3],[0.36,3.2,6.95],60],
+ bb_sg11h:[[1.2,0.7,4.0],[0.46,0.05,4.5],60],
+ bed_corner:[[0.3,3.3,5.2],[-0.2,3.35,5.6],50],
+ stool_top:[[3.23,1.1,3.1],[3.23,0.64,2.69],45]};
 async function pairCap(tag,W=960,H=540,only,night=false){const trial=typeof T!=='undefined';
  if(trial)await T.set({night,LS:Object.fromEntries(Object.keys(LS).map(k=>[k,night])),DS:{sg311:true,sg500w:true,sg33s:true}});
  else{setNight(night);setAll(night);['sg311','sg500w','sg33s'].forEach(k=>{if(!DS[k]){DS[k]=true;updMove();showDoor(k);if(k==='sg311'){doorZones();updateLights();}}});}

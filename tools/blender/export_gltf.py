@@ -54,6 +54,10 @@ for mn, cnt in found.items():
     if g != '-':
         bpy.data.materials[mn]['lamp'] = g
     print('emit', mn, cnt, flush=True)
+# 頂点の色を使う材質（本番で vertexColors の物＝電気ケトル）に印。ページは印のある材質だけ元の頂点の色を掛ける（glTF の読み込みは色の属性があれば全部の材質で頂点の色を使ってしまう）
+for m in bpy.data.materials:
+    if m.node_tree and any(n.type in ('VERTEX_COLOR', 'ATTRIBUTE') for n in m.node_tree.nodes):
+        m['vcol'] = 1
 # 使われている材質の確認（くり抜きの面の V_* が残っていないか）
 used = {}
 for o in bpy.data.objects:

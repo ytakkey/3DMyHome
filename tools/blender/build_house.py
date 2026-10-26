@@ -161,7 +161,7 @@ box('K_wainscot', OX - 0.01, OX + 0.1, FL2 - 0.01, FL2 + 1.0, OZ - 0.01, OZ + BD
 # ===== 4. ドア・窓 =====
 DOOR_GAPS = []    # 幅木を止める所（平面の範囲）
 def gap(wl, u0, u1):
-    a, b = wl.p(u0, 0, -0.2), wl.p(u1, 0, 0.05)
+    a, b = wl.p(u0, 0, -0.2), wl.p(u1, 0, 0.013)   # 部屋の側は巾木の厚さ（12）まで（5cm にしていたので、隣の直角の壁の巾木の端まで止めて途切れていた。2026-10-26）
     DOOR_GAPS.append((min(a[0], b[0]), max(a[0], b[0]), min(a[2], b[2]), max(a[2], b[2]), a[1]))   # 最後は床の高さ（ほかの階の巾木を止めない）
 def cut(wl, name, u0, u1, y0, y1, w0, w1, m='frame'):
     return wl.box('C_' + name, u0, u1, y0, y1, w0, w1, m, 'cut_open')
@@ -493,6 +493,53 @@ if GLB:
             b = m.node_tree.nodes.get('Principled BSDF')
             if b and not b.inputs['Base Color'].is_linked:
                 m.diffuse_color = b.inputs['Base Color'].default_value
+# ===== 9b. 家具の部品どうしで同じ平面に重なった面を離す（2026-10-26） =====
+# 本番は同じ材質・同じ光なので重なっても見えないが、焼き込みでは面ごとに明るさが違うので、深さの奪い合いでチラチラし、星形の模様が出る
+# （エアコンの丸い所の円柱のふたと箱の側面、スツールの重ねた円柱など）。貼り物（本番で描画を手前に出す材質＝decal）は 1.5mm 手前へ、
+# それ以外は小さい方の面（隠れる側）を 1.5mm 奥へ動かす
+def separate_coplanar():
+    objs = [o for o in COLS['furniture'].objects if o.type == 'MESH']
+    tris, owner = [], []
+    for oi, o in enumerate(objs):
+        me = o.data; mw = o.matrix_world; me.calc_loop_triangles()
+        for t in me.loop_triangles:
+            tris.append([mw @ me.vertices[v].co for v in t.vertices]); owner.append((oi, t.polygon_index))
+    if not tris:
+        return
+    bvh = BVHTree.FromPolygons([v for t in tris for v in t], [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tris))], epsilon=0.0)
+    farea = {}
+    for oi, o in enumerate(objs):
+        mw = o.matrix_world; sc = abs(mw.to_3x3().determinant()) ** (2 / 3)
+        for p in o.data.polygons:
+            farea[(oi, p.index)] = p.area * sc
+    moved = 0
+    for oi, o in enumerate(objs):
+        me = o.data; mw = o.matrix_world; nm = mw.to_3x3(); inv = nm.inverted()
+        disp = {}
+        for p in me.polygons:
+            m = me.materials[p.material_index] if p.material_index < len(me.materials) else None
+            decal = bool(m and m.get('decal'))
+            n = (nm @ p.normal).normalized(); c = mw @ p.center
+            for loc, pn, i, d in bvh.find_nearest_range(c, 0.0008):
+                oj, fj = owner[i]
+                if oj == oi or pn.normalized().dot(n) < 0.999:
+                    continue
+                if decal:
+                    step = 0.0015
+                elif farea[(oi, p.index)] < farea[(oj, fj)] - 1e-9 or (abs(farea[(oi, p.index)] - farea[(oj, fj)]) <= 1e-9 and oi > oj):
+                    step = -0.0015
+                else:
+                    continue
+                for v in p.vertices:
+                    disp.setdefault(v, []).append(n * step)
+                moved += 1
+                break
+        for v, ds in disp.items():
+            me.vertices[v].co += inv @ (sum(ds, Vector()) / len(ds))
+    print('coplanar faces moved', moved, flush=True)
+if GLB:
+    separate_coplanar()
+
 # ===== 10. 本番の材質（色・柄・柄の向きと大きさ）を移す =====
 # 本番の建物の部品（tools/export の exportBuilding → building.glb。柄の繰り返し・回転は UV に焼き込み済み）から、面ごとに一番近い同じ向きの本番の三角形を探し、
 # その材質と、三角形の UV を面の上へ延ばした UV（平面の上で一次の式）を付ける。見つからない面（2cm 以内に無い）は上の仮の色のまま
@@ -570,9 +617,11 @@ def apply_prod():
         for p in me.polygons:
             n = (nm @ p.normal).normalized(); c = mw @ (inner[p.index][1] if p.index in inner else p.center)
             best = None   # 同じ向きの面だけ（裏向きの面＝扉や見込みの下の面などを拾わない）。近くの面を順に見る
-            for d in (0.0005, 0.003):   # 面の中の点から少し部屋の側に出た点で探す
-                for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, lim), key=lambda t: t[3]):
-                    if pn.normalized().dot(n) > 0.9:
+            floor = o is solid and n.z > 0.9   # 床：柄のある本番の材質（床材）だけ。ドアの開口の床が近くの白い部品の材質を拾って白い帯になっていた
+            for d, lm in ((0.0005, lim), (0.003, lim), (0.003, 0.2 if floor else lim)):   # 面の中の点から少し部屋の側に出た点で探す（床は見つからなければ 20cm まで）
+                for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, lm), key=lambda t: t[3]):
+                    a0, a1, a2 = tris[i][0]
+                    if pn.normalized().dot(n) > 0.9 and (a1 - a0).cross(a2 - a0).length > 4e-4 and                        (not floor or (tris[i][2] and tris[i][2].node_tree and any(nd.type == 'TEX_IMAGE' for nd in tris[i][2].node_tree.nodes))):   # 2cm² 未満の小さな三角形は柄の向きと大きさがくずれる
                         best = tris[i]; break
                 if best:
                     break
