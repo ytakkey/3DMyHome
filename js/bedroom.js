@@ -49,7 +49,7 @@ const S={shadeP:0,zoneLights:[[dls,['bed','hallNearBed']],[brs,['bed','hallNearB
  setShade(p){S.shadeP=p;applyShades(myShades,p);},
  applyEnv(night){const f=night?1:0.3,dOn=LS.bdl,bOn=LS.bbr;dlMat.color.set(dOn?DLON:(night?0x2a2927:0xa8a6a1));brGlow.color.set(bOn?BRGLOW:0x3a3a3a);dls.forEach(p=>p.intensity=dOn?DLI*f:0);brs.forEach(p=>p.intensity=bOn?BRI*f:0);   // 点灯状態は LS（全体の照明の状態）から
   fillEnv(BF,night,dayRatio(myWins,S.shadeP));myWins.forEach(w=>w.light.intensity=night?0:w.I*w.t);},
- home(){look(OX+2.42,OY+EYE,OZ+3.31,OX+0.2,OY+0.85,OZ,85);}};
+ home(){view(OX+2.42,OY,OZ+3.31,OX+0.2,OZ,85);}};
 return S;}
 
 function rbox(g,w,h,d,r,x,y,z,m,rx){const k=6,ns=2*k+2,hs=[w/2,h/2,d/2],geo=new THREE.BoxGeometry(1,1,1,ns,ns,ns),p=geo.attributes.position,nm=geo.attributes.normal,uv=geo.attributes.uv,nf=(ns+1)*(ns+1);   // すべての辺と角を同じ半径rで丸めた箱（辺の近くに頂点を集め、法線は丸めた面から計算）

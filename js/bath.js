@@ -96,5 +96,5 @@ return {zoneLights:[[bls,['bath']]],
   ifOpenObs('bath',[bathB-0.095,bathB+0.065,0,HOUSE.ldk.H1,DZ0-0.0475-0.77,DZ0-0.0475])],              // 浴室のドア（開）：吊元（東）の軸から浴室側へ95°開いた扉（長さ約0.77、タオル掛けを含む厚さ）
  applyEnv(night){const f=night?1:0.3,off=night?0x2a2927:0xa8a6a1;bls.forEach(l=>l.intensity=LS.bath?0.8*f:0);blEm.color.set(LS.bath?0xf6f8ff:off);   // ダウンライト（D1と同じ明るさ）
   const k=night?(LS.bath?0.8:0.06):1;waterM.reflectivity=0.12*k;},
- viewBath(){look(X0+1.15,EYE,Z1-WM,X0+0.55,1.05,Z0+0.15,85);}};}   // 浴室（仮）：南の壁ぎわ、浴槽とドアの間（開いたドアにかからない位置）から北西（浴槽・カウンター）を見る   // 映り込みの明るさ：昼・夜の点灯・夜の消灯
+ viewBath(){view(X0+1.15,0,Z1-WM,X0+0.55,Z0+0.15,85);}};}   // 浴室（仮）：南の壁ぎわ、浴槽とドアの間（開いたドアにかからない位置）から北西（浴槽・カウンター）を見る   // 映り込みの明るさ：昼・夜の点灯・夜の消灯
 

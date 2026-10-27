@@ -372,9 +372,9 @@ const S={zoneLights:[[myWins.map(w=>w.light),['wash']],[[d1],['sen','senNE']],[[
   entDL.forEach(o=>o.sp.intensity=LS[o.k]?0.8*f:0);['eh','ec','ek'].forEach(k=>entEm[k].color.set(LS[k]?0xffe2b8:off));   // 玄関：ホール（B2）・廊下（B1）・収納（F1）
   b3L.intensity=LS.eh?0.35*f:0;b3Glass.emissive.set(LS.eh?0xffb066:0x000000);b3Glass.opacity=LS.eh?0.9:0.42;b3Fil.color.set(LS.eh?0xffe08a:0x8a6a3a);   // 玄関：ホール（B3のブラケット。B2と同じスイッチ。点灯時のガラスは光の色＝2400K）
   g1L.intensity=LS.g1?0.35*312/350*f:0;g1M.glass.emissive.set(LS.g1?0x3a2c20:0x000000);g1M.bulb.emissive.set(LS.g1?0xffd8a8:0x000000);g1M.led.color.set(LS.g1?0xfff4e0:0x8a8478);},   // トイレ：ペンダント（G1）。明るさはB3（350lm）と同じ換算で312lm
- viewWash(){look(SX1-WM,EYE,SZ1-WM,SX1-WM-2.16,0.9,SZ1-WM-2.08,85);},   // 洗面脱衣：洗面所の南東の角（入口SG33の前。移動で近づける限界＝壁から WM）から北西を見る。ドアが開いていれば、洗面所・脱衣室・浴室がすべて入る
- viewEntry(){look(-0.75,EYE,6.95,-0.6,0.85,4.0,80);},   // 玄関（仮）：土間の玄関ドアの前から北（ホール・廊下）を見る
- viewToilet(){look(-1.6,EYE,4.68,-1.95,0.5,6.1,85);}};   // トイレ（仮）：北東の角から南西（便器・カウンター収納）を見る
+ viewWash(){view(SX1-WM,0,SZ1-WM,SX1-WM-2.16,SZ1-WM-2.08,85);},   // 洗面脱衣：洗面所の南東の角（入口SG33の前。移動で近づける限界＝壁から WM）から北西を見る。ドアが開いていれば、洗面所・脱衣室・浴室がすべて入る
+ viewEntry(){view(-0.75,0,6.95,-0.6,4.0,80);},   // 玄関（仮）：土間の玄関ドアの前から北（ホール・廊下）を見る
+ viewToilet(){view(-2.02,0,4.65,-1.75,6.25,85);}};   // トイレ：北西の角（カウンター収納の前）から南南東（便器・カウンター収納）を見る。北東の角では開けたSG500の扉が前をふさいでいた
 return S;}
 
 // ハンドシャワー：KVK hadamo ウルトラファインバブルシャワーヘッド PZS370（メッキの本体＋濃いグレーの散水板。寸法図と製品写真から）

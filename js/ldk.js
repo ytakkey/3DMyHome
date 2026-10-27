@@ -385,11 +385,13 @@ const pends=[];
 
 // テレビ（75インチ・壁掛け）とテレビボード（W2000×H200×D295・フロート）：ドアを除いたテレビ設置面の中心に配置
 const TVC=(TVZ+D)/2;
-const bdWood=tmat(tjC,{specular:0x222222,shininess:20}),bdDark=P({color:0x6e6a66});   // TJ-10239K
-box(0.295,0.2,2.0,TVX+0.1475,0.30,TVC,bdDark);
-[-1,0,1].forEach(k=>box(0.006,0.154,0.649,TVX+0.298,0.30,TVC+k*0.6536,bdWood));
-box(0.006,0.023,2.0,TVX+0.298,0.2115,TVC,bdWood);box(0.006,0.023,2.0,TVX+0.298,0.3885,TVC,bdWood);
-box(0.006,0.154,0.0196,TVX+0.298,0.30,TVC-0.9902,bdWood);box(0.006,0.154,0.0196,TVX+0.298,0.30,TVC+0.9902,bdWood);   // 両端の縦の帯は上下の帯の間だけ（角で重ねない）
+const bdWood=tmat(tjC,{specular:0x222222,shininess:20});   // TJ-10239K（本体も前板もダイニングテーブルと同じ柄。本体を無地の灰色にしていた。2026-10-27）
+const bdBox=(w,h,d,x,y,z)=>{const b=box(w,h,d,x,y,z,bdWood),uv=b.geometry.attributes.uv,S=1.2,fs=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];   // 柄の大きさを面の大きさに合わせる（箱の UV は面ごとに 0〜1 なので、細い板では柄が伸びていた）。S：柄1枚の長さ(m)
+ for(let i=0;i<uv.count;i++){const [fu,fv]=fs[i>>2];uv.setXY(i,uv.getX(i)*fu/S,uv.getY(i)*fv/S);}return b;};
+bdBox(0.295,0.2,2.0,TVX+0.1475,0.30,TVC);
+[-1,0,1].forEach(k=>bdBox(0.006,0.154,0.649,TVX+0.298,0.30,TVC+k*0.6536));
+bdBox(0.006,0.023,2.0,TVX+0.298,0.2115,TVC);bdBox(0.006,0.023,2.0,TVX+0.298,0.3885,TVC);
+bdBox(0.006,0.154,0.0196,TVX+0.298,0.30,TVC-0.9902);bdBox(0.006,0.154,0.0196,TVX+0.298,0.30,TVC+0.9902);   // 両端の縦の帯は上下の帯の間だけ（角で重ねない）
 box(0.04,0.962,1.672,TVX+0.055,0.61+0.481,TVC,0x121212);
 {const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.94),P({color:0x07070a,specular:0x555555,shininess:90}));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0775,1.091,TVC);s.add(sc);}
 // テレビ前のウォールウォッシャダウンライト A6：パナソニック SLD1310VLB1 ×2（拡散タイプのウォールウォッシャ。LEDが壁向きに傾いていて壁面を照らす・温白色3500K・320lm・埋込穴φ75）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm
@@ -482,8 +484,8 @@ const S={shadeP:0,
   kdl.forEach(p=>p.intensity=on('a3')?1.3*f:0);kdlEm.color.set(on('a3')?0xffe2b8:(f===1?0x222120:0x6a665e));},              // キッチン：下がり天井（A3）
  applyEnv(night){S.lights(night?1:0.3);const k=dayRatio(myWins,S.shadeP);fillEnv(F,night,k);myWins.forEach(w=>w.light.intensity=night?0:w.I*w.t);
   if(night){sc.background.set(0x141c28);ceilMat.emissive.setScalar(0.045);}else{sc.background.set(0xdfe9f2);ceilMat.emissive.setScalar(0.06+0.16*k);}},
- viewLiv(){look(3.84,EYE,6.95,0.56,1.05,3.18,85);},
- viewHall(){look(4.57,FL2+EYE,3.18,-0.6,FL2+1.05,3.18,80);},
- viewKit(){look(4.67,EYE,0.8,1.29,0.95,2.93,85);}};
+ viewLiv(){view(3.84,0,6.95,0.56,3.18,85);},
+ viewHall(){view(4.6,FL2,3.0,0.5,4.4,85);},   // 2F廊下：東の端（階段の上）から西南西。吹抜けの窓・手摺・廊下が入る（前は廊下の壁ばかりだった）
+ viewKit(){view(4.67,0,0.8,1.29,2.93,85);}};
 return S;}
 
