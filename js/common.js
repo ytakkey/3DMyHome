@@ -6,7 +6,7 @@ document.body.prepend(r.domElement);
 const cam=new THREE.PerspectiveCamera(85,window.innerWidth/window.innerHeight,0.05,80);cam.rotation.order='YXZ';
 const R=Math.random,WARM=0xffc68e,FIT=0xfbfbf9;
 // ===== 寸法データ（m）。座標：X=東、Z=南、原点はLDK北西の室内側の角。部屋を足すときはここに追加する =====
-const EYE=1.2;   // 視点（各部屋のショートカット）の目の高さ（どの視点も、その階の基本の床から。玄関も土間ではなくホールの床から）
+const EYE=1.2,VDOWN=6*Math.PI/180;   // 視点（各部屋のショートカット）の目の高さ（どの視点も、その階の基本の床から。玄関も土間ではなくホールの床から）と、見下ろす角度（どの視点も同じ。2026-10-27）
 const HOUSE={
  ldk:{W:4.885,D:7.16,H1:2.4,FL2:2.9,H2:5.3,   // 幅・奥行・1階天井・2階床・吹抜けの天井
   VX:2.275,VZ:3.58,                          // 吹抜けの西端（X5 の壁芯＋57.5＝ウォークイン・書斎との壁の吹抜け側の面。図面から）・北端

@@ -2,6 +2,7 @@
 const $=id=>document.getElementById(id);
 let night=false,yaw=0,pitch=0;
 function look(px,py,pz,tx,ty,tz,f){cam.position.set(px,py,pz);cam.fov=f;cam.updateProjectionMatrix();const d=new THREE.Vector3(tx-px,ty-py,tz-pz);yaw=Math.atan2(-d.x,-d.z);pitch=Math.atan2(d.y,Math.hypot(d.x,d.z));draw();}
+function view(px,fy,pz,tx,tz,f){look(px,fy+EYE,pz,tx,fy+EYE-Math.tan(VDOWN)*Math.hypot(tx-px,tz-pz),tz,f);}   // 視点のショートカット：床の高さ fy から目の高さ EYE、(tx,tz) の向きを VDOWN だけ見下ろす
 function draw(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.render(scene,cam);}
 function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribute('role')==='switch'?'aria-checked':(el.getAttribute('role')==='tab'?'aria-selected':'aria-pressed'),on);}
 let ready=false;

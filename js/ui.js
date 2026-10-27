@@ -20,8 +20,8 @@ function tapAt(x,y){cam.rotation.set(pitch,yaw,0);cam.updateMatrixWorld();rcast.
 ready=true;
 function applyEnvAll(){envAll();updateLights();draw();}
 function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100)+'%閉';}
-// 視点（リビング・キッチン・寝室・2F廊下・洗面脱衣・浴室・玄関・トイレ）
-const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()],['洗面脱衣',()=>washS.viewWash()],['浴室',()=>bathS.viewBath()],['玄関',()=>washS.viewEntry()],['トイレ',()=>washS.viewToilet()]];
+// 視点（リビング・キッチン・寝室・WIC・書斎・2F廊下・洗面脱衣・浴室・玄関・トイレ）
+const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['WIC',()=>stS.viewWic()],['書斎',()=>stS.viewStudy()],['2F廊下',()=>ldkS.viewHall()],['洗面脱衣',()=>washS.viewWash()],['浴室',()=>bathS.viewBath()],['玄関',()=>washS.viewEntry()],['トイレ',()=>washS.viewToilet()]];
 {const vr=$('viewRow');vr.innerHTML='';VIEWS.forEach(([lb,fn])=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});}   // 視点を選んだらパネルを閉じる
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}   // 動いたら、バーの視点の名前を消す
 function setView(lb){VIEWS.find(v=>v[0]===lb)[1]();$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
