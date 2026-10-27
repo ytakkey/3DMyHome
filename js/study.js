@@ -120,7 +120,7 @@ const S={shadeP:0,zoneLights:[[[l1.sp],['wic']],[[k1.sp],['study']],[myWins.map(
   ifOpen('sg500w',[WX0-T-WM-0.01,WX0+WM+0.01,OY+0.2,OY+1.95,(WZ0+WZ1)/2-0.3,(WZ0+WZ1)/2+0.3]),ifOpen('sg33s',[WX0-T-WM-0.01,WX0+WM+0.01,OY+0.2,OY+1.95,SZ1-0.795+0.08,SZ1-0.08])],   // 入口（開いたドア）
  obs:[[WX0,WX1,OY,OY+H+0.1,WZ0,WZ0+0.45],[WX1-0.45,WX1,OY,OY+H+0.1,WZ0,WZ1],[WX0,WX1,OY,OY+H+0.1,WZ1-0.45,WZ1]],   // ウォークインの棚（北・東・南。奥行450、床から天井まで）
  setShade(p){S.shadeP=p;applyShades(myShades,p);},
- viewWic(){view(WX0+0.165,OY,WZ1-0.4925,WX1,WZ0+0.1125,90);},   // ウォークイン：入口の南の角（南の棚の手前）から北東の角へ（北・東の棚とパイプ）。扉は寝室側を走るので開け閉めに関係しない
+ viewWic(){view(WX0+0.165,OY,WZ0+0.4925,WX1,WZ1-0.1125,90);},   // ウォークイン：入口の北の角（北の棚の手前）から南東の角へ（東・南の棚とパイプ）。扉は寝室側を走るので開け閉めに関係しない
  viewStudy(){view(SX1-0.16,OY,SZ1-0.16,SX0+0.245,SZ0+0.2425,85);},   // 書斎：南東の角から北西（デスク・チェア・モニターと入口）。扉が開く範囲（南西の角）から離す
  applyEnv(night){const f=night?1:0.3,off=night?0x2a2927:0xa8a6a1;l1.sp.intensity=LS.l1?0.8*f:0;l1.em.color.set(LS.l1?0xf6f8ff:off);k1.sp.intensity=LS.k1?0.8*f:0;k1.em.color.set(LS.k1?0xfff1e0:off);
   dayRatio(myWins,S.shadeP);myWins.forEach(w=>w.light.intensity=night?0:w.I*w.t);const e=ceilMat.emissive.r/0.98;wicC.emissive.setRGB(161/255*e,171/255*e,183/255*e);stC.emissive.setRGB(145/255*e,148/255*e,148/255*e);}};   // 天井の明るさは寝室・LDKの天井（ceilMat）と同じ割合（LDKの applyEnv の後に呼ぶ）
