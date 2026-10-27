@@ -211,7 +211,7 @@ def door_outset(name, wl, a, b, h, T, R):
     cut(wl, name + '_open', a1, b1, -E, h, -T - E, E)
     c0, c1 = min(a1 - ov, a1 - ov + R * w), max(b1 + ov, b1 + ov + R * w)
     wl.box(name + '_rail', c0 - 0.015, c1 + 0.015, h + 0.012, h + 0.062, 0, 0.05, 'casing', 'fixtures')
-    gap(wl, c0, c1)   # 幅木は扉の動く範囲では付けない（開けた扉が幅木に当たるため）
+    gap(wl, a1, b1)   # 幅木は開口だけ止める（本番と同じ。扉の動く範囲まで止めていたので、閉じた扉の横で途切れていた。2026-10-27）
     def leaf(cname, u0):
         wl.box(name + '_leaf', u0, u0 + R * (w + 2 * ov), 0, h + 0.012, 0, PK_DOOR, 'door', cname)
         hx = u0 + R * 0.07
@@ -539,6 +539,77 @@ def separate_coplanar():
     print('coplanar faces moved', moved, flush=True)
 if GLB:
     separate_coplanar()
+
+# ===== 9c. 家具の部品が別の部品に3mm以上めり込んだ所を切り取る（2026-10-27） =====
+# 本番は見えないので問題ないが、焼き込みではめり込んだ所が真っ黒に焼け、その黒がとなりの見える所へにじむ
+# （掛け布団の下の丸い縁がマットレスの側面に埋まっていて、縁に黒い線が出ていた）。閉じた形どうしだけ、元の形で引き算する
+def cut_buried():
+    objs = [o for o in COLS['furniture'].objects if o.type == 'MESH' and len(o.data.polygons) >= 6]
+    def closed(o):
+        bm = bmesh.new(); bm.from_mesh(o.data); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        ok = all(len(e.link_faces) == 2 for e in bm.edges); bm.free(); return ok
+    objs = [o for o in objs if closed(o)]
+    def opaque(o):
+        for m in o.data.materials:
+            b = m and m.node_tree and next((n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+            if b and (b.inputs['Alpha'].is_linked or b.inputs['Alpha'].default_value < 0.999 or (b.inputs['Transmission Weight'].default_value if 'Transmission Weight' in b.inputs else 0) > 0.01):
+                return False
+        return True
+    def wbvh(o):
+        me = o.data; mw = o.matrix_world
+        return BVHTree.FromPolygons([mw @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons], epsilon=0.0)
+    trees = {o.name: wbvh(o) for o in objs}
+    box = {o.name: [o.matrix_world @ Vector(c) for c in o.bound_box] for o in objs}
+    def bb(o):
+        b = box[o.name]; return [min(v[i] for v in b) for i in range(3)], [max(v[i] for v in b) for i in range(3)]
+    pairs = []
+    for a in objs:
+        (a0, a1) = bb(a); mw = a.matrix_world; vs = [mw @ v.co for v in a.data.vertices]
+        for b in objs:
+            if b is a:
+                continue
+            (b0, b1) = bb(b)
+            if not opaque(b):   # 透ける物（ガラスなど）の中は見えるので切らない
+                continue
+            if any(a1[i] < b0[i] or b1[i] < a0[i] for i in range(3)) or not trees[a.name].overlap(trees[b.name]):
+                continue
+            tb = trees[b.name]; deep = 0
+            for p in vs:
+                loc, n, _, d = tb.find_nearest(p)
+                if loc is not None and (p - loc).dot(n) < -0.003:
+                    deep += 1
+            if deep:
+                pairs.append((a, b))
+    if not pairs:
+        print('buried cut 0', flush=True); return
+    orig = {}
+    for a, b in pairs:
+        if b.name not in orig:
+            c = b.copy(); c.data = b.data.copy(); c.name = '_cut_' + b.name; orig[b.name] = c
+    done = []
+    for a, b in pairs:
+        c = orig[b.name]; COLS['furniture'].objects.link(c)
+        n0 = len(a.data.polygons)
+        md = a.modifiers.new('cut', 'BOOLEAN'); md.operation = 'DIFFERENCE'; md.solver = 'EXACT'; md.object = c
+        bpy.context.view_layer.objects.active = a
+        dg = bpy.context.evaluated_depsgraph_get(); me = bpy.data.meshes.new_from_object(a.evaluated_get(dg))
+        a.modifiers.remove(md); COLS['furniture'].objects.unlink(c)
+        # 切り口のふた（相手の面の上に乗る面）も消す：隠れていて黒く焼け、となりの見える面へにじむので
+        bm = bmesh.new(); bm.from_mesh(me); mw = a.matrix_world; tb = trees[b.name]
+        cap = [f for f in bm.faces if tb.find_nearest(mw @ f.calc_center_median())[3] < 0.0005]
+        bmesh.ops.delete(bm, geom=cap, context='FACES'); bm.to_mesh(me); bm.free()
+        if len(me.polygons) == 0:   # 全部埋まっている物は切らない（形が消える）
+            bpy.data.meshes.remove(me); continue
+        mats = [m for m in a.data.materials]; a.data = me
+        if not me.materials:
+            for m in mats:
+                me.materials.append(m)
+        done.append('%s-%s %d>%d' % (a.name, b.name, n0, len(me.polygons)))
+    for c in orig.values():
+        bpy.data.objects.remove(c)
+    print('buried cut', len(done), '; '.join(done[:40]), flush=True)
+if GLB:
+    cut_buried()
 
 # ===== 10. 本番の材質（色・柄・柄の向きと大きさ）を移す =====
 # 本番の建物の部品（tools/export の exportBuilding → building.glb。柄の繰り返し・回転は UV に焼き込み済み）から、面ごとに一番近い同じ向きの本番の三角形を探し、

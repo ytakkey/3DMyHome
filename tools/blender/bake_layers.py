@@ -112,7 +112,13 @@ def prep(out):
         if mn == 'exterior':
             g = 'exterior'
         else:
-            d = door_of(x, y, z) if mn == 'frame' else None
+            d = door_of(x, y, z)
+            n = f.normal
+            if d and mn != 'frame':   # 開口の見込み（壁に直角な面と上の面）も扉のアトラスへ。本番の材質を写すと 'frame' でなくなり、向こうの部屋のアトラスに入って閉じたとき真っ黒だった（2026-10-27）
+                wn = abs(n.y) if d == 'SG311' else abs(n.x)   # 壁の向きの成分
+                fc = f.calc_center_median()
+                if wn > 0.1 or n.z > 0.1 or (d == 'SG33s' and fc.x > 0.47):   # 書斎の箱は開いた扉のため奥まであるので、壁の厚さの中だけ
+                    d = None
             g = 'door_' + d if d else room_of(x, y, z)
         group.setdefault(g, []).append(f.index)
     bm.to_mesh(bld.data); bm.free()
