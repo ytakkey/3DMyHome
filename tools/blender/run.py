@@ -39,7 +39,7 @@ elif a[0] == 'review':   # 焼いた層の確認：夜（照明すべて・廊�
         subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), out, os.path.join(W, 'view', 'review_' + st + '.jpg'), '4', '480'])
 elif a[0] == 'build':   # 建物を作り、家具と本番の材質を付ける：bake/work/export/furniture.glb・building.glb → bake/work/blender/house.blend
     r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'build_house.py'), '--', os.path.join(W, 'export', 'furniture.glb'), os.path.join(W, 'blender', 'house.blend')], capture_output=True, text=True, encoding='utf-8', errors='replace')
-    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('BUILDING', 'prod materials', 'no building', 'DONE', '  File'))))
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('BUILDING', 'prod materials', 'no building', 'DONE', '  File', 'buried cut'))))
 elif a[0] == 'prep':   # 焼き込みの準備（アトラスと UV）：house.blend → bake_uv.blend
     blender(os.path.join(W, 'blender', 'house.blend'), 'bake_layers.py', 'prep', os.path.join(W, 'blender', 'bake_uv.blend'))
 elif a[0] == 'bake':   # 焼く：bake [サンプル数] [層,...]（済んだ層は飛ばす）。bake fresh <サンプル数>：前の結果を lm_old_<時刻> へ移してから全部焼く

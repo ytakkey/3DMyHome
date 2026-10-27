@@ -149,7 +149,7 @@ function setupModel(root){const mc=new Map();
    const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id});}
   const vo=vl&&!!o.geometry.attributes.vorig;
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo);mc.set(key,nm);}
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
@@ -180,7 +180,7 @@ let VIEWS=[];
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}
 function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 function buildUI(){
- const vr=$('viewRow');vr.innerHTML='';['寝室','2F廊下','リビング','キッチン'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
+ const vr=$('viewRow');vr.innerHTML='';['寝室','WIC','書斎','2F廊下','リビング','キッチン'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
  const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
  $('roomLbl').textContent='焼いた照明';$('tAllRooms').hidden=true;
