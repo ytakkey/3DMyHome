@@ -95,8 +95,9 @@ document.querySelectorAll('#move button[data-k]').forEach(b=>b.addEventListener(
 r.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 document.addEventListener('contextmenu',e=>e.preventDefault());
 const keyMap={ArrowUp:'f',KeyW:'f',ArrowDown:'b',KeyS:'b',ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',KeyE:'u',PageUp:'u',KeyQ:'d',PageDown:'d'};
-window.addEventListener('keydown',e=>{const k=keyMap[e.code];if(!k)return;e.preventDefault();keys[k]=1;startMove();});
-window.addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0;});
+const shiftMap={ArrowUp:'u',ArrowDown:'d'};   // Shift＋↑／↓：上下に移動
+window.addEventListener('keydown',e=>{const k=(e.shiftKey&&shiftMap[e.code])||keyMap[e.code];if(!k)return;e.preventDefault();if(shiftMap[e.code])keys[e.shiftKey?keyMap[e.code]:shiftMap[e.code]]=0;keys[k]=1;startMove();});   // 押したまま Shift を変えたら、もう片方の動きは止める
+window.addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0;if(shiftMap[e.code])keys[shiftMap[e.code]]=0;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});
 
 // ドラッグで見回し、ピンチ・ホイールで拡大縮小
