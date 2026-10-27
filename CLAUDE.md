@@ -3,7 +3,7 @@
 一条工務店で建築中の新居を、ブラウザで歩き回れる3Dビューにしたもの。再現範囲は1階（LDK・脱衣室・洗面所・廊下・玄関・トイレ・浴室）＋吹抜け＋2階（廊下・主寝室・ウォークイン・書斎）。
 
 - **いまの本番**：three.js r128 で、家を JavaScript のコードで1枚ずつ組み立てている。照明は光源ごとに届く範囲を箱で指定する作り。オフラインでも動く
-- **いまの作業**：Blender で建物を作り直し、焼いた光を three.js で表示する（1章）。寝室・WIC・書斎・2階廊下・LDK の試作を検証ページ STG/ で確かめている。ユーザーの指摘は4回直した。次は見た目と、実機での重さ・メモリの確認（ユーザー）
+- **いまの作業**：Blender で建物を作り直し、焼いた光を three.js で表示する（1章）。寝室・WIC・書斎・2階廊下・LDK の試作を検証ページ stg/ で確かめている。ユーザーの指摘は4回直した。次は見た目と、実機での重さ・メモリの確認（ユーザー）
 - **部屋ごとの製品・寸法・位置・素材は js/*.js のコメントと `HOUSE`（js/common.js）に書いてある（そちらが正）**。図面・照明仕様書・カタログの元のファイルは手元に無い（会話で受け取って js に反映済み）。作り直しで足りない物はユーザーにもらう
 
 ## 1. いまの作業：Blender で作り直し、焼いた光を表示する
@@ -35,10 +35,10 @@
 ### 作る流れ（道具）
 - Blender の作業は `python -I tools/blender/run.py <サブコマンド> <短い引数>` の1行で動かす（4章「許可待ちで作業を止めない」の手段。足りない処理は run.py に足す）。サブコマンドの一覧と引数は run.py の各行のコメント
 - 本番の書き出し：`tools/export/index.html`（本番とは別のページ）を devserver で開く。本番の js をそのまま読み、`Object3D.add` を包んで部品ごとにコードの行を記録し、`export.js` の `BLD`（建物の行の一覧）で建物と家具を分ける。js の行が変わったら `survey()` で `BLD` を見直す
-  - `await exportFurniture()` → bake/work/export/furniture.glb（GLTFExporter は `tools/export/GLTFExporter.js`。three@0.128.0 の examples/js）、`exportBuilding()` → building.glb（建物の材質と UV を移す元）、`exportMove()` → STG/move.json（移動範囲と視点）
+  - `await exportFurniture()` → bake/work/export/furniture.glb（GLTFExporter は `tools/export/GLTFExporter.js`。three@0.128.0 の examples/js）、`exportBuilding()` → building.glb（建物の材質と UV を移す元）、`exportMove()` → stg/move.json（移動範囲と視点）
   - **本番を変えたら、書き出しからやり直す**（書き出しが本番のコミットより前だと STG に入らない）
 - `run.py build`（build_house.py）：家全体を囲む固まりから部屋の空間・開口・戸袋をくり抜き（Boolean の Exact）、面を部屋ごとに床・天井・壁に振り分ける。範囲の外の部屋は詰まった固まりのまま、そこへのドアは閉じた扉だけ。建具・窓・幅木・階段は bpy で作る。手すり・キッチンのパネル・シェード・コンセント・エアコンは書き出した物。Blender の座標は (x, −z, y)
-- `run.py prep`（bake_layers.py）：アトラスと UV。`run.py bake`：bake/work/lm へ焼く（lux の RGB、float16 の npy）。`run.py gltf`（export_gltf.py）：STG/house.glb（uv＝元の柄、uv2＝ライトマップ）。`run.py lmimg rgbm 1 stg`（lm_images.py）：npy → STG/lm/ の画像
+- `run.py prep`（bake_layers.py）：アトラスと UV。`run.py bake`：bake/work/lm へ焼く（lux の RGB、float16 の npy）。`run.py gltf`（export_gltf.py）：stg/house.glb（uv＝元の柄、uv2＝ライトマップ）。`run.py lmimg rgbm 1 stg`（lm_images.py）：npy → stg/lm/ の画像
 - 確認：`run.py review`・`view`（Blender で撮る）、check_shots.py（Workbench。家具・建具が建物に2mm以上入っている所を check.json に）、`sheet`（並べて1枚に）
 - 仮：外壁の厚さ（室内面から外の面まで200）・1階の床の下200・2階の天井の上300
 - js との違い（判断）：8mm の見込みは固まりの開口の面で置き換え（引き戸の戸袋側の見込みは光を止めるので残す）、扉は開口の面に接する、戸袋の奥の端の見込みは5mm、2階の収納の折れ戸の開口は廊下の幅いっぱい
@@ -53,8 +53,9 @@
 - **画像は RGBM・原寸**（2026-10-21 ユーザー。比較：bake/work/trial_compare.jpg。半精度と見分けられない）。画像に変えるとき、UV の島の中で明るさが近い隣の画素どうしを 3×3 で50回ならし（幅 0.45、対数2の底）、最後に軽く2回ぼかす。頂点も辺でつながったものどうしをならす（島の番号は `_labels/`）
 - 半精度の上限（65504 lux）を超える画素が日なたに出る。家全体で焼くときは保存の前に割っておく
 
-### 検証ページ STG/（本番とは別）
-- STG/index.html・trial.js（three.js r128＋GLTFLoader.js）。表示は色・柄×ライトマップ（lux）を、照度を 露出×(照度/露出)^γ にしてから AgX（`CustomToneMapping`）。昼は露出 2500 lux・γ 0.6、夜は 700 lux・γ 0.75（`?ed ?en ?gd ?gn` で変えられる）
+### 検証ページ stg/（本番とは別）
+- フォルダ名は小文字の stg（2026-10-27 ユーザー。公開の URL は大文字・小文字を区別する）。Windows で大文字・小文字だけ変える改名は git mv を2段階（一時名を挟む）
+- stg/index.html・trial.js（three.js r128＋GLTFLoader.js）。表示は色・柄×ライトマップ（lux）を、照度を 露出×(照度/露出)^γ にしてから AgX（`CustomToneMapping`）。昼は露出 2500 lux・γ 0.6、夜は 700 lux・γ 0.75（`?ed ?en ?gd ?gn` で変えられる）
 - 状態（照明・ドア3枚・昼夜・シェード）が変わったときだけ、要る層をアトラスごとの半精度の画像（lux/32）へ GPU で足し合わせる。頂点の層は `_VID` で引いて CPU で足す。層の画像は要るときに取得し、PNG は自前で読む（ブラウザの読み込みは透明度で色を丸める端末がある）。GPU の層は128MB・取得済みのファイルは64MBまで
 - 照明の色：焼き込みは白い光なので、ページで層に色温度の色を掛ける（O1・O2・J1・A3＝2700K、H1・K1・A1・A2・A4・A6＝3500K、L1＝5000K、A5＝2400K。4章の色を線形にして明るさ1に）。点灯した器具の発光面＝3000 lux 相当。電球（A5）は本番と同じ 0xffb066 で、ガラスは夜の露出の0.5倍・フィラメントは0.9倍
 - 仮：夜の月明かり＝空の層×1/1000 を青く、ldk1F の窓の組はまとめてシェードで弱める
@@ -251,7 +252,7 @@
 | js/ui.js | 移動範囲・ドアの開閉・メニュー・視点 `VIEWS`・照明のボタン `LG` |
 | tools/ | devserver.py（確認用サーバー）・audit（形の点検）・cap.js／shotat.js／survey.js／pair_cap.js（画像を撮る道具）・export（本番の書き出し）・blender（1章） |
 
-- 公開：GitHub ytakkey/3DMyHome（main のルート）→ https://ytakkey.github.io/3DMyHome/ 、検証ページは /STG 。**コミットと push は Claude Code が行う**。作業フォルダ：`C:\Users\Yuhei\MyApp\Claude\3DMyHome`。`_test/`・`bake/work/` は確認用（.gitignore 済み）
+- 公開：GitHub ytakkey/3DMyHome（main のルート）→ https://ytakkey.github.io/3DMyHome/ 、検証ページは /stg 。**コミットと push は Claude Code が行う**。作業フォルダ：`C:\Users\Yuhei\MyApp\Claude\3DMyHome`。`_test/`・`bake/work/` は確認用（.gitignore 済み）
 - どれも普通のスクリプト（ESモジュールではない。file:// で開けるように）。トップレベルの `const`／`function` はファイルをまたいで共有される。**関数の巻き上げはファイルをまたがない**
 - **1行に複数の文を詰めて書いているので、行の途中に `//` を足すと後ろの処理が消える**。コメントは行末だけ。編集のあとは `python -I tools/audit/checkcomments.py js/*.js` で確かめる
 - 1つのシーンに全部屋。すべての部屋を家全体の座標で作る。描画は動いたときだけ（`draw()`）

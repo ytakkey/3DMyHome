@@ -21,7 +21,7 @@ function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].fo
  meshes().forEach(o=>{const m=o.material;if(m&&!Array.isArray(m)&&m.polygonOffset)m.userData.decal=1;});   // 貼り物（描画で手前に出す材質＝decalMat）の印。Blender で面を少し手前へ出す
  pick().forEach(o=>{const k=site(frames(o.userData.src)),m=new THREE.Mesh(o.geometry,o.material);o.matrixWorld.decompose(m.position,m.quaternion,m.scale);cnt[k]=(cnt[k]||0)+1;m.name=k.replace(':','_')+'_'+cnt[k];out.add(m);});
  return new Promise(res=>new THREE.GLTFExporter().parse(out,glb=>save('furniture.glb',glb).then(()=>res(out.children.length)),{binary:true}));}
-// 検証ページ（STG/）用：移動範囲・通れない所（ui.js の MBA・MOA と同じ）と、視点（リビング・キッチン・寝室・2F廊下）→ bake/work/export/move.json
+// 検証ページ（stg/）用：移動範囲・通れない所（ui.js の MBA・MOA と同じ）と、視点（リビング・キッチン・寝室・2F廊下）→ bake/work/export/move.json
 function exportMove(){const J=b=>({b:[...b],door:b.door,shut:b.shut,opn:b.opn}),V={};
  [['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()],['WIC',()=>stS.viewWic()],['書斎',()=>stS.viewStudy()]].forEach(([n,f])=>{f();V[n]=[cam.position.x,cam.position.y,cam.position.z,yaw,pitch,cam.fov];});
  return save('move.json',JSON.stringify({boxes:[...ldkS.boxes,...stS.boxes,...washS.boxes,...bathS.boxes].map(J),obs:[...ldkS.obs,...stS.obs,...washS.obs,...bathS.obs].map(J),wallMargin:HOUSE.wallMargin,DS,views:V}));}

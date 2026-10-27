@@ -1,4 +1,4 @@
-# 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（STG/）用に glTF で書き出す
+# 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（stg/）用に glTF で書き出す
 # 使い方：blender -b bake_uv.blend -P tools/blender/export_gltf.py -- <出力の .glb>（run.py gltf）
 #  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・頂点で焼く物（V_<アトラス>。頂点の番号 _VID 付き）・窓のガラス（*_glass）
 #  UV：1つ目＝元の柄の UV（UVMap。無い物は 0 の UV を足す）、2つ目＝ライトマップの UV（LM）→ glTF の TEXCOORD_0／TEXCOORD_1（three.js の uv／uv2）
