@@ -11,20 +11,45 @@ const EXPO={day:+Q.get('ed')||2500,night:+Q.get('en')||700};   // 白（反射�
 const GAM={day:+Q.get('gd')||0.6,night:+Q.get('gn')||0.75};   // 明るさの幅を縮める：照度を 露出×(照度/露出)^GAM にする（明るさだけ。暗い所の黒つぶれ・明るい所の白飛びを抑える。E7。見る場所によらず同じ式＝D1）
 // 照明の色（色温度。4章「照明」の色を線形にして明るさ1にそろえる）：焼き込みは白い光なので、層に掛ける
 const KC=h=>{const c=new THREE.Color(h).convertSRGBToLinear(),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return [c.r/y,c.g/y,c.b/y];},K2700=KC(0xffc68e),K3500=KC(0xffd9b4),K5000=KC(0xfff3e8),K2400=KC(0xffb066);
-const TINT={bdl:K2700,bbr:K2700,j1:K2700,h1:K3500,k1:K3500,l1:K5000,a1:K3500,a2:K3500,a4:K3500,a6:K3500,a3:K2700,a5:K2400};   // O1・O2・J1・A3 は 2700K、H1・K1・A1・A2・A4・A6 は 3500K、L1 は 5000K、A5（ペンダントの電球）は 2400K（js のコメント）
+const TINT={bdl:K2700,bbr:K2700,j1:K2700,h1:K3500,k1:K3500,l1:K5000,a1:K3500,a2:K3500,a4:K3500,a6:K3500,a3:K2700,a5:K2400,
+ d1:K5000,e1:K3500,eh:K2700,b3:K2400,ec:K2700,ek:K2700,g1:K2700,bath:K5000};   // O1・O2・J1・A3・B1・B2・F1・G1 は 2700K、H1・K1・A1・A2・A4・A6・E1（温白色）は 3500K、L1・D1・浴室は 5000K、A5・B3（電球）は 2400K（js のコメント）
+const WITH={eh:['b3'],g1:['g1d']};   // 一緒に点く層（玄関ホールのボタンで B2 のダウンライトと B3 のブラケット、トイレで G1 の反射した光とまっすぐ届く光）
+TINT.g1d=K2700;
+// G1（トイレのペンダント）の揺らいだ光（F4。本番の js/lighting.js の cauTex・cauF と同じ）：まっすぐ届く光（g1d。ガラスなしで焼いた層）に、
+// 光源から見た向きで模様を掛ける（下の口から出る光はそのまま、ガラスを通る光は透過率×模様、真上はソケットの陰、口の縁の向きは明るい帯）
+const CAU={p:[-2.1225,1.628,5.9525],k:[0.441,0.97,0.85,0.8]};
+const cauImg=(()=>{const W=512,H=256,img=new Uint8Array(W*H*4);let sd=7;const rnd=()=>(sd=sd*16807%2147483647)/2147483647;
+ const pts=(N,seed)=>{sd=seed;const o=[];for(let i=0;i<N;i++){const y=rnd()*2-1,a=rnd()*Math.PI*2,r=Math.sqrt(1-y*y);o.push([r*Math.cos(a),y,r*Math.sin(a)]);}return o;};
+ const warp=(v,A,f,ph)=>[v[0]+A*Math.sin(f*(1.1*v[1]+0.7*v[2])+ph),v[1]+A*Math.sin(f*(0.9*v[2]+0.8*v[0])+ph*1.7),v[2]+A*Math.sin(f*(1.2*v[0]+0.6*v[1])+ph*2.3)];
+ const layer=(P,v,A1,A2)=>{let w=warp(warp(v,A1,4.5,1.0),A2,11.0,2.0);const l=Math.hypot(...w);w=w.map(c=>c/l);let d1=-2,d2=-2;for(let n=0;n<P.length;n++){const p=P[n],d=p[0]*w[0]+p[1]*w[1]+p[2]*w[2];if(d>d1){d2=d1;d1=d;}else if(d>d2)d2=d;}return Math.sqrt(Math.max(0,2-2*d2))-Math.sqrt(Math.max(0,2-2*d1));};
+ const PA=pts(170,7),PB=pts(70,11);
+ for(let j=0;j<H;j++){const el=(j+0.5)/H*Math.PI-Math.PI/2;if(el<-0.85||el>1.45)continue;const cy=Math.sin(el),ce=Math.cos(el);
+  for(let i=0;i<W;i++){const az=(i+0.5)/W*Math.PI*2-Math.PI,v=[ce*Math.cos(az),cy,ce*Math.sin(az)],ea=layer(PA,v,0.07,0.018),eb=layer(PB,v,0.08,0.02);
+   const val=Math.min(1,Math.max(Math.exp(-((ea/0.018)**2)),0.35*Math.exp(-((eb/0.03)**2)))+0.15*Math.exp(-ea/0.05)),k=(j*W+i)*4;img[k]=img[k+1]=img[k+2]=Math.round(val*255);img[k+3]=255;}}
+ return {W,H,img};})();
+const cauTex=(()=>{const t=new THREE.DataTexture(cauImg.img,cauImg.W,cauImg.H,THREE.RGBAFormat);t.wrapS=THREE.RepeatWrapping;t.magFilter=t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;t.needsUpdate=true;return t;})();
+const ss=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+function cauF(x,y,z){const dx=x-CAU.p[0],dy=y-CAU.p[1],dz=z-CAU.p[2],l=Math.hypot(dx,dy,dz)||1,d=[dx/l,dy/l,dz/l],K=CAU.k;   // 頂点で焼く物の分（CPU。シェーダーの cauF と同じ式）
+ const u=Math.atan2(d[2],d[0])*0.1591549+0.5,v=Math.asin(Math.max(-1,Math.min(1,d[1])))*0.3183099+0.5,i=((Math.floor(u*cauImg.W)%cauImg.W)+cauImg.W)%cauImg.W,j=Math.min(cauImg.H-1,Math.max(0,Math.floor(v*cauImg.H))),p=cauImg.img[(j*cauImg.W+i)*4]/255;
+ const cd=-d[1],op=ss(K[0]-0.015,K[0]+0.015,cd),gl=K[2]*(0.3+1.6*p)*(1-ss(K[1]-0.02,K[1]+0.01,d[1])),rim=K[3]*Math.exp(-(((cd-K[0]+0.02)/0.03)**2))*(0.5+p);return gl*(1-op)+op+rim;}
+const CAUGL=`uniform sampler2D uCau;uniform sampler2D uCauT;uniform vec3 uCauP;uniform vec4 uCauK;varying vec3 vWC;
+float cauF(){vec3 d=normalize(vWC-uCauP);float p=texture2D(uCauT,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;
+ float cd=-d.y,op=smoothstep(uCauK.x-0.015,uCauK.x+0.015,cd),gl=uCauK.z*(0.3+1.6*p)*(1.0-smoothstep(uCauK.y-0.02,uCauK.y+0.01,d.y)),rim=uCauK.w*exp(-pow((cd-uCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}
+`;
 const MOON=1/1000,MOONC=[0.6,0.7,1.0];   // 夜の月明かり：空の層を弱めて青く（仮）
 const EMIT=3000;   // 点灯している照明器具の発光面の明るさ（lux 相当。仮）
 const SHADE_T=p=>1-0.5*p;   // シェードを閉めた割合 p で、その窓から入る光の割合（閉めても5割通す）
-// 焼いた層の組み合わせ（bake_layers.py の COMBOS と同じ）。層の名前＝光源@ドアの開閉（関係するドアだけ）
-const COMBOS={bdl:['SG311','SG500w','SG33s'],bbr:['SG311','SG500w','SG33s'],sky_bed:['SG311','SG500w','SG33s'],sun_bed:['SG311','SG500w','SG33s'],
- j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311'],h1:[],sun_void:[],sky_ldk1F:[],sun_ldk1F:[],a1:[],a2:[],a3:[],a4:[],a5:[],a6:[]};
-const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F'];
+// 焼いた層の組み合わせ（光源→関係するドア。bake_layers.py の COMBOS を lm/index.json の combos で受け取る）。層の名前＝光源@ドアの開閉（関係するドアだけ）
+let COMBOS={};
+const D3=['SG311','SG500w','SG33s'],OLDC={bdl:D3,bbr:D3,sky_bed:D3,sun_bed:D3,j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311']};   // combos の無い一覧（寝室の試作のとき）
+const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F','sky_dress','sun_dress'];
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
-const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]]];   // 照明のボタン（焼いた照明だけ。並びは本番の js/ui.js の LG と同じ）
-const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:false,k1:false};
-const DS={sg311:false,sg500w:false,sg33s:false};   // 試作のドア（ほかのドアは閉じたまま）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
+const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],
+ ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];   // 照明のボタン（並びは本番の js/ui.js の LG と同じ）
+const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:false,k1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:false,bath:false};
+const DS={sg311:false,sg500w:false,sg33s:false,sg300l:false,sg300w:false,bath:false,sg33:false,sg11h:false,sg500:false};   // ドアの開閉（キーは本番の DS と同じ）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
 if(Q.get('doors')==='open')for(const k in DS)DS[k]=true;
-const dk=d=>d.toLowerCase();
+const dk=d=>d==='BATHD'?'bath':d.toLowerCase();   // 焼き込みのドアの名前 → DS のキー
 let night=false,shadeP=0,yaw=0,pitch=0,ready=false;
 
 // ===== 描画の準備。表示の色＝反射率×照度÷露出を AgX で（Blender の確認の表示と同じ見え方）=====
@@ -52,12 +77,14 @@ function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribut
 const sRGB=h=>new THREE.Color(h).convertSRGBToLinear();
 const UNI={uE:{value:EXPO.day},uG:{value:GAM.day}};   // 明るさの幅を縮める式の露出と指数（すべての材質で共有）
 const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
-function patchMat(m,vl,vo){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
- sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+CMP+sh.fragmentShader;
+function patchMat(m,vl,vo,cg){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ if(cg){sh.uniforms.uCau={value:compRT('c:'+cg).texture};sh.uniforms.uCauT={value:cauTex};sh.uniforms.uCauP={value:new THREE.Vector3(...CAU.p)};sh.uniforms.uCauK={value:new THREE.Vector4(...CAU.k)};   // cg：G1 のまっすぐ届く光のアトラス
+  sh.vertexShader='varying vec3 vWC;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWC=(modelMatrix*vec4(transformed,1.0)).xyz;');}
+ sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+(cg?CAUGL:'')+CMP+sh.fragmentShader;
  if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
  if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
- else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL(lightMapTexelToLinear(lightMapTexel).rgb*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
- m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0);return m;}
+ else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(cg||'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 
 // ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
@@ -98,7 +125,7 @@ function evict(keep){
 
 // ===== 足し合わせ：アトラスごとの半精度の画像へ、層を重み付きで足す（GPU で1回ずつ）=====
 const comp={};   // アトラス → 描画先（WebGLRenderTarget）
-function compRT(g){if(!comp[g]){const n=IDX.res[g];comp[g]=new THREE.WebGLRenderTarget(n,n,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false});comp[g].texture.generateMipmaps=false;}return comp[g];}
+function compRT(g){if(!comp[g]){const n=IDX.res[g.replace(/^c:/,'')];comp[g]=new THREE.WebGLRenderTarget(n,n,{type:THREE.HalfFloatType,format:THREE.RGBAFormat,minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:false,stencilBuffer:false});comp[g].texture.generateMipmaps=false;}return comp[g];}
 const cScene=new THREE.Scene(),cCam=new THREE.Camera();
 const cMat=new THREE.ShaderMaterial({uniforms:{t:{value:null},mode:{value:1},w:{value:new THREE.Vector3()},p:{value:new THREE.Vector2()}},
  vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
@@ -110,20 +137,20 @@ void main(){vec4 c=texture2D(t,vUv);vec3 v;
  gl_FragColor=vec4(v*w,1.0);}`,
  blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,depthTest:false,depthWrite:false});
 {const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cMat);m.frustumCulled=false;cScene.add(m);}
-function layerName(src,ds){return src+'@'+(COMBOS[src].map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
+function layerName(src,ds){return src+'@'+((COMBOS[src]||[]).map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
 function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
- Object.keys(LS).forEach(k=>{if(st.LS[k])add(k,1,TINT[k]);});
- NATURAL.forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
- const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w}:{g,e:ent[g],w});});return items;}
+ Object.keys(LS).forEach(k=>{if(st.LS[k])[k,...(WITH[k]||[])].forEach(q=>add(q,1,TINT[q]));});
+ NATURAL.filter(s=>IDX.layers[layerName(s,st.DS)]).forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
+ const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);const c=L.startsWith('g1d@');for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w,c}:{g:c?'c:'+g:g,e:ent[g],w});});return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
 let ver=0,shown=null,stat={};
 async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st);
  const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));if(v!==ver)return false;
  const acc={};for(const g in VMESH)acc[g]=new Float32Array(((IDX.vn||{})[g]||0)*3);   // 頂点で焼く物：アトラスごとに点の明るさ（lux）を CPU で足す
- items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255;a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
+ items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max,cf=it.c?vCau(it.v):null;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255*(cf?cf[j]:1);a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
  for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=a[b]||0;c[j*3+1]=a[b+1]||0;c[j*3+2]=a[b+2]||0;}m.col.needsUpdate=true;});
  const t1=performance.now(),ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;
- for(const g in IDX.res){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
+ for(const g of [...Object.keys(IDX.res),...CAUG.map(x=>'c:'+x)]){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
   items.forEach((it,i)=>{if(it.v||it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
    u.mode.value=IDX.enc==='h16'?0:IDX.enc==='rgbm'?1:2;const k=(IDX.enc==='rgbm'?e.max:1)/LMK;u.w.value.set(it.w[0]*k,it.w[1]*k,it.w[2]*k);u.p.value.set(e.lo||0,e.hi||0);r.render(cScene,cCam);});}
  r.setRenderTarget(rt0);r.autoClear=ac;r.getContext().finish();
@@ -136,6 +163,9 @@ function prefetch(){const st=cur(),fs=new Set();const add=s=>{try{wanted(s).forE
 let pending=null;function changed(){if(!pending)pending=Promise.resolve().then(()=>{pending=null;return recompose();});return pending;}
 
 // ===== 模型：材質は元の色・柄のまま、光はアトラスの1枚（uv2）から =====
+let CAUG=[];const VCAU={};   // G1 のまっすぐ届く光の届くアトラス、頂点で焼く物の模様の係数（アトラス → 焼いた頂点ごと）
+function vCau(g){if(VCAU[g])return VCAU[g];const n=(IDX.vn||{})[g]||0,f=new Float32Array(n),v=new THREE.Vector3();
+ (VMESH[g]||[]).forEach(m=>{const p=m.pos;for(let j=0;j<m.vid.length;j++){v.fromArray(p,j*3);f[m.vid[j]]=cauF(v.x,v.y,v.z);}});return VCAU[g]=f;}
 const DOORN={},LAMPM=[],DOORM=[],VMESH={};   // VMESH：アトラス → 頂点で焼く物の形（{col:色の属性, vid:元の頂点の番号, orig:元の頂点の色}）   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
 function info(o){for(;o;o=o.parent)if(o.userData&&o.userData.atlas)return o.userData;return null;}
 function setupModel(root){const mc=new Map();
@@ -146,10 +176,12 @@ function setupModel(root){const mc=new Map();
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
    const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
    if(g.attributes.color_1)g.deleteAttribute('color_1');if(orig)g.setAttribute('vorig',new THREE.BufferAttribute(orig,3));
-   const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');(VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id});}
+   const col=new THREE.BufferAttribute(new Float32Array(n*3),3);g.setAttribute('color',col);g.deleteAttribute('_vid');
+   let pos=null;if(CAUG.includes(u.atlas)){o.updateWorldMatrix(true,false);const pa=g.attributes.position,v=new THREE.Vector3();pos=new Float32Array(n*3);for(let j=0;j<n;j++){v.fromBufferAttribute(pa,j).applyMatrix4(o.matrixWorld);v.toArray(pos,j*3);}}   // G1 の模様のための点の位置
+   (VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,pos});}
   const vo=vl&&!!o.geometry.attributes.vorig;
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
@@ -180,7 +212,7 @@ let VIEWS=[];
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}
 function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 function buildUI(){
- const vr=$('viewRow');vr.innerHTML='';['寝室','WIC','書斎','2F廊下','リビング','キッチン'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
+ const vr=$('viewRow');vr.innerHTML='';['リビング','キッチン','寝室','WIC','書斎','2F廊下','洗面脱衣','浴室','玄関','トイレ'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
  const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
  $('roomLbl').textContent='焼いた照明';$('tAllRooms').hidden=true;
@@ -203,7 +235,7 @@ function memory(){const o={rt:0,lay:0,layN:texCache.size,tex:0,geo:0,bytes:0};fo
  const ts=new Set(),gs=new Set();scene.traverse(x=>{if(!x.isMesh)return;gs.add(x.geometry);const m=x.material;if(m.map)ts.add(m.map);});
  ts.forEach(t=>{const i=t.image;if(i)o.tex+=i.width*i.height*4*4/3;});gs.forEach(g=>{for(const k in g.attributes)o.geo+=g.attributes[k].array.byteLength;if(g.index)o.geo+=g.index.array.byteLength;});return o;}
 function showStat(){if(!IDX||openK!=='trial')return;const m=memory(),hp=performance.memory?performance.memory.usedJSHeapSize:0;
- $('stat').textContent=`画像：${IDX.enc}・1/${IDX.scale}（全52層 ${MB_(IDX.bytes)}MB）
+ $('stat').textContent=`画像：${IDX.enc}・1/${IDX.scale}（全${Object.keys(IDX.layers).length}層 ${MB_(IDX.bytes)}MB）
 取得 ${MB_(netBytes)}MB・手元に ${MB_(m.bytes)}MB
 GPU：まとめた画像 ${MB_(m.rt)}・層 ${m.layN}枚 ${MB_(m.lay)}・柄 ${MB_(m.tex)}・形 ${MB_(m.geo)}
 いまの層 ${stat.layers}枚：読み込み ${stat.load}ms・足し合わせ ${stat.gpu}ms
@@ -266,7 +298,7 @@ function fail(e){console.error(e);ldBox.querySelector('span').textContent='読�
 // 確認用（自動で撮るとき）：T.set({night,LS,DS,shade})→まとめ終わるまで待つ、T.view(名前)、T.pose([x,y,z,yaw,pitch,fov])
 window.T={async set(s){if('night' in s)night=s.night;if('shade' in s)shadeP=s.shade;Object.assign(LS,s.LS||{});Object.assign(DS,s.DS||{});updMove();syncLights();return changed();},view:setView,pose:a=>look(...a),memory,stat:()=>stat};
 (async()=>{
- const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;MOVE=mv;updMove();buildUI();bar.style.width='10%';
+ const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;COMBOS=idx.combos||OLDC;CAUG=[...new Set(Object.entries(idx.layers).filter(([L])=>L.startsWith('g1d@')).flatMap(([,e])=>Object.keys(e).filter(g=>e[g]&&!g.startsWith('V_'))))];MOVE=mv;updMove();buildUI();bar.style.width='10%';
  const g=await new Promise((res,rej)=>new THREE.GLTFLoader().load('house.glb',res,e=>{if(e.total)bar.style.width=(10+e.loaded/e.total*50)+'%';},rej));
  setupModel(g.scene);bar.style.width='70%';
  ready=true;syncLights();shadeLabel(0);setView('寝室');

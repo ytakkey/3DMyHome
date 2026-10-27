@@ -137,6 +137,18 @@ for L in sorted(os.listdir(LD)):
         ent[g] = e
     index['layers'][L] = ent
     print('lmimg', L, {g: (round(v['max'], 1) if v else 0) for g, v in ent.items()}, flush=True)
+if os.path.exists(os.path.join(LD, 'alias.json')):   # すべての組み合わせの名前 → アトラス → 焼いたフォルダ（効かないドアの違いは同じ画像を使う。bake_layers.py の jobs）
+    lay = dict(index['layers'])
+    for name, m in json.load(open(os.path.join(LD, 'alias.json'))).items():
+        ent = {}
+        for g, fn in m.items():
+            e = lay.get(fn, {})
+            for k in (g, 'V_' + g):
+                if k in e:
+                    ent[k] = e[k]
+        index['layers'][name] = ent
+if os.path.exists(os.path.join(LD, 'combos.json')):   # 光源→関係するドア（bake_layers.py の COMBOS）
+    index['combos'] = json.load(open(os.path.join(LD, 'combos.json')))
 index['bytes'] = total
 json.dump(index, open(os.path.join(OUT, 'index.json'), 'w'), indent=0)
 print('lmimg total', ENC, K, total, flush=True)

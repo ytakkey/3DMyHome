@@ -1,7 +1,8 @@
-# 寝室の試作の焼き込み（52枚）：光源ごとに、関係するドアの開閉の組み合わせを丸ごと焼く（CLAUDE.md 1章）
+# 家全体の焼き込み：光源ごとに、関係するドアの開閉の組み合わせを丸ごと焼く（CLAUDE.md 1章）
 # 1) 準備：blender -b house.blend -P tools/blender/bake_layers.py -- prep <bake_uv.blend>
-#    部品を「画像の組（アトラス）」にまとめ、ライトマップの UV（LM）を作って保存する。アトラス：部屋（bed・wic・study・hall＝2階廊下と吹抜けの1階天井より上・ldk＝1階）と、
-#    試作のドア3枚の周り（door_SG311 など。開口の面・枠・扉）。扉は開いた形・閉じた形を別の物体（L_<ドア>_open／closed）にして同じアトラスに入れる
+#    部品を「画像の組（アトラス）」にまとめ、ライトマップの UV（LM）を作って保存する。アトラス：部屋（bed・wic・study・hall＝2階廊下と吹抜けの1階天井より上・ldk＝LDK・
+#    dress＝脱衣室・wash＝洗面所・ent＝1階廊下と玄関・toilet・bath。分け方は bake_common.room_of）と、開閉できるドアの周り（door_SG311 など。開口の面・枠・扉）。
+#    扉は開いた形・閉じた形を別の物体（L_<ドア>_open／closed）にして同じアトラスに入れる
 # 2) 焼く：blender -b bake_uv.blend -P tools/blender/bake_layers.py -- bake <出力のフォルダ> [サンプル数] [層の名前,...]
 #    出力：<フォルダ>/<層>/<アトラス>.npy（照度 lux、RGB、float16）。光が届かないアトラスは焼かない（ファイルなし＝0）
 import bpy, bmesh, math, sys, os, json, time
@@ -14,7 +15,10 @@ argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODE = argv[0]
 TEXEL = 0.02        # よく見る所のライトマップの1画素（m）
 COARSE = 0.4        # 天井・下向きの面・高い所は、画素を 1/0.4 倍の大きさに（粗く）
-DOORS = ['SG311', 'SG500w', 'SG33s']
+DOORS = ['SG311', 'SG500w', 'SG33s', 'SG300l', 'SG300w', 'BATHD', 'SG33', 'SG11H', 'SG500']   # 開閉できるドア（物の名前の頭で見分ける。同じ頭の長い名前を先に）
+DOOR2F = {'SG311', 'SG500w', 'SG33s'}
+ADJ = {'SG311': ('bed', 'hall'), 'SG500w': ('bed', 'wic'), 'SG33s': ('bed', 'study'), 'SG300l': ('ldk', 'dress'), 'SG300w': ('dress', 'wash'),
+       'BATHD': ('dress', 'bath'), 'SG33': ('wash', 'ent'), 'SG11H': ('ldk', 'ent'), 'SG500': ('ent', 'toilet')}   # ドアがつなぐ部屋（アトラス）
 
 def uv_area(objs):
     t = 0.0
@@ -25,16 +29,11 @@ def uv_area(objs):
         q = uv[tl].reshape(-1, 3, 2)
         t += float(np.nansum(0.5 * np.abs((q[:, 1, 0] - q[:, 0, 0]) * (q[:, 2, 1] - q[:, 0, 1]) - (q[:, 2, 0] - q[:, 0, 0]) * (q[:, 1, 1] - q[:, 0, 1]))))
     return t
-def room_of(x, y, z):
-    """three.js の座標の点がどの部屋のアトラスか（壁の面は、面から部屋の側へ5cm出た点で判定）"""
-    if y < 2.4:
-        return 'ldk'
-    if z < 3.58 or (x > 2.2175 and z >= 3.58):
-        return 'hall'
-    if x < 0.3975:
-        return 'bed'
-    return 'wic' if z < 5.4 else 'study'
-DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50, 2.85, 5.0, 4.05, 5.65), 'SG33s': (0.30, 1.30, 2.85, 5.0, 6.33, 7.17)}   # x0,x1,y0,y1,z0,z1
+room_of = bc.room_of
+DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50, 2.85, 5.0, 4.05, 5.65), 'SG33s': (0.30, 1.30, 2.85, 5.0, 6.33, 7.17),   # x0,x1,y0,y1,z0,z1（戸袋も含む）
+           'SG300l': (-0.145, 0.03, -0.01, 2.1, 1.4175, 3.0975), 'SG300w': (-2.219, -0.557, -0.01, 2.1, 3.0375, 3.2125), 'BATHD': (-1.435, -0.55, -0.01, 2.1, 1.62, 1.85),
+           'SG33': (-0.6, -0.425, -0.01, 2.1, 3.6075, 4.4625), 'SG11H': (0.31, 0.485, -0.01, 2.45, 3.6075, 4.4625), 'SG500': (-1.51, -1.335, -0.01, 2.1, 4.5375, 5.3575)}
+DOORZ = {'SG311', 'SG300w', 'BATHD'}   # 東西に走る壁のドア（壁の向きの成分は Blender の y）
 VMAX, VSMALL, VFACE = 2.3, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 2.3m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物。ソファは頂点＝縫い目の黒い線が出ない、ベッド 2.4m はライトマップ＝頂点だと日なたの縁がギザギザ）
 VEDGE = 0.04                            # 頂点で焼く物は、辺を 4cm 以下に分ける（大きな面の中の明るさの変化を拾う）
 def vlit(o, bb):
@@ -115,7 +114,7 @@ def prep(out):
             d = door_of(x, y, z)
             n = f.normal
             if d and mn != 'frame':   # 開口の見込み（壁に直角な面と上の面）も扉のアトラスへ。本番の材質を写すと 'frame' でなくなり、向こうの部屋のアトラスに入って閉じたとき真っ黒だった（2026-10-27）
-                wn = abs(n.y) if d == 'SG311' else abs(n.x)   # 壁の向きの成分
+                wn = abs(n.y) if d in DOORZ else abs(n.x)   # 壁の向きの成分
                 fc = f.calc_center_median()
                 if wn > 0.1 or n.z > 0.1 or (d == 'SG33s' and fc.x > 0.47):   # 書斎の箱は開いた扉のため奥まであるので、壁の厚さの中だけ
                     d = None
@@ -136,6 +135,13 @@ def prep(out):
     # ほかの部品（建具・幅木・窓・階段・家具）を物体の中心で振り分ける。扉は開いた形・閉じた形ごと
     # 小さい物・曲面の物は、ライトマップ（1画素2cm）では画素が足りず隣の部品の値がにじむので、頂点ごとの明るさで焼く（2026-10-21 ユーザー了承）：V_<アトラス>
     leaves, vparts = {}, {}
+    g1p = bc.B(*bc.LAMPS['g1'][0][1])   # G1（トイレのペンダント）のガラスと電球の材質に印：揺らいだ光の模様は表示で付けるので、まっすぐ届く光はガラスを外して焼く（g1d）
+    for o in bpy.data.collections['furniture'].objects:
+        if o.type == 'MESH' and (sum((o.matrix_world @ Vector(c) for c in o.bound_box), Vector()) / 8 - g1p).length < 0.1:
+            for m in o.data.materials:
+                b = m and m.node_tree and next((n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+                if b and (b.inputs['Alpha'].is_linked or b.inputs['Alpha'].default_value < 0.999):
+                    m['g1glass'] = 1
     for cn in ('fixtures', 'stairs', 'furniture', 'doors_open', 'doors_closed'):
         for o in list(bpy.data.collections[cn].objects):
             if o.type != 'MESH' or o.name.endswith('_glass'):   # 窓のガラスはまとめない（焼き込みでは外し、窓の位置からポータルを作る）
@@ -209,7 +215,7 @@ def prep(out):
             me = o.data; uvl = me.uv_layers['LM'].data; mw = o.matrix_world
             for p in me.polygons:
                 n = (mw.to_3x3() @ p.normal).normalized(); c = mw @ p.center
-                fl = 2.9 if (g in ('bed', 'wic', 'study', 'hall') or g.startswith('door_')) else 0.0
+                fl = 2.9 if (g in ('bed', 'wic', 'study', 'hall') or g[5:] in DOOR2F) else 0.0
                 coarse = n.z < -0.5 or ((c.z - fl) > 2.0 and n.z > 0.5)   # 天井・下向きの面と、高い所の上向きの面だけ粗く（壁は高い所も細かく：ブラケットの光が四角く出ていた。2026-10-25）
                 a = p.area * (COARSE ** 2 if coarse else 1.0)
                 area += a
@@ -246,35 +252,61 @@ def prep(out):
     json.dump(info, open(out.replace('.blend', '_atlas.json'), 'w'), indent=1)
 
 # ===================== 焼く =====================
-COMBOS = {'bdl': DOORS, 'bbr': DOORS, 'sky_bed': DOORS, 'sun_bed': DOORS,
+D3 = ['SG311', 'SG500w', 'SG33s']
+COMBOS = {'bdl': D3, 'bbr': D3, 'sky_bed': D3, 'sun_bed': D3,
           'j1': ['SG311', 'SG500w'], 'l1': ['SG500w', 'SG311'],
           'k1': ['SG33s'], 'sky_study': ['SG33s'], 'sun_study': ['SG33s'], 'sky_void': ['SG311'],
           'h1': [], 'sun_void': [], 'sky_ldk1F': [], 'sun_ldk1F': [],
           'a1': [], 'a2': [], 'a3': [], 'a4': [], 'a5': [], 'a6': []}   # LDK の照明（2026-10-25 追加。光は 2階廊下・吹抜けと SG311 の周りまで）
+HOME = {'g1d': 'toilet', 'bdl': 'bed', 'bbr': 'bed', 'sky_bed': 'bed', 'sun_bed': 'bed', 'j1': 'hall', 'h1': 'hall', 'sky_void': 'hall', 'sun_void': 'hall', 'l1': 'wic',
+        'k1': 'study', 'sky_study': 'study', 'sun_study': 'study', 'sky_ldk1F': 'ldk', 'sun_ldk1F': 'ldk', 'a1': 'ldk', 'a2': 'ldk', 'a3': 'ldk', 'a4': 'ldk', 'a5': 'ldk', 'a6': 'ldk',
+        'd1': 'wash', 'e1': 'dress', 'sky_dress': 'dress', 'sun_dress': 'dress', 'eh': 'ent', 'b3': 'ent', 'ec': 'ent', 'ek': 'ent', 'g1': 'toilet', 'bath': 'bath'}   # 光源のある部屋
 def atlases(src, op):
-    """光源と開いたドアの組から、焼くアトラス（光の届く部屋とドアの周り）"""
-    o311, o500, o33 = 'SG311' in op, 'SG500w' in op, 'SG33s' in op
-    S = lambda cond, *g: set(g) if cond else set()
-    if src in ('bdl', 'bbr', 'sky_bed', 'sun_bed'):
-        A = {'bed'} | S(o500, 'wic') | S(o33, 'study') | S(o311, 'hall')
-    elif src == 'j1':
-        A = {'hall', 'ldk'} | S(o311, 'bed') | S(o311 and o500, 'wic')
-    elif src == 'l1':
-        A = {'wic'} | S(o500, 'bed')
-    elif src in ('k1', 'sky_study', 'sun_study'):
-        A = {'study'} | S(o33, 'bed')
-    else:
-        A = {'hall', 'ldk'} | S(src == 'sky_void' and o311, 'bed')
-    near = {'SG311': ('bed', 'hall'), 'SG500w': ('bed', 'wic'), 'SG33s': ('bed', 'study')}
-    return A | {'door_' + d for d, (r1, r2) in near.items() if r1 in A or r2 in A}
+    """光源と開いたドアの組から、焼くアトラス（光の届く部屋とドアの周り）：光源の部屋から、開いたドア（組み合わせに入れたドアだけ）でつながる部屋。
+    LDK と2階廊下（吹抜け）は、光源がどちらかにあるときだけつなぐ（寝室・1階の西側の光は吹抜けの向こうまで焼かない。試作のときと同じ）"""
+    h = HOME[src]; A = {h}; todo = [h]
+    while todo:
+        r = todo.pop()
+        nb = [b if a == r else a for d, (a, b) in ADJ.items() if d in op and r in (a, b)]
+        if h in ('ldk', 'hall') and r in ('ldk', 'hall'):
+            nb.append('hall' if r == 'ldk' else 'ldk')
+        for n in nb:
+            if n not in A:
+                A.add(n); todo.append(n)
+    return A | {'door_' + d for d, (r1, r2) in ADJ.items() if r1 in A or r2 in A}
+def lname(src, op):
+    return src + '@' + ('_'.join(d + ('o' if d in op else 'c') for d in COMBOS[src]) or 'all')
 def layers():
     out = []
     for src, ds in COMBOS.items():
         for k in range(2 ** len(ds)):
             op = [d for i, d in enumerate(ds) if k >> i & 1]
-            name = src + '@' + ('_'.join(d + ('o' if d in op else 'c') for d in ds) or 'all')
-            out.append((name, src, op))
+            out.append((lname(src, op), src, op))
     return out
+# 光源 → 部屋のアトラス → その部屋の明るさに効くドア（粗い焼き込みで測って決めた。bake_rel.json）。書いていない部屋は COMBOS のドア全部
+_rp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bake_rel.json')
+REL = json.load(open(_rp, encoding='utf-8')) if os.path.exists(_rp) else {}
+def rel(src, g):
+    ds = COMBOS[src]
+    if g.startswith('door_'):   # ドアの周り：両側の部屋に効くドアと、そのドア自身
+        r1, r2 = ADJ[g[5:]]
+        return [d for d in ds if d in rel(src, r1) or d in rel(src, r2) or d == g[5:]]
+    r = REL.get(src, {}).get(g)
+    return list(ds) if r is None else [d for d in ds if d in r]
+def jobs():
+    """焼く仕事：{(フォルダ, 光源, 開いたドア): アトラスの組}。アトラスごとに、その明るさに効かないドアは閉じた形にそろえ、同じ形は1回だけ焼く。
+    あわせて、すべての組み合わせの名前 → アトラス → フォルダの対応（alias。lm_images.py が index.json に展開する）"""
+    J, alias = {}, {}
+    for name, src, op in layers():
+        al = alias.setdefault(name, {})
+        for g in atlases(src, op):
+            cfg = [d for d in op if d in rel(src, g)]
+            if g not in atlases(src, cfg):
+                continue
+            fn = lname(src, cfg)
+            J.setdefault((fn, src, tuple(cfg)), set()).add(g)
+            al[g] = fn
+    return J, alias
 
 def vsmooth(o, v, it=2):
     """頂点の値のノイズを、辺でつながった隣の頂点と軽くならす（ライトマップのノイズ除去の代わり）"""
@@ -286,6 +318,9 @@ def vsmooth(o, v, it=2):
     return v
 def bake_main(outdir, samples, only):
     os.makedirs(outdir, exist_ok=True)
+    json.dump(COMBOS, open(os.path.join(outdir, 'combos.json'), 'w'))   # 検証ページが層の名前を作るのに使う（lm_images.py が index.json へ）
+    JOBS, alias = jobs()
+    json.dump(alias, open(os.path.join(outdir, 'alias.json'), 'w'))
     sc = bc.setup(samples)
     lamps = bc.add_lamps(sc)
     sky = bc.add_sky_sun(sc)
@@ -403,39 +438,45 @@ def bake_main(outdir, samples, only):
         return out
 
     leaves = [o for o in objs if 'door' in o]
+    glass = [(n, n.inputs['Alpha'].default_value) for m in bpy.data.materials if m.get('g1glass') for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']   # G1 のガラスと元の透明度
     def set_doors(op):
         for o in leaves:
             o.hide_render = (o['state'] == 'open') != (o['door'] in op)
-    def bake(targets, clear):
+    PASS = {'g1': {'INDIRECT'}, 'g1d': {'DIRECT'}}   # G1：反射した光（ガラスあり）と、まっすぐ届く光（ガラスなし。表示で模様を掛ける）に分けて焼く
+    def bake(targets, clear, pf):
         bpy.ops.object.select_all(action='DESELECT')
         for o in targets:
             o.select_set(True)
         bpy.context.view_layer.objects.active = targets[0]
-        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=4, margin_type='EXTEND', use_clear=clear, target='IMAGE_TEXTURES')
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter=pf, margin=4, margin_type='EXTEND', use_clear=clear, target='IMAGE_TEXTURES')
     log_path = os.path.join(outdir, 'bake_log.json')
     log = json.load(open(log_path)) if os.path.exists(log_path) else {}
-    for name, src, op in layers():
+    print('jobs', len(JOBS), 'names', len(alias), flush=True)
+    for (name, src, op), A in sorted(JOBS.items()):
+        op = list(op)
         if only and name not in only and src not in only:
             continue
         ld = os.path.join(outdir, name)
-        if os.path.exists(os.path.join(ld, 'done')):
+        if os.path.exists(os.path.join(ld, 'done')) and set(A) <= set(log.get(name, {}).get('atlases', [])):
             continue
         os.makedirs(ld, exist_ok=True)
         t0 = time.time()
-        A = atlases(src, op)
-        bc.set_source(src, lamps, sky)
+        bc.set_source('g1' if src == 'g1d' else src, lamps, sky)
+        pf = PASS.get(src, {'DIRECT', 'INDIRECT'})
+        for b, a0 in glass:
+            b.inputs['Alpha'].default_value = 0.0 if src == 'g1d' else a0
         set_doors(op)
         for g in A:
             imgs[g].pixels.foreach_set(np.zeros(res[g] ** 2 * 4, dtype=np.float32))
         tg = [o for o in objs if o['atlas'] in A and not o.hide_render]
-        bake(tg, False)
+        bake(tg, False, pf)
         vis = {o.name for o in tg}
         # 組み合わせに入れていないドアの周りを焼くとき：扉の開いた形も、そのドアを開けて焼いておく（扉だけ）
         extra = [d for d in DOORS if d not in COMBOS[src] and 'door_' + d in A]
         if extra:
             set_doors(op + extra)
             t2 = [o for o in leaves if o['door'] in extra and o['state'] == 'open']
-            bake(t2, False)
+            bake(t2, False, pf)
             vis |= {o.name for o in t2}
             set_doors(op)
         for g in sorted(A):
@@ -456,7 +497,7 @@ def bake_main(outdir, samples, only):
             for o in vt:
                 o.select_set(True); o.data.color_attributes.active_color = o.data.color_attributes['BAKE']
             bpy.context.view_layer.objects.active = vt[0]
-            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, target='VERTEX_COLORS', use_clear=True)
+            bpy.ops.object.bake(type='DIFFUSE', pass_filter=pf, target='VERTEX_COLORS', use_clear=True)
             for o in vt:
                 me = o.data; n = len(me.vertices); a = np.empty(n * 4, np.float32); me.color_attributes['BAKE'].data.foreach_get('color', a)
                 v = np.maximum(a.reshape(-1, 4)[:, :3].astype(np.float64), 0) * math.pi / bc.LM2W
