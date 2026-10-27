@@ -1,9 +1,9 @@
-# 試作の範囲（寝室・WIC・書斎・2階廊下・吹抜け・LDK・階段）の建物を Blender で作り、書き出した家具（tools/export）を読み込む
+# 家全体（1階：LDK・脱衣室・洗面所・廊下・玄関・トイレ・浴室、2階：寝室・WIC・書斎・2階廊下・吹抜け・階段）の建物を Blender で作り、書き出した家具（tools/export）を読み込む
 # 使い方：blender -b --factory-startup -P tools/blender/build_house.py -- <furniture.glb> <出力の .blend>
 # 寸法は js/common.js の HOUSE と各 js のコメントから（three.js の座標：X＝東・Y＝上・Z＝南、単位 m）。Blender では (x, -z, y)
 # 作り方：家全体を囲む固まり（外壁・床・天井の厚みを含む）から、部屋の空間・ドアと窓の穴・引き戸の戸袋をくり抜く（Boolean の Exact）。
 # 壁・床・天井は必ず厚みのある1つの固まりになり、角でつながり、面の重なりや空洞が出ない（CLAUDE.md 1章「作り方の決まり」）。
-# 試作の範囲の外（1階の脱衣室・洗面所・廊下・玄関・トイレ・浴室、2階の洋室・トイレ・収納）は中身の詰まった固まりのまま。そこへのドアは閉じた扉だけ作る
+# 再現範囲の外（2階の洋室・トイレ・収納）は中身の詰まった固まりのまま。そこへのドアは閉じた扉だけ作る（1階の西側は 2026-10-27 に追加）
 import bpy, bmesh, math, sys
 from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
@@ -24,6 +24,16 @@ OX, OZ, BW_, BD_ = -2.2725, 3.6375, 2.6125, 3.5225       # 寝室：北西の室
 DOORA, DOORB = 1.8355, 2.6125                            # 寝室の入口 SG311（北の壁、西端からの位置）
 WX0, WX1, WZ0, WZ1 = 0.455, 2.16, 3.6375, 5.3425         # ウォークイン
 SX0_, SX1_, SZ0_, SZ1_, WINC = 0.455, 2.16, 5.4575, 7.16, 1.715   # 書斎、窓の中心
+# 1階の西側（HOUSE.wash・entry・bath）
+X0, DZ0, DZ1, SZ0, SX1, CX0 = -2.2725, 1.8175, 3.0675, 3.1825, -0.57, -0.455   # 脱衣室・洗面所の西の壁、脱衣室の北・南、洗面所の北、洗面所の東、廊下の西
+WINZ0, WINZ1 = 1.8435, 3.0415                                                   # 脱衣室の窓 F4415N
+BATHA, BATHB, SGA, SGB, S33A, S33B, HBX = -1.405, -0.58, -1.369, -0.587, 3.6375, 4.4325, -0.963   # 浴室のドア・SG300w の開口（X）、SG33 の開口（Z）、ヘッダーボックスの中心
+EX1, TX1, EZ0, TZ1, KZ0, DY = -1.365, -1.48, 4.5475, 6.2525, 6.3675, -0.18   # 玄関：トイレの東の壁の玄関側・トイレ側の面、北の壁、トイレの南・土間収納の北の壁、土間の高さ
+KF0, KF1, KW = (-1.365, 6.1145), (0.34, 5.53), 0.072                            # 框の土間側の端の線（西端・東端）・框の幅
+GA, GB, DRA, DRB, DRH, TWD = 4.5675, 5.3275, -1.354, -0.119, 2.33, 0.115        # トイレの SG500 の開口（Z）、玄関ドアの枠（X）・高さ（土間から）、土間収納の垂れ壁の奥行
+BX0, BX1, BZ0, BZ1, BH = -2.19375, -0.19375, 0.05125, 1.65125, 2.12            # 浴室の内寸・天井高（仮）
+zf = lambda x: KF0[1] + (x - KF0[0]) * (KF1[1] - KF0[1]) / (KF1[0] - KF0[0])  # 框の土間側の端（Z）
+zb = lambda x: zf(x) - KW                                                       # 框のホール側の端
 EXT = 0.20      # 外壁の室内面から外の面まで（仮。図面の外壁の黒い線の太さと、窓の額縁・サッシ・ガラスが収まる厚さから）
 SLAB0 = 0.20    # 1階の床の下の厚さ（仮）
 ROOF = 0.30     # 2階の天井の上の厚さ（仮）
@@ -37,6 +47,8 @@ COL = {
  'steel': 0x1c1c1c, 'tread': 0xc48c56, 'oak_wall': 0xb4885a, 'woven': 0xc9c2b6, 'wood_ceil': 0xb4885a,
  'floor_oak': 0xb08a5e, 'walnut_top': 0x3f2b1f, 'floor_stone': 0x8c867f, 'floor_walnut': 0x6b4a35,
  'wall_ldk': 0xe8e4dc, 'wall_tv': 0x77736d, 'ceil': 0xf2f1ee, 'wall_bed': 0xeae7e1, 'wall_wic': 0xd4cfc9, 'ceil_wic': 0xa1abb7, 'wall_study': 0x919494,
+ 'wall_wash': 0xeae7e1, 'floor_doma': 0x8a8782, 'floor_stoneK': 0x2a2a2a, 'floor_bath': 0xb8ab98, 'wall_bath': 0xd9d9d6, 'ceil_bath': 0xb6a07f,
+ 'kamachi': 0xc89e6e, 'bath_frame': 0xa9a69f, 'bath_glass': 0xc6ccc9,
 }
 def srgb2lin(c):
     return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
@@ -151,12 +163,21 @@ box('V_bed', OX, OX + BW_, FL2, FL2 + 2.4, OZ, OZ + BD_, 'V_bed', 'cut_void')
 box('V_wic', WX0, WX1, FL2, FL2 + 2.4, WZ0, WZ1, 'V_wic', 'cut_void')
 box('V_study', SX0_, SX1_, FL2, FL2 + 2.4, SZ0_, SZ1_, 'V_study', 'cut_void')
 box('V_nose', SX0, W, FL2 - 0.035, FL2 + 0.05, ZB14, VZ + 0.05, 'V_hall', 'cut_void')   # 14段目の段鼻の板が入る2階の床の切り欠き（深さ35）
+# 1階の西側：脱衣室・洗面所・浴室の床は 2mm 高い（本番と同じ）
+box('V_dress', X0, LW, 0.002, H1, DZ0, DZ1, 'V_dress', 'cut_void')
+prism('V_wash', [(X0, SZ0), (LW, SZ0), (LW, PZ0), (SX1, PZ0), (SX1, SZ1), (X0, SZ1)], 0.002, H1, mat('V_wash'), 'cut_void')   # 洗面所（北東は仕切り壁の北側まで）
+prism('V_ent', [(CX0, PZ1), (CX1, PZ1), (CX1, zf(CX1)), (EX1, zf(EX1)), (EX1, EZ0), (CX0, EZ0)], 0, H1, mat('V_ent'), 'cut_void')   # 廊下・玄関ホール（框の土間側の端まで。框の上面は床の高さ）
+prism('V_doma', [(EX1, zf(EX1)), (CX1, zf(CX1)), (CX1, D), (X0, D), (X0, KZ0), (EX1, KZ0)], DY, H1, mat('V_ent'), 'cut_void')   # 土間・土間収納（−180）
+box('V_toilet', X0, TX1, 0, H1, EZ0, TZ1, 'V_toilet', 'cut_void')
+box('V_bath', BX0, BX1, 0.002, BH, BZ0, BZ1, 'V_bath', 'cut_void')
+box('V_tub', BX0, -1.414, -0.16, 0.003, BZ0, BZ1, 'V_bath', 'cut_void')   # 浴槽の下（浴槽の中は床より下まで掘ってある。床でふさがない）
 
 # ===== 3. 部屋の中に残す固まり（くり抜いた後に足す） =====
 box('K_soffit', 2.15, W + 0.01, 2.3, H1 + 0.01, 1.565, 2.67, 'wood_ceil', 'keep')        # キッチン上の下がり天井（2300、IC-5015 の木目）
-box('K_thinwall', 4.04, 4.10, -0.01, H1 + 0.01, -0.01, 0.62, 'wall_ldk', 'keep')          # カップボード横のうす壁（ldk.js 281）
+box('K_thinwall', 4.04, 4.10, -0.01, H1 + 0.01, -0.01, 0.62, 'wall_ldk', 'keep')          # カップボード横のうす壁（ldk.js 312）
 box('K_dropwall', SX0, W + 0.01, H1 - 0.1, H1 + 0.01, VZ - 0.1, VZ, 'wall_ldk', 'keep')    # 階段の上のタレ壁（高さ100、厚さ100）
 box('K_wainscot', OX - 0.01, OX + 0.1, FL2 - 0.01, FL2 + 1.0, OZ - 0.01, OZ + BD_ + 0.01, 'oak_wall', 'keep')   # 寝室の西の腰壁（高さ1000、厚さ100）
+box('K_tarekabe', EX1 - TWD, EX1, H1 - 0.1, H1 + 0.01, KZ0 - 0.01, D + 0.01, 'wall_wash', 'keep')   # 土間収納の垂れ壁（高さ100。wash.js 158）
 
 # ===== 4. ドア・窓 =====
 DOOR_GAPS = []    # 幅木を止める所（平面の範囲）
@@ -164,7 +185,22 @@ def gap(wl, u0, u1):
     a, b = wl.p(u0, 0, -0.2), wl.p(u1, 0, 0.013)   # 部屋の側は巾木の厚さ（12）まで（5cm にしていたので、隣の直角の壁の巾木の端まで止めて途切れていた。2026-10-26）
     DOOR_GAPS.append((min(a[0], b[0]), max(a[0], b[0]), min(a[2], b[2]), max(a[2], b[2]), a[1]))   # 最後は床の高さ（ほかの階の巾木を止めない）
 def cut(wl, name, u0, u1, y0, y1, w0, w1, m='frame'):
+    if y0 == -E:   # 床からの開口：その壁の床の高さ（石目の床は 2mm 高い）から
+        y0 = getattr(wl, 'fy', 0) - E
     return wl.box('C_' + name, u0, u1, y0, y1, w0, w1, m, 'cut_open')
+def rbox(name, wl, u0, u1, y0, y1, w0, w1, m, c, piv=None, ang=0.0):
+    """壁の座標の箱。piv＝(u, w) を軸に、three.js の rotation.y＝ang（ラジアン）だけ回す（開いた開き戸）"""
+    cs, sn = math.cos(ang), math.sin(ang)
+    def q(u, y, w):
+        if piv:
+            du, dw = u - piv[0], w - piv[1]; u, w = piv[0] + du * cs + dw * sn, piv[1] - du * sn + dw * cs
+        return B(*wl.p(u, y, w))
+    bm = bmesh.new()
+    v = [bm.verts.new(q(u, y, w)) for u in (u0, u1) for y in (y0, y1) for w in (w0, w1)]
+    for f in [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]:
+        bm.faces.new([v[i] for i in f])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return obj_from_bm(bm, name, m, c)
 def casing(wl, name, a, b, h, c='fixtures'):
     """額縁（幅50・厚さ20、部屋の側の面）。a,b は縦枠の中心（穴を25mmずつ狭めた位置）。上枠は左右の外の端まで"""
     wl.box(name + '_casA', a - 0.025, a + 0.025, 0, h - 0.025, 0, 0.02, 'casing', c)
@@ -259,25 +295,55 @@ def door_hinged_closed(name, wl, a, b, h, n, fold=False):
             m = (a1 + b1) / 2 + k * 0.045
             wl.box(name + '_hdl%d' % k, m - 0.0075, m + 0.0075, 0.875, 1.125, t1, t1 + 0.0125, 'handle_g', 'fixtures')
 
-def door_high_closed(name, wl, a, b, h):
-    """ハイドア SG11H（閉じたまま。リビング側から見た形）：天井までの枠、中央に縦長の型板ガラス、黒い角型の引手"""
+def door_high(name, wl, a, b, h, T):
+    """ハイドア SG11H（common.js の highFrame・addHighDoor）：天井までの枠、中央に縦長の型板ガラス、黒い角型の引手。開くと b 側の吊元で部屋の側へ90°。
+    枠は壁の厚さいっぱい（向こうの廊下の面まで。本番は枠＋見込み）"""
     t0 = -0.0475
-    cut(wl, name + '_open', a, b, -E, h + 0.03, t0, E)
+    cut(wl, name + '_open', a, b, -E, h + 0.03, -T - E, E)
     gap(wl, a, b)
-    wl.box(name + '_frA', a, a + 0.035, 0, h + 0.03, t0, 0.02, 'frame', 'fixtures')
-    wl.box(name + '_frB', b - 0.035, b, 0, h + 0.03, t0, 0.02, 'frame', 'fixtures')
-    wl.box(name + '_frT', a + 0.035, b - 0.035, h - 0.015, h + 0.03, t0, 0.02, 'frame', 'fixtures')
+    wl.box(name + '_frA', a, a + 0.035, 0, h + 0.03, -T, 0.02, 'frame', 'fixtures')
+    wl.box(name + '_frB', b - 0.035, b, 0, h + 0.03, -T, 0.02, 'frame', 'fixtures')
+    wl.box(name + '_frT', a + 0.035, b - 0.035, h - 0.015, h + 0.03, -T, 0.02, 'frame', 'fixtures')
+    ai, bi = a + 0.0175, b - 0.0175; wi = bi - ai; gwo = wi * 0.22; pwo = (wi - 0.01 - gwo) / 2; ph = h - 0.01; n0 = bi - 0.0425; z0 = 0.025   # 開いた扉（本番の addHighDoor の uw）
+    for nm, s0, s1, du, y0, y1, m in (('_oA', 0, pwo, 0.035, 0, ph, 'door'), ('_oB', pwo + gwo, 2 * pwo + gwo, 0.035, 0, ph, 'door'), ('_oG', pwo, pwo + gwo, 0.012, 0.04, ph - 0.04, 'frost'),
+                                      ('_oGb', pwo, pwo + gwo, 0.035, 0, 0.04, 'door'), ('_oGt', pwo, pwo + gwo, 0.035, ph - 0.04, ph, 'door')):
+        wl.box(name + nm, n0 - du / 2, n0 + du / 2, y0, y1, z0 + s0, z0 + s1, m, 'doors_open')
+    for k in (-1, 1):
+        wl.box(name + '_ohdl%d' % k, n0 + k * 0.0235 - 0.006, n0 + k * 0.0235 + 0.006, 0.9825, 1.0175, z0 + wi - 0.0825, z0 + wi - 0.0475, 'handle_k', 'doors_open')
+    cl = 'doors_closed'
     a1, b1 = a + 0.035, b - 0.035
     w = b1 - a1
     gw = w * 0.22
     pw = (w - gw) / 2
     hh = h - 0.015
-    wl.box(name + '_lfA', a1, a1 + pw, 0, hh, t0, -0.0125, 'door', 'fixtures')
-    wl.box(name + '_lfB', b1 - pw, b1, 0, hh, t0, -0.0125, 'door', 'fixtures')
-    wl.box(name + '_lfG', a1 + pw, b1 - pw, 0.04, hh - 0.04, t0, -0.0125, 'frost', 'fixtures')
-    wl.box(name + '_lfGb', a1 + pw, b1 - pw, 0, 0.04, t0, -0.0125, 'door', 'fixtures')
-    wl.box(name + '_lfGt', a1 + pw, b1 - pw, hh - 0.04, hh, t0, -0.0125, 'door', 'fixtures')
-    wl.box(name + '_hdl', a1 + 0.0425, a1 + 0.0775, 0.9825, 1.0175, -0.0125, -0.0005, 'handle_k', 'fixtures')
+    wl.box(name + '_lfA', a1, a1 + pw, 0, hh, t0, -0.0125, 'door', cl)
+    wl.box(name + '_lfB', b1 - pw, b1, 0, hh, t0, -0.0125, 'door', cl)
+    wl.box(name + '_lfG', a1 + pw, b1 - pw, 0.04, hh - 0.04, t0, -0.0125, 'frost', cl)
+    wl.box(name + '_lfGb', a1 + pw, b1 - pw, 0, 0.04, t0, -0.0125, 'door', cl)
+    wl.box(name + '_lfGt', a1 + pw, b1 - pw, hh - 0.04, hh, t0, -0.0125, 'door', cl)
+    wl.box(name + '_hdl', a1 + 0.0425, a1 + 0.0775, 0.9825, 1.0175, -0.0125, -0.0005, 'handle_k', cl)
+    wl.box(name + '_hdlB', a1 + 0.0425, a1 + 0.0775, 0.9825, 1.0175, -0.0595, -0.0475, 'handle_k', cl)   # 裏（廊下側）の引手
+
+def door_bath(name, wl, a, b, h, T):
+    """浴室のドア（common.js の addBathDoor）：アルミの枠（壁の厚さいっぱい、浴室側に縁）、框とすりガラス調のパネル、脱衣室側のタオル掛け。開くと b 側の吊元で浴室側へ95°"""
+    a1, b1 = a + 0.025, b - 0.025
+    cut(wl, name + '_open', a1, b1, -E, h, -T - E, E)
+    casing(wl, name, a1, b1, h)
+    gap(wl, a, b)
+    F = 'bath_frame'
+    wl.box(name + '_frA', a1, a1 + 0.03, 0, h, -T, -0.005, F, 'fixtures'); wl.box(name + '_frB', b1 - 0.03, b1, 0, h, -T, -0.005, F, 'fixtures')
+    wl.box(name + '_frT', a1 + 0.03, b1 - 0.03, h - 0.035, h, -T, -0.005, F, 'fixtures'); wl.box(name + '_frS', a1 + 0.03, b1 - 0.03, 0, 0.02, -T, 0, F, 'fixtures')
+    wl.box(name + '_rimA', a1 - 0.02, a1 + 0.01, 0, h + 0.03, -T - 0.008, -T, F, 'fixtures'); wl.box(name + '_rimB', b1 - 0.01, b1 + 0.02, 0, h + 0.03, -T - 0.008, -T, F, 'fixtures')
+    wl.box(name + '_rimT', a1 + 0.01, b1 - 0.01, h, h + 0.03, -T - 0.008, -T, F, 'fixtures')
+    l0, l1, y0, y1, z = a1 + 0.03, b1 - 0.03, 0.02, h - 0.035, -0.03
+    SL, SH, RT, RB = 0.065, 0.04, 0.05, 0.06
+    g0, g1 = l0 + SL, l1 - SH
+    parts = [(l0, l0 + SL, y0, y1, z - 0.0175, z + 0.0175, F), (l1 - SH, l1, y0, y1, z - 0.0175, z + 0.0175, F), (g0, g1, y1 - RT, y1, z - 0.0175, z + 0.0175, F), (g0, g1, y0, y0 + RB, z - 0.0175, z + 0.0175, F),
+             (g0, g1, y0 + RB, y1 - RT, z - 0.003, z + 0.003, 'bath_glass'),
+             (g0 - 0.0265, g1 + 0.0265, 0.939, 0.961, z + 0.0262, z + 0.0438, F), (g0 - 0.026, g0 - 0.004, 0.939, 0.961, z + 0.0175, z + 0.0262, F), (g1 + 0.004, g1 + 0.026, 0.939, 0.961, z + 0.0175, z + 0.0262, F)]   # 縦框・上框・下框・パネル・タオル掛け
+    for i, (u0, u1, p0, p1, w0, w1, m) in enumerate(parts):
+        rbox('%s_leaf%d' % (name, i), wl, u0, u1, p0, p1, w0, w1, m, 'doors_closed')
+        rbox('%s_leafO%d' % (name, i), wl, u0, u1, p0, p1, w0, w1, m, 'doors_open', piv=(l1, z - 0.0175), ang=-math.radians(95))
 
 def window(name, wl, a, b, y1, y2, panes=1):
     """窓：額縁（幅20、穴の内側）の内側を外まで抜く。サッシの枠は額縁の内側、ガラスは室内の面から150"""
@@ -309,11 +375,36 @@ window('F8671', wS, 0.9615, 3.4485, 0.02, 2.194, panes=3)
 for i, c in enumerate((2.195, 1.355)):
     window('FF2442S%d' % i, wS, c - 0.3715, c + 0.3715, FL2 + 0.969, FL2 + 2.144)
 wW = Wall(0, 0, PZ0, math.pi / 2); wW.room = 'V_ldk'
-door_slide('SG300l', wW, PZ0 - SGZ1, PZ0 - SGZ0, 2.0, -LW, 1, through=False, state='closed')   # 脱衣室との引き戸（脱衣室は範囲の外。閉じたまま）
+door_slide('SG300l', wW, PZ0 - SGZ1, PZ0 - SGZ0, 2.0, -LW, 1)                                    # 脱衣室との引き戸（LDK 側の戸袋へ北へ引く）
 wTV = Wall(TVX, 0, SZ1, math.pi / 2); wTV.room = 'V_ldk'
-door_high_closed('SG11H', wTV, 0, SZ1 - PZ1, H1 - 0.03)                                           # 1階廊下とのハイドア（廊下は範囲の外。閉じたまま）
+door_high('SG11H', wTV, 0, SZ1 - PZ1, H1 - 0.03, TVX - CX1)                                        # 1階廊下とのハイドア（北側吊元で LDK 側へ開く）
 wOS = Wall(0, 0, 0.5, 0); wOS.room = 'V_ldk'
 door_hinged_closed('oshiire', wOS, 0.04, 1.2, 2.0, 2)                                            # 押入（2枚扉の観音開き）
+# --- 1階の西側（wash.js・bath.js） ---
+wDE = Wall(LW, 0, DZ0, -math.pi / 2); wDE.room = 'V_dress'; wDE.fy = 0.002
+casing(wDE, 'SG300l_d', SGZ0 - DZ0 + 0.025, SGZ1 - DZ0 - 0.025, 2.0); gap(wDE, SGZ0 - DZ0, SGZ1 - DZ0)   # SG300l の脱衣室側の額縁
+wDW = Wall(X0, 0, DZ1, math.pi / 2); wDW.room = 'V_dress'; wDW.fy = 0.002
+window('F4415N', wDW, DZ1 - WINZ1, DZ1 - WINZ0, 1.677, 2.134, panes=2)                          # 脱衣室の西の窓（W1198×H457、+1677）
+wDS = Wall(LW, 0, DZ1, math.pi); wDS.room = 'V_dress'; wDS.fy = 0.002
+door_slide('SG300w', wDS, LW - SGB, LW - SGA, 2.0, SZ0 - DZ1, 1)                                   # 洗面所との引き戸（脱衣室側の戸袋へ西へ引く）
+wWN = Wall(X0, 0, SZ0, 0); wWN.room = 'V_wash'; wWN.fy = 0.002
+casing(wWN, 'SG300w_w', SGA - X0 + 0.025, SGB - X0 - 0.025, 2.0); gap(wWN, SGA - X0, SGB - X0)
+wDN = Wall(X0, 0, DZ0, 0); wDN.room = 'V_dress'; wDN.fy = 0.002
+door_bath('BATHD', wDN, BATHA - X0, BATHB - X0, 2.0, DZ0 - BZ1)                                    # 浴室のドア（東側吊元で浴室側へ95°）
+wC = Wall(CX0, 0, EZ0, math.pi / 2); wC.room = 'V_ent'
+door_swing('SG33', wC, EZ0 - S33B, EZ0 - S33A, 2.0, CX0 - SX1, False)                             # 洗面所との開き戸（北側吊元で廊下側へ開く）
+wWE = Wall(SX1, 0, PZ0, -math.pi / 2); wWE.room = 'V_wash'; wWE.fy = 0.002
+casing(wWE, 'SG33_w', S33A - PZ0 + 0.025, S33B - PZ0 - 0.025, 2.0); gap(wWE, S33A - PZ0, S33B - PZ0)
+wWS = Wall(SX1, 0, SZ1, math.pi); wWS.room = 'V_wash'; wWS.fy = 0.002
+cut(wWS, 'HB', SX1 - HBX - 0.227, SX1 - HBX + 0.227, -E, 1.252, -0.066, E, m='V_wash'); gap(wWS, SX1 - HBX - 0.225, SX1 - HBX + 0.225)   # 床暖房のヘッダーボックスのへこみ（中身は書き出した物。見込みと重ならないよう 2mm 広く）
+wCE = Wall(CX1, 0, PZ1, -math.pi / 2); wCE.room = 'V_ent'
+casing(wCE, 'SG11H_c', SZ1 - 0.77 - PZ1 + 0.025, SZ1 - PZ1 - 0.025, H1 - 0.03); gap(wCE, SZ1 - 0.77 - PZ1, SZ1 - PZ1)   # SG11H の廊下側の額縁
+wTE = Wall(TX1, 0, EZ0, -math.pi / 2); wTE.room = 'V_toilet'
+door_outset('SG500', wTE, GA - EZ0, GB - EZ0, 2.0, EX1 - TX1, 1)                                 # トイレの引き戸（アウトセット、トイレ側を南へ引く）
+wHW = Wall(EX1, 0, zb(EX1), math.pi / 2); wHW.room = 'V_ent'
+casing(wHW, 'SG500_h', zb(EX1) - GB + 0.025, zb(EX1) - GA - 0.025, 2.0); gap(wHW, zb(EX1) - GB, zb(EX1) - GA)
+wES = Wall(CX1, 0, D, math.pi); wES.room = 'V_ent'
+box('C_entdoor', DRA, DRB, DY - E, DY + DRH, D - E, D + EXT + 0.05, 'frame', 'cut_open'); gap(wES, CX1 - DRB, CX1 - DRA)   # 玄関ドアの開口（ドアと枠は書き出した物）
 # --- 2階廊下 ---
 wHN = Wall(HALLX, FL2, HALLZ, 0); wHN.room = 'V_hall'
 door_hinged_closed('room2A', wHN, 0.033, 0.81, 2.0, 1)                                           # 洋室2-A
@@ -370,7 +461,9 @@ for cn in ('cut_void', 'keep', 'cut_open'):
 
 # ===== 6. 面の材質：部屋ごとに、上向き＝床・下向き＝天井・それ以外＝壁 =====
 ROOMS = {'V_ldk': ('floor_oak', 'wall_ldk', 'ceil'), 'V_hall': ('floor_walnut', 'wall_ldk', 'ceil'), 'V_bed': ('floor_walnut', 'wall_bed', 'ceil'),
-         'V_wic': ('floor_walnut', 'wall_wic', 'ceil_wic'), 'V_study': ('floor_walnut', 'wall_study', 'wall_study')}
+         'V_wic': ('floor_walnut', 'wall_wic', 'ceil_wic'), 'V_study': ('floor_walnut', 'wall_study', 'wall_study'),
+         'V_dress': ('floor_stone', 'wall_wash', 'ceil'), 'V_wash': ('floor_stone', 'wall_wash', 'ceil'), 'V_ent': ('floor_oak', 'wall_wash', 'ceil'),
+         'V_toilet': ('floor_stoneK', 'wall_ldk', 'ceil'), 'V_bath': ('floor_bath', 'wall_bath', 'ceil_bath')}   # 仮の色（本番の材質を 10章で移す）
 me = solid.data
 bm = bmesh.new(); bm.from_mesh(me)
 # キッチンの石目の床（東の壁から3マス×北の壁から2マス）の境で床を切る
@@ -378,6 +471,10 @@ for co, no in (((2.155, 0, 0), (1, 0, 0)), ((0, 0, 1.76), (0, 0, 1))):
     fl = [f for f in bm.faces if f.normal.z > 0.9 and abs(f.calc_center_median().z) < 0.01]
     geom = list({v for f in fl for v in f.verts}) + list({e for f in fl for e in f.edges}) + fl
     bmesh.ops.bisect_plane(bm, geom=geom, plane_co=B(*co), plane_no=Vector((no[0], -no[2], no[1])))
+kd = Vector((KF1[0] - KF0[0], 0, KF1[1] - KF0[1])).normalized()   # 玄関ホールの床を框のホール側の端で切る（框の上面を分ける）
+fl = [f for f in bm.faces if f.normal.z > 0.9 and abs(f.calc_center_median().z) < 0.01 and f.calc_center_median().x < CX1 + 0.05 and -f.calc_center_median().y > EZ0 - 0.01]
+geom = list({v for f in fl for v in f.verts}) + list({e for f in fl for e in f.edges}) + fl
+bmesh.ops.bisect_plane(bm, geom=geom, plane_co=B(EX1, 0, zb(EX1)), plane_no=Vector((kd.z, kd.x, 0)))
 slot = {m.name: i for i, m in enumerate(me.materials)}
 def sl(name):
     if name not in slot:
@@ -390,8 +487,10 @@ for f in bm.faces:
     c = f.calc_center_median()
     x, y, z = c.x, c.z, -c.y          # three.js の座標
     fl_, wa, ce = ROOMS[mn]
-    if f.normal.z > 0.9:
-        k = 'floor_stone' if (mn == 'V_ldk' and y < 0.01 and x > 2.155 and z < 1.76) else fl_
+    if mn == 'V_ent' and EX1 - 0.011 < x < CX1 + 0.031 and zb(x) - 0.001 < z < zf(x) + 0.001 and DY < y < 0.003:
+        k = 'kamachi'                                            # 框（木。上面は床の高さ、前の面は土間まで。本番は柄なしの木の色なので、床の柄を拾わないよう 10章で移さない）
+    elif f.normal.z > 0.9:
+        k = 'floor_stone' if (mn == 'V_ldk' and y < 0.01 and x > 2.155 and z < 1.76) else ('floor_doma' if (mn == 'V_ent' and y < DY + 0.01) else fl_)
     elif f.normal.z < -0.9:
         k = ce
     else:
@@ -442,6 +541,11 @@ baseboards('bed', [(OX + 0.1, OZ), (OX + BW_, OZ), (OX + BW_, OZ + BD_), (OX + 0
 baseboards('wic', [(WX0, WZ0), (WX1, WZ0), (WX1, WZ1), (WX0, WZ1)], [], FL2)
 baseboards('study', [(SX0_, SZ0_), (SX1_, SZ0_), (SX1_, SZ1_), (SX0_, SZ1_)], [], FL2)
 baseboards('hall', [(HALLX, HALLZ), (W, HALLZ), (W, VZ), (VX, VZ), (VX, PZ0), (HALLX, PZ0)], [2, 3], FL2)
+baseboards('dress', [(X0, DZ0), (LW, DZ0), (LW, DZ1), (X0, DZ1)], [], 0.002)
+baseboards('wash', [(X0, SZ0), (LW, SZ0), (LW, PZ0), (SX1, PZ0), (SX1, SZ1), (X0, SZ1)], [], 0.002)
+baseboards('ent', [(CX0, PZ1), (CX1, PZ1), (CX1, zb(CX1)), (EX1, zb(EX1)), (EX1, EZ0), (CX0, EZ0)], [2], 0)   # 廊下・玄関ホール（框の所は無し）
+baseboards('doma', [(EX1, zf(EX1)), (CX1, zf(CX1)), (CX1, D), (X0, D), (X0, KZ0), (EX1, KZ0)], [0], 0)   # 土間の壁：床の高さに（その下は土間のタイル。本番と同じ）
+baseboards('toilet', [(X0, EZ0), (TX1, EZ0), (TX1, TZ1), (X0, TZ1)], [], 0)
 box('bed_wainscot_cap', OX, OX + 0.11, FL2 + 1.0, FL2 + 1.025, OZ, OZ + BD_, 'walnut_top', 'fixtures')   # 腰壁の天板（ブラックウォルナット、bedroom.js 13）
 
 # ===== 8. 階段（ldk.js と同じ式。14段目は2階の床の張り出しの段鼻） =====
@@ -686,9 +790,11 @@ def apply_prod():
                 inner[t.polygon_index] = (t.area, sum((me.vertices[v].co for v in t.vertices), Vector()) / 3)
         lim = 0.02 if o is solid else 0.004   # 建具・巾木などは本番の同じ部品がぴったり重なるときだけ（無ければ巾木が壁の材質を拾ってしまう）
         for p in me.polygons:
+            if o is solid and me.materials[p.material_index] and me.materials[p.material_index].name == 'kamachi':
+                continue
             n = (nm @ p.normal).normalized(); c = mw @ (inner[p.index][1] if p.index in inner else p.center)
             best = None   # 同じ向きの面だけ（裏向きの面＝扉や見込みの下の面などを拾わない）。近くの面を順に見る
-            floor = o is solid and n.z > 0.9   # 床：柄のある本番の材質（床材）だけ。ドアの開口の床が近くの白い部品の材質を拾って白い帯になっていた
+            floor = o is solid and n.z > 0.9 and min(abs(c.z), abs(c.z - FL2)) < 0.005   # 床の高さの上向きの面だけ（掃き出し窓の下枠の上面が 4cm 下の床の柄を拾っていた。2026-10-27）。床：柄のある本番の材質（床材）だけ。ドアの開口の床が近くの白い部品の材質を拾って白い帯になっていた
             for d, lm in ((0.0005, lim), (0.003, lim), (0.003, 0.2 if floor else lim)):   # 面の中の点から少し部屋の側に出た点で探す（床は見つからなければ 20cm まで）
                 for loc, pn, i, dist in sorted(bvh.find_nearest_range(c + n * d, lm), key=lambda t: t[3]):
                     a0, a1, a2 = tris[i][0]

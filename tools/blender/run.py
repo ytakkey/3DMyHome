@@ -40,6 +40,12 @@ elif a[0] == 'review':   # 焼いた層の確認：夜（照明すべて・廊�
 elif a[0] == 'build':   # 建物を作り、家具と本番の材質を付ける：bake/work/export/furniture.glb・building.glb → bake/work/blender/house.blend
     r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'build_house.py'), '--', os.path.join(W, 'export', 'furniture.glb'), os.path.join(W, 'blender', 'house.blend')], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('BUILDING', 'prod materials', 'no building', 'DONE', '  File', 'buried cut'))))
+elif a[0] == 'measure':   # ドアの効き目を粗く焼いて測る：measure <名前> [サンプル数] [解像度] [光源,...] → bake/work/measure/<名前>.json
+    os.makedirs(os.path.join(W, 'measure'), exist_ok=True)
+    r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.join(T, 'bake_measure.py'), '--', os.path.join(W, 'measure', a[1] + '.json'), *a[2:5]], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('floor pixels', 'DONE', '  File'))))
+elif a[0] == 'check':   # 建物の確認の撮影（Workbench）：check [視点,...] → bake/work/check/ と check.json（食い込み）
+    blender(os.path.join(W, 'blender', 'house.blend'), 'check_shots.py', os.path.join(W, 'check'), *a[1:2])
 elif a[0] == 'prep':   # 焼き込みの準備（アトラスと UV）：house.blend → bake_uv.blend
     blender(os.path.join(W, 'blender', 'house.blend'), 'bake_layers.py', 'prep', os.path.join(W, 'blender', 'bake_uv.blend'))
 elif a[0] == 'bake':   # 焼く：bake [サンプル数] [層,...]（済んだ層は飛ばす）。bake fresh <サンプル数>：前の結果を lm_old_<時刻> へ移してから全部焼く
@@ -71,6 +77,9 @@ elif a[0] == 'bounce':   # 反射回数の比較：代表の層を反射回数 1
 elif a[0] == 'py':   # 調べる用：py <スクリプト> [引数...]（bake_uv.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
+elif a[0] == 'pyh':   # 調べる用：pyh <スクリプト> [引数...]（house.blend を開いて動かし、出力をすべて出す）
+    r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
 elif a[0] == 'gltf':   # 検証ページ（stg/）用の模型：bake_uv.blend → stg/house.glb
     blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(ROOT, 'stg', 'house.glb'))
 elif a[0] == 'lmimg' and any(x.startswith('smooth=') for x in a):   # smooth=<回数>[,<幅>]：ならす処理を変えて比べる（lm_images.py の LM_SMOOTH_IT・LM_SMOOTH_RANGE）

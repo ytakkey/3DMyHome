@@ -1,6 +1,6 @@
 // 本番（index.html）と検証ページ（stg/）を同じ視点・状態で撮る（見比べ用。CLAUDE.md 8章の確認の一覧）
 // 使い方：eval(await (await fetch('/tools/pair_cap.js')).text()); await pairCap('<名前>', 960, 540, [視点,...]|null, 夜か)
-// 状態：試作のドア3枚を開（closed で閉）。昼＝照明すべて消灯、夜＝照明すべて点灯。保存は bake/work/pair/<視点>__<名前>.png
+// 状態：ドアをすべて開（closed で閉）。昼＝照明すべて消灯、夜＝照明すべて点灯。保存は bake/work/pair/<視点>__<名前>.png
 var PAIRV={   // 名前：[目, 見る点, 視野角]（three.js の座標）
  bed_home:[[0.1475,4.1,6.9475],[-2.0725,3.75,3.6375],85],
  bed_ne:[[-1.6,4.1,6.6],[0.3,3.3,3.7],85],
@@ -44,11 +44,28 @@ var PAIRV={   // 名前：[目, 見る点, 視野角]（three.js の座標）
  door500w_bed:[[-0.2,4.3,4.4],[0.34,3.5,4.9],70],
  bb_500w:[[-0.6,4.4,5.4],[0.34,3.3,4.9],70],         // ウォークインの引き戸の横の幅木（扉の動く範囲で途切れていた）
  door311_bed:[[-0.35,4.3,4.5],[-0.05,3.5,3.6],70],
- robot:[[3.55,1.0,5.75],[4.54,0.2,5.23],55]};   // 階段の下のロボット掃除機のドック
-// closed：試作のドア3枚を閉じて撮る（開けた状態だけでは、閉じた扉の周りの見込みの黒が見えない）
+ robot:[[3.55,1.0,5.75],[4.54,0.2,5.23],55],   // 階段の下のロボット掃除機のドック
+ win_floor:[[2.0,0.8,6.7],[1.6,0.0,7.15],50],   // リビングの南の掃き出し窓の下枠（床の柄になっていた。4回目の指摘）
+ cup_wall:[[3.5,1.6,0.95],[4.06,1.3,0.3],65],   // カップボード横のうす壁（建物と家具で二重になっていた）
+ dress:[[-0.4,1.2,2.0],[-2.0,1.0,2.8],85],          // 1階の西側（2026-10-27）：脱衣室
+ bathdoor:[[-1.0,1.2,2.9],[-1.0,0.9,1.8],75],       // 脱衣室から浴室のドア
+ bath:[[-0.45,1.4,1.45],[-2.1,0.6,0.3],85],         // 浴室
+ wash:[[-0.8,1.2,4.3],[-2.2,1.0,3.3],85],           // 洗面所
+ sg300w:[[-1.0,1.2,4.0],[-1.0,0.9,2.9],75],         // 洗面所から脱衣室の引き戸
+ corridor:[[0.0,1.2,4.4],[0.0,1.0,3.6],80],         // 1階廊下
+ sg33:[[0.2,1.2,4.0],[-0.6,0.9,4.0],75],            // 廊下から洗面所の開き戸
+ hall1:[[-0.1,1.2,4.7],[-0.9,0.3,6.9],85],          // 玄関ホールから土間
+ doma:[[-0.7,1.05,6.9],[-0.7,0.9,4.6],85],          // 土間からホール
+ toilet:[[-1.6,1.2,4.75],[-2.1,0.5,6.1],85],        // トイレ
+ sg500:[[-0.8,1.2,4.95],[-1.4,0.9,4.95],75],        // ホールからトイレの引き戸
+ sg11h_c:[[-0.3,1.2,4.0],[0.4,1.0,4.0],75],         // 廊下から LDK のハイドア
+ sg300l_l:[[1.7,1.2,2.3],[0.0,1.0,2.3],85],         // LDK から脱衣室の引き戸
+ doma_store:[[-0.6,1.1,6.8],[-2.2,0.8,6.8],80]};    // 土間収納
+// closed：ドアをすべて閉じて撮る（開けた状態だけでは、閉じた扉の周りの見込みの黒が見えない）
+const PDK=['sg311','sg500w','sg33s','sg300l','sg300w','bath','sg33','sg11h','sg500'];   // 開閉できるドア（両方のページで同じにそろえる）
 async function pairCap(tag,W=960,H=540,only,night=false,closed=false){const trial=typeof T!=='undefined',op=!closed;
- if(trial)await T.set({night,LS:Object.fromEntries(Object.keys(LS).map(k=>[k,night])),DS:{sg311:op,sg500w:op,sg33s:op}});
- else{setNight(night);setAll(night);['sg311','sg500w','sg33s'].forEach(k=>{if(DS[k]!==op){DS[k]=op;updMove();showDoor(k);if(k==='sg311'){doorZones();updateLights();}}});}
+ if(trial)await T.set({night,LS:Object.fromEntries(Object.keys(LS).map(k=>[k,night])),DS:Object.fromEntries(PDK.map(k=>[k,op]))});
+ else{setNight(night);setAll(night);PDK.forEach(k=>{if(DS[k]!==op){DS[k]=op;updMove();showDoor(k);}});doorZones();updateLights();}
  if(trial)await new Promise(r=>setTimeout(r,1500));   // 組み合わせの重ね直しを待つ
  r.setPixelRatio(1);r.setSize(W,H,false);cam.aspect=W/H;cam.updateProjectionMatrix();
  for(const v in PAIRV){if(only&&!only.includes(v))continue;const [e,t,f]=PAIRV[v],d=[t[0]-e[0],t[1]-e[1],t[2]-e[2]];cam.position.set(...e);cam.fov=f;cam.updateProjectionMatrix();yaw=Math.atan2(-d[0],-d[2]);pitch=Math.atan2(d[1],Math.hypot(d[0],d[2]));draw();

@@ -4,2249 +4,2249 @@
 "layers": {
 "a1@all": {
 "V_hall": {
-"max": 2.470893383026123,
+"max": 5.915511608123779,
 "n": 14955,
 "file": "a1_all__V_hall.png",
-"bytes": 33894
+"bytes": 34496
 },
 "V_ldk": {
-"max": 144.0079345703125,
+"max": 145.64959716796875,
 "n": 183109,
 "file": "a1_all__V_ldk.png",
-"bytes": 517512
+"bytes": 514012
 },
 "door_SG311": {
-"max": 0.278076171875,
+"max": 0.280029296875,
 "file": "a1_all__door_SG311.png",
-"bytes": 69723
+"bytes": 69583
 },
 "hall": {
-"max": 12.53125,
+"max": 10.9453125,
 "file": "a1_all__hall.png",
-"bytes": 618796
+"bytes": 615484
 },
 "ldk": {
-"max": 235.375,
+"max": 293.0,
 "file": "a1_all__ldk.png",
-"bytes": 1498505
+"bytes": 1510978
 }
 },
 "a2@all": {
 "V_hall": {
-"max": 2098.76953125,
+"max": 2101.8046875,
 "n": 14955,
 "file": "a2_all__V_hall.png",
-"bytes": 28731
+"bytes": 28148
 },
 "V_ldk": {
-"max": 92.44551086425781,
+"max": 57.39775848388672,
 "n": 183109,
 "file": "a2_all__V_ldk.png",
-"bytes": 498616
+"bytes": 500446
 },
 "door_SG311": {
-"max": 3.005859375,
+"max": 2.986328125,
 "file": "a2_all__door_SG311.png",
-"bytes": 55526
+"bytes": 55755
 },
 "hall": {
-"max": 116.3125,
+"max": 81.47307586669922,
 "file": "a2_all__hall.png",
-"bytes": 652079
+"bytes": 662109
 },
 "ldk": {
-"max": 186.375,
+"max": 101.5,
 "file": "a2_all__ldk.png",
-"bytes": 1278947
+"bytes": 1330571
 }
 },
 "a3@all": {
 "V_hall": {
-"max": 1.1560245752334595,
+"max": 0.15476812422275543,
 "n": 14955,
 "file": "a3_all__V_hall.png",
-"bytes": 19725
+"bytes": 18761
 },
 "V_ldk": {
-"max": 1139.4599609375,
+"max": 1137.93994140625,
 "n": 183109,
 "file": "a3_all__V_ldk.png",
-"bytes": 380946
+"bytes": 382531
 },
 "door_SG311": {
-"max": 0.003948211669921875,
+"max": 0.003963470458984375,
 "file": "a3_all__door_SG311.png",
-"bytes": 9845
+"bytes": 9991
 },
 "hall": {
-"max": 0.76171875,
+"max": 4.23046875,
 "file": "a3_all__hall.png",
-"bytes": 511791
+"bytes": 441962
 },
 "ldk": {
-"max": 171.25,
+"max": 192.125,
 "file": "a3_all__ldk.png",
-"bytes": 1086865
+"bytes": 1090227
 }
 },
 "a4@all": {
 "V_hall": {
-"max": 12.701211929321289,
+"max": 11.189953804016113,
 "n": 14955,
 "file": "a4_all__V_hall.png",
-"bytes": 31444
+"bytes": 31438
 },
 "V_ldk": {
-"max": 142.45425415039062,
+"max": 142.0414276123047,
 "n": 183109,
 "file": "a4_all__V_ldk.png",
-"bytes": 516362
+"bytes": 515042
 },
 "door_SG311": {
-"max": 0.376708984375,
+"max": 0.3837890625,
 "file": "a4_all__door_SG311.png",
-"bytes": 81924
+"bytes": 81805
 },
 "hall": {
-"max": 15.0234375,
+"max": 12.796875,
 "file": "a4_all__hall.png",
-"bytes": 632630
+"bytes": 628490
 },
 "ldk": {
-"max": 165.0,
+"max": 174.875,
 "file": "a4_all__ldk.png",
-"bytes": 1493519
+"bytes": 1502902
 }
 },
 "a5@all": {
 "V_hall": {
-"max": 4.086635112762451,
+"max": 8.97563362121582,
 "n": 14955,
 "file": "a5_all__V_hall.png",
-"bytes": 33091
+"bytes": 33712
 },
 "V_ldk": {
-"max": 9783.1171875,
+"max": 9738.828125,
 "n": 183109,
 "file": "a5_all__V_ldk.png",
-"bytes": 486147
+"bytes": 485466
 },
 "door_SG311": {
-"max": 0.1253662109375,
+"max": 0.12322998046875,
 "file": "a5_all__door_SG311.png",
-"bytes": 70251
+"bytes": 70437
 },
 "hall": {
-"max": 18.65625,
+"max": 160.875,
 "file": "a5_all__hall.png",
-"bytes": 633962
+"bytes": 587551
 },
 "ldk": {
-"max": 286.0,
+"max": 432.75,
 "file": "a5_all__ldk.png",
-"bytes": 1510766
+"bytes": 1509928
 }
 },
 "a6@all": {
 "V_hall": {
-"max": 7.880207061767578,
+"max": 5.847331523895264,
 "n": 14955,
 "file": "a6_all__V_hall.png",
-"bytes": 36362
+"bytes": 35615
 },
 "V_ldk": {
-"max": 18879.484375,
+"max": 18924.421875,
 "n": 183109,
 "file": "a6_all__V_ldk.png",
-"bytes": 406502
+"bytes": 406130
 },
 "door_SG311": {
-"max": 0.306640625,
+"max": 0.30419921875,
 "file": "a6_all__door_SG311.png",
-"bytes": 52675
+"bytes": 52365
 },
 "hall": {
-"max": 36.40625,
+"max": 13.4921875,
 "file": "a6_all__hall.png",
-"bytes": 590869
+"bytes": 618004
 },
 "ldk": {
-"max": 1116.0,
+"max": 838.5,
 "file": "a6_all__ldk.png",
-"bytes": 1240997
+"bytes": 1277198
 }
 },
 "bbr@SG311c_SG500wc_SG33sc": {
 "V_bed": {
-"max": 229.31007385253906,
+"max": 238.15353393554688,
 "n": 16401,
 "file": "bbr_SG311c_SG500wc_SG33sc__V_bed.png",
-"bytes": 42586
+"bytes": 42545
 },
 "bed": {
-"max": 3688.496826171875,
+"max": 3780.42919921875,
 "file": "bbr_SG311c_SG500wc_SG33sc__bed.png",
-"bytes": 339096
+"bytes": 337582
 },
 "door_SG311": {
-"max": 31.3125,
+"max": 31.234375,
 "file": "bbr_SG311c_SG500wc_SG33sc__door_SG311.png",
-"bytes": 72968
+"bytes": 73241
 },
 "door_SG33s": {
-"max": 16.71875,
+"max": 16.734375,
 "file": "bbr_SG311c_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 67251
+"bytes": 67519
 },
 "door_SG500w": {
-"max": 18.609375,
+"max": 18.640625,
 "file": "bbr_SG311c_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 41956
+"bytes": 41990
 }
 },
 "bbr@SG311c_SG500wc_SG33so": {
 "V_bed": {
-"max": 229.31015014648438,
+"max": 238.12939453125,
 "n": 16401,
 "file": "bbr_SG311c_SG500wc_SG33so__V_bed.png",
-"bytes": 42525
+"bytes": 42669
 },
 "V_study": {
-"max": 50.78253936767578,
-"n": 57510,
+"max": 35.257991790771484,
+"n": 57512,
 "file": "bbr_SG311c_SG500wc_SG33so__V_study.png",
-"bytes": 170211
+"bytes": 169214
 },
 "bed": {
-"max": 3783.6943359375,
+"max": 3735.468505859375,
 "file": "bbr_SG311c_SG500wc_SG33so__bed.png",
-"bytes": 340223
+"bytes": 339120
 },
 "door_SG311": {
-"max": 31.21875,
+"max": 31.265625,
 "file": "bbr_SG311c_SG500wc_SG33so__door_SG311.png",
-"bytes": 72908
+"bytes": 72889
 },
 "door_SG33s": {
-"max": 15.4921875,
+"max": 15.484375,
 "file": "bbr_SG311c_SG500wc_SG33so__door_SG33s.png",
-"bytes": 101909
+"bytes": 101606
 },
 "door_SG500w": {
-"max": 18.65625,
+"max": 18.609375,
 "file": "bbr_SG311c_SG500wc_SG33so__door_SG500w.png",
-"bytes": 41276
+"bytes": 41676
 },
 "study": {
-"max": 24.015625,
+"max": 17.015625,
 "file": "bbr_SG311c_SG500wc_SG33so__study.png",
-"bytes": 206841
+"bytes": 204796
 }
 },
 "bbr@SG311c_SG500wo_SG33sc": {
 "V_bed": {
-"max": 229.52545166015625,
+"max": 237.96559143066406,
 "n": 16401,
 "file": "bbr_SG311c_SG500wo_SG33sc__V_bed.png",
-"bytes": 42607
+"bytes": 42899
 },
 "V_wic": {
-"max": 1.8470696210861206,
+"max": 1.8068101406097412,
 "n": 48044,
 "file": "bbr_SG311c_SG500wo_SG33sc__V_wic.png",
-"bytes": 125793
+"bytes": 125646
 },
 "bed": {
-"max": 3647.590576171875,
+"max": 3735.20849609375,
 "file": "bbr_SG311c_SG500wo_SG33sc__bed.png",
-"bytes": 339800
+"bytes": 337653
 },
 "door_SG311": {
-"max": 31.109375,
+"max": 31.28125,
 "file": "bbr_SG311c_SG500wo_SG33sc__door_SG311.png",
-"bytes": 72892
+"bytes": 72565
 },
 "door_SG33s": {
 "max": 16.703125,
 "file": "bbr_SG311c_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 67288
+"bytes": 67417
 },
 "door_SG500w": {
-"max": 26.3125,
+"max": 26.34375,
 "file": "bbr_SG311c_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 86048
+"bytes": 86069
 },
 "wic": {
-"max": 8.7734375,
+"max": 8.421875,
 "file": "bbr_SG311c_SG500wo_SG33sc__wic.png",
-"bytes": 151912
+"bytes": 156814
 }
 },
 "bbr@SG311c_SG500wo_SG33so": {
 "V_bed": {
-"max": 229.52557373046875,
+"max": 237.94174194335938,
 "n": 16401,
 "file": "bbr_SG311c_SG500wo_SG33so__V_bed.png",
-"bytes": 42700
+"bytes": 42499
 },
 "V_study": {
-"max": 50.791961669921875,
-"n": 57510,
+"max": 35.257991790771484,
+"n": 57512,
 "file": "bbr_SG311c_SG500wo_SG33so__V_study.png",
-"bytes": 170238
+"bytes": 169265
 },
 "V_wic": {
-"max": 1.8348418474197388,
+"max": 1.7948631048202515,
 "n": 48044,
 "file": "bbr_SG311c_SG500wo_SG33so__V_wic.png",
-"bytes": 125796
+"bytes": 125597
 },
 "bed": {
-"max": 3842.07421875,
+"max": 3820.08984375,
 "file": "bbr_SG311c_SG500wo_SG33so__bed.png",
-"bytes": 341884
+"bytes": 338944
 },
 "door_SG311": {
-"max": 31.265625,
+"max": 31.1875,
 "file": "bbr_SG311c_SG500wo_SG33so__door_SG311.png",
-"bytes": 72731
+"bytes": 72602
 },
 "door_SG33s": {
-"max": 15.3828125,
+"max": 15.375,
 "file": "bbr_SG311c_SG500wo_SG33so__door_SG33s.png",
-"bytes": 101674
+"bytes": 101630
 },
 "door_SG500w": {
-"max": 26.328125,
+"max": 26.25,
 "file": "bbr_SG311c_SG500wo_SG33so__door_SG500w.png",
-"bytes": 86340
+"bytes": 86469
 },
 "study": {
-"max": 23.796875,
+"max": 17.03125,
 "file": "bbr_SG311c_SG500wo_SG33so__study.png",
-"bytes": 206736
+"bytes": 204823
 },
 "wic": {
-"max": 8.78125,
+"max": 8.703125,
 "file": "bbr_SG311c_SG500wo_SG33so__wic.png",
-"bytes": 151434
+"bytes": 157028
 }
 },
 "bbr@SG311o_SG500wc_SG33sc": {
 "V_bed": {
-"max": 229.3293914794922,
+"max": 238.01405334472656,
 "n": 16401,
 "file": "bbr_SG311o_SG500wc_SG33sc__V_bed.png",
-"bytes": 42519
+"bytes": 42851
 },
 "V_hall": {
-"max": 2.807912588119507,
+"max": 1.5501642227172852,
 "n": 14955,
 "file": "bbr_SG311o_SG500wc_SG33sc__V_hall.png",
-"bytes": 31812
+"bytes": 31859
 },
 "bed": {
-"max": 3760.6572265625,
+"max": 3684.071044921875,
 "file": "bbr_SG311o_SG500wc_SG33sc__bed.png",
-"bytes": 334155
+"bytes": 333145
 },
 "door_SG311": {
-"max": 31.1875,
+"max": 31.09375,
 "file": "bbr_SG311o_SG500wc_SG33sc__door_SG311.png",
-"bytes": 97547
+"bytes": 97581
 },
 "door_SG33s": {
 "max": 16.71875,
 "file": "bbr_SG311o_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 67292
+"bytes": 67345
 },
 "door_SG500w": {
-"max": 17.234375,
+"max": 17.1875,
 "file": "bbr_SG311o_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 41627
+"bytes": 41825
 },
 "hall": {
-"max": 30.0625,
+"max": 18.953125,
 "file": "bbr_SG311o_SG500wc_SG33sc__hall.png",
-"bytes": 606014
+"bytes": 622922
 }
 },
 "bbr@SG311o_SG500wc_SG33so": {
 "V_bed": {
-"max": 229.32850646972656,
+"max": 237.99026489257812,
 "n": 16401,
 "file": "bbr_SG311o_SG500wc_SG33so__V_bed.png",
-"bytes": 42563
+"bytes": 42394
 },
 "V_hall": {
-"max": 2.807912588119507,
+"max": 1.543150782585144,
 "n": 14955,
 "file": "bbr_SG311o_SG500wc_SG33so__V_hall.png",
 "bytes": 31788
 },
 "V_study": {
-"max": 50.782535552978516,
-"n": 57510,
+"max": 35.257991790771484,
+"n": 57512,
 "file": "bbr_SG311o_SG500wc_SG33so__V_study.png",
-"bytes": 170327
+"bytes": 169369
 },
 "bed": {
-"max": 3761.76171875,
+"max": 3855.56494140625,
 "file": "bbr_SG311o_SG500wc_SG33so__bed.png",
-"bytes": 335591
+"bytes": 334507
 },
 "door_SG311": {
-"max": 31.203125,
+"max": 31.234375,
 "file": "bbr_SG311o_SG500wc_SG33so__door_SG311.png",
-"bytes": 97729
+"bytes": 97483
 },
 "door_SG33s": {
-"max": 15.828125,
+"max": 15.8828125,
 "file": "bbr_SG311o_SG500wc_SG33so__door_SG33s.png",
-"bytes": 101813
+"bytes": 102182
 },
 "door_SG500w": {
-"max": 17.203125,
+"max": 17.140625,
 "file": "bbr_SG311o_SG500wc_SG33so__door_SG500w.png",
-"bytes": 42089
+"bytes": 42037
 },
 "hall": {
-"max": 29.9375,
+"max": 18.921875,
 "file": "bbr_SG311o_SG500wc_SG33so__hall.png",
-"bytes": 605984
+"bytes": 622781
 },
 "study": {
-"max": 24.359375,
+"max": 17.09375,
 "file": "bbr_SG311o_SG500wc_SG33so__study.png",
-"bytes": 206314
+"bytes": 205297
 }
 },
 "bbr@SG311o_SG500wo_SG33sc": {
 "V_bed": {
-"max": 229.37701416015625,
+"max": 237.8262939453125,
 "n": 16401,
 "file": "bbr_SG311o_SG500wo_SG33sc__V_bed.png",
-"bytes": 42643
+"bytes": 42648
 },
 "V_hall": {
-"max": 2.8079004287719727,
+"max": 1.4437143802642822,
 "n": 14955,
 "file": "bbr_SG311o_SG500wo_SG33sc__V_hall.png",
-"bytes": 31832
+"bytes": 31777
 },
 "V_wic": {
-"max": 1.785294771194458,
+"max": 1.7549476623535156,
 "n": 48044,
 "file": "bbr_SG311o_SG500wo_SG33sc__V_wic.png",
-"bytes": 126252
+"bytes": 126011
 },
 "bed": {
-"max": 3672.517822265625,
+"max": 3619.225830078125,
 "file": "bbr_SG311o_SG500wo_SG33sc__bed.png",
-"bytes": 336372
+"bytes": 333861
 },
 "door_SG311": {
-"max": 31.0625,
+"max": 31.09375,
 "file": "bbr_SG311o_SG500wo_SG33sc__door_SG311.png",
-"bytes": 97244
+"bytes": 97387
 },
 "door_SG33s": {
 "max": 16.71875,
 "file": "bbr_SG311o_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 67438
+"bytes": 67291
 },
 "door_SG500w": {
-"max": 25.859375,
+"max": 25.984375,
 "file": "bbr_SG311o_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 86673
+"bytes": 86904
 },
 "hall": {
-"max": 30.90625,
+"max": 20.21875,
 "file": "bbr_SG311o_SG500wo_SG33sc__hall.png",
-"bytes": 605451
+"bytes": 620443
 },
 "wic": {
-"max": 7.80078125,
+"max": 7.49609375,
 "file": "bbr_SG311o_SG500wo_SG33sc__wic.png",
-"bytes": 153887
+"bytes": 158317
 }
 },
 "bbr@SG311o_SG500wo_SG33so": {
 "V_bed": {
-"max": 229.41481018066406,
+"max": 237.80250549316406,
 "n": 16401,
 "file": "bbr_SG311o_SG500wo_SG33so__V_bed.png",
-"bytes": 42684
+"bytes": 42647
 },
 "V_hall": {
-"max": 2.8079137802124023,
+"max": 1.4281822443008423,
 "n": 14955,
 "file": "bbr_SG311o_SG500wo_SG33so__V_hall.png",
-"bytes": 31846
+"bytes": 31964
 },
 "V_study": {
-"max": 50.791954040527344,
-"n": 57510,
+"max": 35.257991790771484,
+"n": 57512,
 "file": "bbr_SG311o_SG500wo_SG33so__V_study.png",
-"bytes": 170131
+"bytes": 169276
 },
 "V_wic": {
-"max": 1.7743260860443115,
+"max": 1.743033766746521,
 "n": 48044,
 "file": "bbr_SG311o_SG500wo_SG33so__V_wic.png",
-"bytes": 126203
+"bytes": 125897
 },
 "bed": {
-"max": 3681.5146484375,
+"max": 3791.746826171875,
 "file": "bbr_SG311o_SG500wo_SG33so__bed.png",
-"bytes": 336816
+"bytes": 334611
 },
 "door_SG311": {
-"max": 31.078125,
+"max": 31.09375,
 "file": "bbr_SG311o_SG500wo_SG33so__door_SG311.png",
-"bytes": 97165
+"bytes": 97403
 },
 "door_SG33s": {
-"max": 15.3046875,
+"max": 15.359375,
 "file": "bbr_SG311o_SG500wo_SG33so__door_SG33s.png",
-"bytes": 101910
+"bytes": 101532
 },
 "door_SG500w": {
-"max": 25.859375,
+"max": 25.890625,
 "file": "bbr_SG311o_SG500wo_SG33so__door_SG500w.png",
-"bytes": 86666
+"bytes": 86701
 },
 "hall": {
-"max": 30.75,
+"max": 20.328125,
 "file": "bbr_SG311o_SG500wo_SG33so__hall.png",
-"bytes": 605730
+"bytes": 620491
 },
 "study": {
-"max": 24.34375,
+"max": 17.25,
 "file": "bbr_SG311o_SG500wo_SG33so__study.png",
-"bytes": 206794
+"bytes": 204697
 },
 "wic": {
-"max": 7.75,
+"max": 7.32421875,
 "file": "bbr_SG311o_SG500wo_SG33so__wic.png",
-"bytes": 153944
+"bytes": 158578
 }
 },
 "bdl@SG311c_SG500wc_SG33sc": {
 "V_bed": {
-"max": 108.82084655761719,
+"max": 108.93761444091797,
 "n": 16401,
 "file": "bdl_SG311c_SG500wc_SG33sc__V_bed.png",
-"bytes": 42680
+"bytes": 42837
 },
 "bed": {
-"max": 153.8347625732422,
+"max": 153.8890838623047,
 "file": "bdl_SG311c_SG500wc_SG33sc__bed.png",
-"bytes": 343104
+"bytes": 340291
 },
 "door_SG311": {
-"max": 116.4375,
+"max": 116.6875,
 "file": "bdl_SG311c_SG500wc_SG33sc__door_SG311.png",
-"bytes": 71259
+"bytes": 71396
 },
 "door_SG33s": {
-"max": 139.25,
+"max": 139.875,
 "file": "bdl_SG311c_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 62925
+"bytes": 63007
 },
 "door_SG500w": {
-"max": 184.875,
+"max": 185.0,
 "file": "bdl_SG311c_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 40583
+"bytes": 40565
 }
 },
 "bdl@SG311c_SG500wc_SG33so": {
 "V_bed": {
-"max": 107.39512634277344,
+"max": 107.51914978027344,
 "n": 16401,
 "file": "bdl_SG311c_SG500wc_SG33so__V_bed.png",
-"bytes": 43018
+"bytes": 42964
 },
 "V_study": {
-"max": 38.205421447753906,
-"n": 57510,
+"max": 39.47092819213867,
+"n": 57512,
 "file": "bdl_SG311c_SG500wc_SG33so__V_study.png",
-"bytes": 161375
+"bytes": 161072
 },
 "bed": {
-"max": 152.65646362304688,
+"max": 152.78683471679688,
 "file": "bdl_SG311c_SG500wc_SG33so__bed.png",
-"bytes": 343944
+"bytes": 341737
 },
 "door_SG311": {
-"max": 115.9375,
+"max": 116.125,
 "file": "bdl_SG311c_SG500wc_SG33so__door_SG311.png",
-"bytes": 71358
+"bytes": 71335
 },
 "door_SG33s": {
-"max": 150.625,
+"max": 151.25,
 "file": "bdl_SG311c_SG500wc_SG33so__door_SG33s.png",
-"bytes": 95576
+"bytes": 95429
 },
 "door_SG500w": {
-"max": 183.25,
+"max": 183.375,
 "file": "bdl_SG311c_SG500wc_SG33so__door_SG500w.png",
-"bytes": 40570
+"bytes": 40449
 },
 "study": {
-"max": 66.1875,
+"max": 65.9375,
 "file": "bdl_SG311c_SG500wc_SG33so__study.png",
-"bytes": 199917
+"bytes": 197936
 }
 },
 "bdl@SG311c_SG500wo_SG33sc": {
 "V_bed": {
-"max": 104.2711181640625,
+"max": 104.33589935302734,
 "n": 16401,
 "file": "bdl_SG311c_SG500wo_SG33sc__V_bed.png",
-"bytes": 42682
+"bytes": 42901
 },
 "V_wic": {
-"max": 10.545452117919922,
+"max": 10.636451721191406,
 "n": 48044,
 "file": "bdl_SG311c_SG500wo_SG33sc__V_wic.png",
-"bytes": 117663
+"bytes": 117434
 },
 "bed": {
-"max": 150.8631591796875,
+"max": 150.91973876953125,
 "file": "bdl_SG311c_SG500wo_SG33sc__bed.png",
-"bytes": 340950
+"bytes": 339159
 },
 "door_SG311": {
-"max": 110.625,
+"max": 111.25,
 "file": "bdl_SG311c_SG500wo_SG33sc__door_SG311.png",
-"bytes": 71335
+"bytes": 71254
 },
 "door_SG33s": {
-"max": 137.5,
+"max": 136.875,
 "file": "bdl_SG311c_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 62692
+"bytes": 62794
 },
 "door_SG500w": {
-"max": 186.75,
+"max": 186.625,
 "file": "bdl_SG311c_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 78023
+"bytes": 77849
 },
 "wic": {
-"max": 78.75,
+"max": 76.0625,
 "file": "bdl_SG311c_SG500wo_SG33sc__wic.png",
-"bytes": 145871
+"bytes": 149567
 }
 },
 "bdl@SG311c_SG500wo_SG33so": {
 "V_bed": {
-"max": 102.74553680419922,
+"max": 102.90335845947266,
 "n": 16401,
 "file": "bdl_SG311c_SG500wo_SG33so__V_bed.png",
-"bytes": 42857
+"bytes": 43112
 },
 "V_study": {
-"max": 41.78908920288086,
-"n": 57510,
+"max": 38.047550201416016,
+"n": 57512,
 "file": "bdl_SG311c_SG500wo_SG33so__V_study.png",
-"bytes": 161369
+"bytes": 160684
 },
 "V_wic": {
-"max": 10.416705131530762,
+"max": 10.568445205688477,
 "n": 48044,
 "file": "bdl_SG311c_SG500wo_SG33so__V_wic.png",
-"bytes": 117646
+"bytes": 117197
 },
 "bed": {
-"max": 149.56561279296875,
+"max": 149.59078979492188,
 "file": "bdl_SG311c_SG500wo_SG33so__bed.png",
-"bytes": 342150
+"bytes": 341330
 },
 "door_SG311": {
-"max": 111.375,
+"max": 111.5625,
 "file": "bdl_SG311c_SG500wo_SG33so__door_SG311.png",
-"bytes": 71042
+"bytes": 71112
 },
 "door_SG33s": {
 "max": 146.375,
 "file": "bdl_SG311c_SG500wo_SG33so__door_SG33s.png",
-"bytes": 95900
+"bytes": 95855
 },
 "door_SG500w": {
-"max": 185.5,
+"max": 186.25,
 "file": "bdl_SG311c_SG500wo_SG33so__door_SG500w.png",
-"bytes": 78124
+"bytes": 77633
 },
 "study": {
-"max": 67.75,
+"max": 67.6875,
 "file": "bdl_SG311c_SG500wo_SG33so__study.png",
-"bytes": 200157
+"bytes": 197579
 },
 "wic": {
-"max": 78.5,
+"max": 75.5625,
 "file": "bdl_SG311c_SG500wo_SG33so__wic.png",
-"bytes": 146484
+"bytes": 149773
 }
 },
 "bdl@SG311o_SG500wc_SG33sc": {
 "V_bed": {
-"max": 106.38446807861328,
+"max": 106.39056396484375,
 "n": 16401,
 "file": "bdl_SG311o_SG500wc_SG33sc__V_bed.png",
-"bytes": 42745
+"bytes": 42983
 },
 "V_hall": {
-"max": 21.55849266052246,
+"max": 21.555126190185547,
 "n": 14955,
 "file": "bdl_SG311o_SG500wc_SG33sc__V_hall.png",
-"bytes": 20029
+"bytes": 20253
 },
 "bed": {
-"max": 151.35206604003906,
+"max": 151.39869689941406,
 "file": "bdl_SG311o_SG500wc_SG33sc__bed.png",
-"bytes": 339428
+"bytes": 337495
 },
 "door_SG311": {
-"max": 166.5,
+"max": 166.625,
 "file": "bdl_SG311o_SG500wc_SG33sc__door_SG311.png",
-"bytes": 89417
+"bytes": 89348
 },
 "door_SG33s": {
 "max": 138.875,
 "file": "bdl_SG311o_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 63033
+"bytes": 63056
 },
 "door_SG500w": {
-"max": 184.0,
+"max": 184.125,
 "file": "bdl_SG311o_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 41885
+"bytes": 42039
 },
 "hall": {
-"max": 77.75,
+"max": 75.25,
 "file": "bdl_SG311o_SG500wc_SG33sc__hall.png",
-"bytes": 582177
+"bytes": 571365
 }
 },
 "bdl@SG311o_SG500wc_SG33so": {
 "V_bed": {
-"max": 104.9555892944336,
+"max": 105.0017318725586,
 "n": 16401,
 "file": "bdl_SG311o_SG500wc_SG33so__V_bed.png",
-"bytes": 42857
+"bytes": 43149
 },
 "V_hall": {
-"max": 21.400550842285156,
+"max": 21.397010803222656,
 "n": 14955,
 "file": "bdl_SG311o_SG500wc_SG33so__V_hall.png",
-"bytes": 20042
+"bytes": 20284
 },
 "V_study": {
-"max": 38.413597106933594,
-"n": 57510,
+"max": 39.47088623046875,
+"n": 57512,
 "file": "bdl_SG311o_SG500wc_SG33so__V_study.png",
-"bytes": 161177
+"bytes": 160789
 },
 "bed": {
-"max": 150.55166625976562,
+"max": 150.63365173339844,
 "file": "bdl_SG311o_SG500wc_SG33so__bed.png",
-"bytes": 343521
+"bytes": 339108
 },
 "door_SG311": {
-"max": 166.375,
+"max": 166.5,
 "file": "bdl_SG311o_SG500wc_SG33so__door_SG311.png",
-"bytes": 89061
+"bytes": 89324
 },
 "door_SG33s": {
-"max": 148.0,
+"max": 148.625,
 "file": "bdl_SG311o_SG500wc_SG33so__door_SG33s.png",
-"bytes": 95584
+"bytes": 95907
 },
 "door_SG500w": {
-"max": 183.0,
+"max": 182.375,
 "file": "bdl_SG311o_SG500wc_SG33so__door_SG500w.png",
-"bytes": 42158
+"bytes": 41677
 },
 "hall": {
-"max": 77.5625,
+"max": 75.5625,
 "file": "bdl_SG311o_SG500wc_SG33so__hall.png",
-"bytes": 581332
+"bytes": 571570
 },
 "study": {
-"max": 66.375,
+"max": 65.9375,
 "file": "bdl_SG311o_SG500wc_SG33so__study.png",
-"bytes": 200023
+"bytes": 197798
 }
 },
 "bdl@SG311o_SG500wo_SG33sc": {
 "V_bed": {
-"max": 102.6885757446289,
+"max": 102.66616821289062,
 "n": 16401,
 "file": "bdl_SG311o_SG500wo_SG33sc__V_bed.png",
-"bytes": 42836
+"bytes": 43093
 },
 "V_hall": {
-"max": 20.529224395751953,
+"max": 20.52436065673828,
 "n": 14955,
 "file": "bdl_SG311o_SG500wo_SG33sc__V_hall.png",
-"bytes": 20012
+"bytes": 20232
 },
 "V_wic": {
-"max": 10.175743103027344,
+"max": 10.193578720092773,
 "n": 48044,
 "file": "bdl_SG311o_SG500wo_SG33sc__V_wic.png",
-"bytes": 117308
+"bytes": 116952
 },
 "bed": {
-"max": 148.7913818359375,
+"max": 148.87179565429688,
 "file": "bdl_SG311o_SG500wo_SG33sc__bed.png",
-"bytes": 339174
+"bytes": 337044
 },
 "door_SG311": {
 "max": 156.75,
 "file": "bdl_SG311o_SG500wo_SG33sc__door_SG311.png",
-"bytes": 88904
+"bytes": 89113
 },
 "door_SG33s": {
 "max": 137.125,
 "file": "bdl_SG311o_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 63280
+"bytes": 63155
 },
 "door_SG500w": {
-"max": 185.875,
+"max": 186.625,
 "file": "bdl_SG311o_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 79618
+"bytes": 79613
 },
 "hall": {
-"max": 75.3125,
+"max": 75.5625,
 "file": "bdl_SG311o_SG500wo_SG33sc__hall.png",
-"bytes": 579998
+"bytes": 568592
 },
 "wic": {
-"max": 71.3125,
+"max": 74.5,
 "file": "bdl_SG311o_SG500wo_SG33sc__wic.png",
-"bytes": 146852
+"bytes": 149705
 }
 },
 "bdl@SG311o_SG500wo_SG33so": {
 "V_bed": {
-"max": 100.71324920654297,
+"max": 100.76979064941406,
 "n": 16401,
 "file": "bdl_SG311o_SG500wo_SG33so__V_bed.png",
-"bytes": 42690
+"bytes": 43168
 },
 "V_hall": {
-"max": 20.371280670166016,
+"max": 20.366243362426758,
 "n": 14955,
 "file": "bdl_SG311o_SG500wo_SG33so__V_hall.png",
-"bytes": 20021
+"bytes": 20201
 },
 "V_study": {
-"max": 41.997249603271484,
-"n": 57510,
+"max": 39.29462814331055,
+"n": 57512,
 "file": "bdl_SG311o_SG500wo_SG33so__V_study.png",
-"bytes": 161190
+"bytes": 160814
 },
 "V_wic": {
-"max": 10.0802640914917,
+"max": 10.099196434020996,
 "n": 48044,
 "file": "bdl_SG311o_SG500wo_SG33so__V_wic.png",
-"bytes": 117316
+"bytes": 117043
 },
 "bed": {
-"max": 147.34947204589844,
+"max": 147.36264038085938,
 "file": "bdl_SG311o_SG500wo_SG33so__bed.png",
-"bytes": 340058
+"bytes": 337922
 },
 "door_SG311": {
 "max": 156.625,
 "file": "bdl_SG311o_SG500wo_SG33so__door_SG311.png",
-"bytes": 88881
+"bytes": 88788
 },
 "door_SG33s": {
 "max": 145.125,
 "file": "bdl_SG311o_SG500wo_SG33so__door_SG33s.png",
-"bytes": 95379
+"bytes": 95364
 },
 "door_SG500w": {
 "max": 185.5,
 "file": "bdl_SG311o_SG500wo_SG33so__door_SG500w.png",
-"bytes": 79623
+"bytes": 79327
 },
 "hall": {
-"max": 75.6875,
+"max": 76.0,
 "file": "bdl_SG311o_SG500wo_SG33so__hall.png",
-"bytes": 580071
+"bytes": 567691
 },
 "study": {
-"max": 67.9375,
+"max": 68.0,
 "file": "bdl_SG311o_SG500wo_SG33so__study.png",
-"bytes": 199520
+"bytes": 197246
 },
 "wic": {
-"max": 71.125,
+"max": 74.5625,
 "file": "bdl_SG311o_SG500wo_SG33so__wic.png",
-"bytes": 146896
+"bytes": 149691
 }
 },
 "h1@all": {
 "V_hall": {
-"max": 56.43961715698242,
+"max": 59.71837615966797,
 "n": 14955,
 "file": "h1_all__V_hall.png",
-"bytes": 29399
+"bytes": 29341
 },
 "V_ldk": {
-"max": 39.752281188964844,
+"max": 36.6520881652832,
 "n": 183109,
 "file": "h1_all__V_ldk.png",
-"bytes": 499751
+"bytes": 496692
 },
 "door_SG311": {
-"max": 2.79296875,
+"max": 2.80078125,
 "file": "h1_all__door_SG311.png",
-"bytes": 75771
+"bytes": 75773
 },
 "hall": {
-"max": 238.625,
+"max": 271.25,
 "file": "h1_all__hall.png",
-"bytes": 601289
+"bytes": 598334
 },
 "ldk": {
-"max": 78.5,
+"max": 81.125,
 "file": "h1_all__ldk.png",
-"bytes": 1455118
+"bytes": 1459642
 }
 },
 "j1@SG311c_SG500wc": {
 "V_hall": {
-"max": 45.33254623413086,
+"max": 45.837547302246094,
 "n": 14955,
 "file": "j1_SG311c_SG500wc__V_hall.png",
-"bytes": 30532
+"bytes": 30996
 },
 "V_ldk": {
-"max": 11.81972599029541,
+"max": 22.81753158569336,
 "n": 183109,
 "file": "j1_SG311c_SG500wc__V_ldk.png",
-"bytes": 501655
+"bytes": 505783
 },
 "door_SG311": {
-"max": 135.625,
+"max": 135.75,
 "file": "j1_SG311c_SG500wc__door_SG311.png",
-"bytes": 64394
+"bytes": 64454
 },
 "hall": {
-"max": 269.4381103515625,
+"max": 269.539306640625,
 "file": "j1_SG311c_SG500wc__hall.png",
-"bytes": 594110
+"bytes": 595200
 },
 "ldk": {
-"max": 35.28125,
+"max": 44.59375,
 "file": "j1_SG311c_SG500wc__ldk.png",
-"bytes": 1452594
+"bytes": 1454946
 }
 },
 "j1@SG311c_SG500wo": {
 "V_hall": {
-"max": 45.33254623413086,
+"max": 45.837547302246094,
 "n": 14955,
 "file": "j1_SG311c_SG500wo__V_hall.png",
-"bytes": 30540
+"bytes": 30975
 },
 "V_ldk": {
-"max": 11.819726943969727,
+"max": 22.81753158569336,
 "n": 183109,
 "file": "j1_SG311c_SG500wo__V_ldk.png",
-"bytes": 504496
+"bytes": 506696
 },
 "door_SG311": {
-"max": 135.625,
+"max": 135.75,
 "file": "j1_SG311c_SG500wo__door_SG311.png",
-"bytes": 64424
+"bytes": 64441
 },
 "hall": {
-"max": 269.4499206542969,
+"max": 269.5339050292969,
 "file": "j1_SG311c_SG500wo__hall.png",
-"bytes": 594257
+"bytes": 594568
 },
 "ldk": {
-"max": 35.28125,
+"max": 44.625,
 "file": "j1_SG311c_SG500wo__ldk.png",
-"bytes": 1453540
+"bytes": 1455402
 }
 },
 "j1@SG311o_SG500wc": {
 "V_bed": {
-"max": 5.847492218017578,
+"max": 5.839443206787109,
 "n": 16401,
 "file": "j1_SG311o_SG500wc__V_bed.png",
-"bytes": 47189
+"bytes": 47179
 },
 "V_hall": {
-"max": 44.17185974121094,
+"max": 44.816688537597656,
 "n": 14955,
 "file": "j1_SG311o_SG500wc__V_hall.png",
-"bytes": 30660
+"bytes": 30953
 },
 "V_ldk": {
-"max": 11.81972599029541,
+"max": 22.817533493041992,
 "n": 183109,
 "file": "j1_SG311o_SG500wc__V_ldk.png",
-"bytes": 502195
+"bytes": 507222
 },
 "bed": {
-"max": 32.875,
+"max": 33.03125,
 "file": "j1_SG311o_SG500wc__bed.png",
-"bytes": 395383
+"bytes": 391293
 },
 "door_SG311": {
 "max": 133.375,
 "file": "j1_SG311o_SG500wc__door_SG311.png",
-"bytes": 91744
+"bytes": 91910
 },
 "door_SG33s": {
-"max": 2.466796875,
+"max": 2.474609375,
 "file": "j1_SG311o_SG500wc__door_SG33s.png",
-"bytes": 94127
+"bytes": 94033
 },
 "door_SG500w": {
-"max": 25.3125,
+"max": 25.328125,
 "file": "j1_SG311o_SG500wc__door_SG500w.png",
-"bytes": 42956
+"bytes": 43087
 },
 "hall": {
-"max": 268.0303955078125,
+"max": 268.17083740234375,
 "file": "j1_SG311o_SG500wc__hall.png",
-"bytes": 594985
+"bytes": 595482
 },
 "ldk": {
-"max": 35.5625,
+"max": 44.59375,
 "file": "j1_SG311o_SG500wc__ldk.png",
-"bytes": 1452942
+"bytes": 1455195
 }
 },
 "j1@SG311o_SG500wo": {
 "V_bed": {
-"max": 5.759382247924805,
+"max": 5.750386714935303,
 "n": 16401,
 "file": "j1_SG311o_SG500wo__V_bed.png",
-"bytes": 47342
+"bytes": 47202
 },
 "V_hall": {
-"max": 44.17327880859375,
+"max": 44.80124282836914,
 "n": 14955,
 "file": "j1_SG311o_SG500wo__V_hall.png",
-"bytes": 30669
+"bytes": 30871
 },
 "V_ldk": {
-"max": 11.81972599029541,
+"max": 22.81753158569336,
 "n": 183109,
 "file": "j1_SG311o_SG500wo__V_ldk.png",
-"bytes": 501651
+"bytes": 504102
 },
 "V_wic": {
-"max": 1.2157173156738281,
+"max": 1.2183706760406494,
 "n": 48044,
 "file": "j1_SG311o_SG500wo__V_wic.png",
-"bytes": 128396
+"bytes": 128158
 },
 "bed": {
-"max": 33.125,
+"max": 33.15625,
 "file": "j1_SG311o_SG500wo__bed.png",
-"bytes": 392190
+"bytes": 388988
 },
 "door_SG311": {
-"max": 133.625,
+"max": 133.125,
 "file": "j1_SG311o_SG500wo__door_SG311.png",
-"bytes": 91727
+"bytes": 91962
 },
 "door_SG33s": {
-"max": 2.287109375,
+"max": 2.294921875,
 "file": "j1_SG311o_SG500wo__door_SG33s.png",
-"bytes": 94895
+"bytes": 94759
 },
 "door_SG500w": {
-"max": 9.4453125,
+"max": 9.4140625,
 "file": "j1_SG311o_SG500wo__door_SG500w.png",
-"bytes": 90952
+"bytes": 90909
 },
 "hall": {
-"max": 268.0885925292969,
+"max": 268.13653564453125,
 "file": "j1_SG311o_SG500wo__hall.png",
-"bytes": 594237
+"bytes": 595338
 },
 "ldk": {
-"max": 35.5625,
+"max": 44.59375,
 "file": "j1_SG311o_SG500wo__ldk.png",
-"bytes": 1452743
+"bytes": 1455588
 },
 "wic": {
-"max": 5.5546875,
+"max": 5.09375,
 "file": "j1_SG311o_SG500wo__wic.png",
-"bytes": 169262
+"bytes": 177421
 }
 },
 "k1@SG33sc": {
 "V_study": {
-"max": 80.4261245727539,
-"n": 57510,
+"max": 80.7883071899414,
+"n": 57512,
 "file": "k1_SG33sc__V_study.png",
-"bytes": 145894
+"bytes": 145728
 },
 "door_SG33s": {
-"max": 105.4375,
+"max": 105.3125,
 "file": "k1_SG33sc__door_SG33s.png",
-"bytes": 64061
+"bytes": 64291
 },
 "study": {
-"max": 74.5,
+"max": 74.5625,
 "file": "k1_SG33sc__study.png",
-"bytes": 179704
+"bytes": 178635
 }
 },
 "k1@SG33so": {
 "V_bed": {
-"max": 2.215257167816162,
+"max": 2.1766276359558105,
 "n": 16401,
 "file": "k1_SG33so__V_bed.png",
-"bytes": 44474
+"bytes": 44609
 },
 "V_study": {
-"max": 79.71768951416016,
-"n": 57510,
+"max": 80.39166259765625,
+"n": 57512,
 "file": "k1_SG33so__V_study.png",
-"bytes": 146060
+"bytes": 145691
 },
 "bed": {
-"max": 27.59375,
+"max": 27.890625,
 "file": "k1_SG33so__bed.png",
-"bytes": 393317
+"bytes": 388135
 },
 "door_SG311": {
-"max": 3.66796875,
+"max": 3.669921875,
 "file": "k1_SG33so__door_SG311.png",
-"bytes": 83804
+"bytes": 83777
 },
 "door_SG33s": {
-"max": 84.8125,
+"max": 85.0625,
 "file": "k1_SG33so__door_SG33s.png",
-"bytes": 94629
+"bytes": 94512
 },
 "door_SG500w": {
-"max": 2.93359375,
+"max": 2.931640625,
 "file": "k1_SG33so__door_SG500w.png",
-"bytes": 55896
+"bytes": 56048
 },
 "study": {
-"max": 72.5625,
+"max": 72.625,
 "file": "k1_SG33so__study.png",
-"bytes": 185410
+"bytes": 183941
 }
 },
 "l1@SG500wc_SG311c": {
 "V_wic": {
-"max": 66.80667114257812,
+"max": 67.41162109375,
 "n": 48044,
 "file": "l1_SG500wc_SG311c__V_wic.png",
-"bytes": 109993
+"bytes": 110003
 },
 "door_SG500w": {
-"max": 84.375,
+"max": 84.4375,
 "file": "l1_SG500wc_SG311c__door_SG500w.png",
-"bytes": 62287
+"bytes": 62299
 },
 "wic": {
-"max": 394.0,
+"max": 397.0,
 "file": "l1_SG500wc_SG311c__wic.png",
-"bytes": 135728
+"bytes": 140853
 }
 },
 "l1@SG500wc_SG311o": {
 "V_wic": {
-"max": 66.80667114257812,
+"max": 67.41162109375,
 "n": 48044,
 "file": "l1_SG500wc_SG311o__V_wic.png",
-"bytes": 110029
+"bytes": 109964
 },
 "door_SG500w": {
-"max": 84.0,
+"max": 84.4375,
 "file": "l1_SG500wc_SG311o__door_SG500w.png",
-"bytes": 62185
+"bytes": 62391
 },
 "wic": {
-"max": 394.0,
+"max": 397.0,
 "file": "l1_SG500wc_SG311o__wic.png",
-"bytes": 135666
+"bytes": 140916
 }
 },
 "l1@SG500wo_SG311c": {
 "V_bed": {
-"max": 7.287415027618408,
+"max": 9.125029563903809,
 "n": 16401,
 "file": "l1_SG500wo_SG311c__V_bed.png",
-"bytes": 45081
+"bytes": 45279
 },
 "V_wic": {
-"max": 63.66375732421875,
+"max": 64.5823745727539,
 "n": 48044,
 "file": "l1_SG500wo_SG311c__V_wic.png",
-"bytes": 113096
+"bytes": 112646
 },
 "bed": {
-"max": 42.4375,
+"max": 36.09375,
 "file": "l1_SG500wo_SG311c__bed.png",
-"bytes": 387910
+"bytes": 384607
 },
 "door_SG311": {
-"max": 9.6875,
+"max": 9.6484375,
 "file": "l1_SG500wo_SG311c__door_SG311.png",
-"bytes": 73952
+"bytes": 74005
 },
 "door_SG33s": {
 "max": 2.001953125,
 "file": "l1_SG500wo_SG311c__door_SG33s.png",
-"bytes": 97774
+"bytes": 97922
 },
 "door_SG500w": {
-"max": 82.4375,
+"max": 82.1875,
 "file": "l1_SG500wo_SG311c__door_SG500w.png",
-"bytes": 84114
+"bytes": 84015
 },
 "wic": {
-"max": 391.75,
+"max": 398.75,
 "file": "l1_SG500wo_SG311c__wic.png",
-"bytes": 135117
+"bytes": 139943
 }
 },
 "l1@SG500wo_SG311o": {
 "V_bed": {
-"max": 7.228125095367432,
+"max": 8.558656692504883,
 "n": 16401,
 "file": "l1_SG500wo_SG311o__V_bed.png",
-"bytes": 45223
+"bytes": 45261
 },
 "V_wic": {
-"max": 63.66077423095703,
+"max": 64.57357788085938,
 "n": 48044,
 "file": "l1_SG500wo_SG311o__V_wic.png",
-"bytes": 113083
+"bytes": 112675
 },
 "bed": {
-"max": 42.375,
+"max": 36.875,
 "file": "l1_SG500wo_SG311o__bed.png",
-"bytes": 383988
+"bytes": 379826
 },
 "door_SG311": {
-"max": 11.9140625,
+"max": 11.921875,
 "file": "l1_SG500wo_SG311o__door_SG311.png",
-"bytes": 98029
+"bytes": 98061
 },
 "door_SG33s": {
 "max": 1.9404296875,
 "file": "l1_SG500wo_SG311o__door_SG33s.png",
-"bytes": 98059
+"bytes": 98015
 },
 "door_SG500w": {
-"max": 82.6875,
+"max": 83.0625,
 "file": "l1_SG500wo_SG311o__door_SG500w.png",
-"bytes": 84106
+"bytes": 84056
 },
 "wic": {
-"max": 391.75,
+"max": 398.75,
 "file": "l1_SG500wo_SG311o__wic.png",
-"bytes": 135347
+"bytes": 140210
 }
 },
 "sky_bed@SG311c_SG500wc_SG33sc": {
 "V_bed": {
-"max": 1889.964599609375,
+"max": 1885.6378173828125,
 "n": 16401,
 "file": "sky_bed_SG311c_SG500wc_SG33sc__V_bed.png",
-"bytes": 43911
+"bytes": 44419
 },
 "bed": {
-"max": 10504.0,
+"max": 9864.0,
 "file": "sky_bed_SG311c_SG500wc_SG33sc__bed.png",
-"bytes": 334029
+"bytes": 332126
 },
 "door_SG311": {
-"max": 746.5,
+"max": 747.0,
 "file": "sky_bed_SG311c_SG500wc_SG33sc__door_SG311.png",
-"bytes": 70612
+"bytes": 70488
 },
 "door_SG33s": {
 "max": 2594.0,
 "file": "sky_bed_SG311c_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 62885
+"bytes": 62911
 },
 "door_SG500w": {
-"max": 1994.0,
+"max": 1995.0,
 "file": "sky_bed_SG311c_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 39732
+"bytes": 39689
 }
 },
 "sky_bed@SG311c_SG500wc_SG33so": {
 "V_bed": {
-"max": 1782.5638427734375,
+"max": 1782.01904296875,
 "n": 16401,
 "file": "sky_bed_SG311c_SG500wc_SG33so__V_bed.png",
-"bytes": 43916
+"bytes": 44142
 },
 "V_study": {
-"max": 1083.1090087890625,
-"n": 57510,
+"max": 1095.6322021484375,
+"n": 57512,
 "file": "sky_bed_SG311c_SG500wc_SG33so__V_study.png",
-"bytes": 159126
+"bytes": 159555
 },
 "bed": {
-"max": 10464.0,
+"max": 9952.0,
 "file": "sky_bed_SG311c_SG500wc_SG33so__bed.png",
-"bytes": 333887
+"bytes": 332295
 },
 "door_SG311": {
-"max": 739.5,
+"max": 737.5,
 "file": "sky_bed_SG311c_SG500wc_SG33so__door_SG311.png",
-"bytes": 70455
+"bytes": 70351
 },
 "door_SG33s": {
-"max": 2412.0,
+"max": 2420.0,
 "file": "sky_bed_SG311c_SG500wc_SG33so__door_SG33s.png",
-"bytes": 95214
+"bytes": 95548
 },
 "door_SG500w": {
-"max": 1972.0,
+"max": 1973.0,
 "file": "sky_bed_SG311c_SG500wc_SG33so__door_SG500w.png",
-"bytes": 39902
+"bytes": 40133
 },
 "study": {
-"max": 8224.0,
+"max": 7904.0,
 "file": "sky_bed_SG311c_SG500wc_SG33so__study.png",
-"bytes": 192188
+"bytes": 191208
 }
 },
 "sky_bed@SG311c_SG500wo_SG33sc": {
 "V_bed": {
-"max": 1894.2464599609375,
+"max": 1888.0147705078125,
 "n": 16401,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__V_bed.png",
-"bytes": 43890
+"bytes": 44106
 },
 "V_wic": {
-"max": 145.5680694580078,
+"max": 145.25616455078125,
 "n": 48044,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__V_wic.png",
-"bytes": 127700
+"bytes": 127419
 },
 "bed": {
-"max": 9344.0,
+"max": 9824.0,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__bed.png",
-"bytes": 329326
+"bytes": 328888
 },
 "door_SG311": {
-"max": 741.0,
+"max": 745.0,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__door_SG311.png",
-"bytes": 70670
+"bytes": 70407
 },
 "door_SG33s": {
-"max": 2566.0,
+"max": 2556.0,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 62769
+"bytes": 62793
 },
 "door_SG500w": {
-"max": 1673.0,
+"max": 1686.0,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 78167
+"bytes": 78039
 },
 "wic": {
-"max": 457.75,
+"max": 420.25,
 "file": "sky_bed_SG311c_SG500wo_SG33sc__wic.png",
-"bytes": 145655
+"bytes": 151130
 }
 },
 "sky_bed@SG311c_SG500wo_SG33so": {
 "V_bed": {
-"max": 1785.09912109375,
+"max": 1783.8162841796875,
 "n": 16401,
 "file": "sky_bed_SG311c_SG500wo_SG33so__V_bed.png",
-"bytes": 43949
+"bytes": 44132
 },
 "V_study": {
-"max": 1086.4571533203125,
-"n": 57510,
+"max": 1095.6322021484375,
+"n": 57512,
 "file": "sky_bed_SG311c_SG500wo_SG33so__V_study.png",
-"bytes": 159046
+"bytes": 159301
 },
 "V_wic": {
-"max": 143.2338104248047,
+"max": 143.09666442871094,
 "n": 48044,
 "file": "sky_bed_SG311c_SG500wo_SG33so__V_wic.png",
-"bytes": 127807
+"bytes": 127340
 },
 "bed": {
-"max": 9352.0,
+"max": 9824.0,
 "file": "sky_bed_SG311c_SG500wo_SG33so__bed.png",
-"bytes": 331548
+"bytes": 328272
 },
 "door_SG311": {
-"max": 724.0,
+"max": 722.0,
 "file": "sky_bed_SG311c_SG500wo_SG33so__door_SG311.png",
-"bytes": 70900
+"bytes": 70427
 },
 "door_SG33s": {
 "max": 2410.0,
 "file": "sky_bed_SG311c_SG500wo_SG33so__door_SG33s.png",
-"bytes": 95114
+"bytes": 95503
 },
 "door_SG500w": {
-"max": 1619.0,
+"max": 1625.0,
 "file": "sky_bed_SG311c_SG500wo_SG33so__door_SG500w.png",
-"bytes": 78119
+"bytes": 78007
 },
 "study": {
-"max": 8288.0,
+"max": 7908.0,
 "file": "sky_bed_SG311c_SG500wo_SG33so__study.png",
-"bytes": 191887
+"bytes": 191314
 },
 "wic": {
-"max": 450.0,
+"max": 417.5,
 "file": "sky_bed_SG311c_SG500wo_SG33so__wic.png",
-"bytes": 145530
+"bytes": 150948
 }
 },
 "sky_bed@SG311o_SG500wc_SG33sc": {
 "V_bed": {
-"max": 1890.1959228515625,
+"max": 1881.696533203125,
 "n": 16401,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__V_bed.png",
-"bytes": 43817
+"bytes": 44368
 },
 "V_hall": {
-"max": 150.49583435058594,
+"max": 150.3480987548828,
 "n": 14955,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__V_hall.png",
-"bytes": 14372
+"bytes": 13909
 },
 "bed": {
-"max": 10720.0,
+"max": 9904.0,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__bed.png",
-"bytes": 330254
+"bytes": 329721
 },
 "door_SG311": {
-"max": 813.0,
+"max": 811.0,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__door_SG311.png",
-"bytes": 87571
+"bytes": 87442
 },
 "door_SG33s": {
-"max": 2576.0,
+"max": 2586.0,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 62888
+"bytes": 62739
 },
 "door_SG500w": {
-"max": 1999.0,
+"max": 2001.0,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 41091
+"bytes": 41245
 },
 "hall": {
-"max": 12280.0,
+"max": 11440.0,
 "file": "sky_bed_SG311o_SG500wc_SG33sc__hall.png",
-"bytes": 492056
+"bytes": 495147
 }
 },
 "sky_bed@SG311o_SG500wc_SG33so": {
 "V_bed": {
-"max": 1779.923095703125,
+"max": 1777.45654296875,
 "n": 16401,
 "file": "sky_bed_SG311o_SG500wc_SG33so__V_bed.png",
-"bytes": 43994
+"bytes": 44095
 },
 "V_hall": {
-"max": 149.22239685058594,
+"max": 149.23219299316406,
 "n": 14955,
 "file": "sky_bed_SG311o_SG500wc_SG33so__V_hall.png",
-"bytes": 14378
+"bytes": 13888
 },
 "V_study": {
-"max": 1083.1090087890625,
-"n": 57510,
+"max": 1100.1981201171875,
+"n": 57512,
 "file": "sky_bed_SG311o_SG500wc_SG33so__V_study.png",
-"bytes": 159030
+"bytes": 159425
 },
 "bed": {
-"max": 10576.0,
+"max": 10008.0,
 "file": "sky_bed_SG311o_SG500wc_SG33so__bed.png",
-"bytes": 331121
+"bytes": 328495
 },
 "door_SG311": {
-"max": 787.0,
+"max": 788.5,
 "file": "sky_bed_SG311o_SG500wc_SG33so__door_SG311.png",
-"bytes": 87528
+"bytes": 87467
 },
 "door_SG33s": {
 "max": 2422.0,
 "file": "sky_bed_SG311o_SG500wc_SG33so__door_SG33s.png",
-"bytes": 95173
+"bytes": 95012
 },
 "door_SG500w": {
-"max": 1952.0,
+"max": 1953.0,
 "file": "sky_bed_SG311o_SG500wc_SG33so__door_SG500w.png",
-"bytes": 40804
+"bytes": 40713
 },
 "hall": {
-"max": 12216.0,
+"max": 11464.0,
 "file": "sky_bed_SG311o_SG500wc_SG33so__hall.png",
-"bytes": 490929
+"bytes": 493871
 },
 "study": {
-"max": 8208.0,
+"max": 7896.0,
 "file": "sky_bed_SG311o_SG500wc_SG33so__study.png",
-"bytes": 191898
+"bytes": 191367
 }
 },
 "sky_bed@SG311o_SG500wo_SG33sc": {
 "V_bed": {
-"max": 1890.8541259765625,
+"max": 1884.475830078125,
 "n": 16401,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__V_bed.png",
-"bytes": 43885
+"bytes": 44241
 },
 "V_hall": {
-"max": 146.9933624267578,
+"max": 146.96115112304688,
 "n": 14955,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__V_hall.png",
-"bytes": 14461
+"bytes": 13870
 },
 "V_wic": {
-"max": 141.8534698486328,
+"max": 141.64273071289062,
 "n": 48044,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__V_wic.png",
-"bytes": 128492
+"bytes": 128420
 },
 "bed": {
-"max": 9352.0,
+"max": 9832.0,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__bed.png",
-"bytes": 327965
+"bytes": 325661
 },
 "door_SG311": {
-"max": 1233.0,
+"max": 1236.0,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__door_SG311.png",
-"bytes": 85506
+"bytes": 85114
 },
 "door_SG33s": {
-"max": 2570.0,
+"max": 2580.0,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 62760
+"bytes": 63130
 },
 "door_SG500w": {
-"max": 1682.0,
+"max": 1695.0,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 77635
+"bytes": 77766
 },
 "hall": {
-"max": 12248.0,
+"max": 11392.0,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__hall.png",
-"bytes": 489458
+"bytes": 492046
 },
 "wic": {
-"max": 440.5,
+"max": 436.5,
 "file": "sky_bed_SG311o_SG500wo_SG33sc__wic.png",
-"bytes": 146037
+"bytes": 151306
 }
 },
 "sky_bed@SG311o_SG500wo_SG33so": {
 "V_bed": {
-"max": 1781.1549072265625,
+"max": 1780.21044921875,
 "n": 16401,
 "file": "sky_bed_SG311o_SG500wo_SG33so__V_bed.png",
-"bytes": 43974
+"bytes": 44247
 },
 "V_hall": {
-"max": 145.4504852294922,
+"max": 145.41273498535156,
 "n": 14955,
 "file": "sky_bed_SG311o_SG500wo_SG33so__V_hall.png",
-"bytes": 14414
+"bytes": 13808
 },
 "V_study": {
-"max": 1086.4571533203125,
-"n": 57510,
+"max": 1100.1981201171875,
+"n": 57512,
 "file": "sky_bed_SG311o_SG500wo_SG33so__V_study.png",
-"bytes": 159117
+"bytes": 159378
 },
 "V_wic": {
-"max": 139.53802490234375,
+"max": 139.6283721923828,
 "n": 48044,
 "file": "sky_bed_SG311o_SG500wo_SG33so__V_wic.png",
-"bytes": 128483
+"bytes": 128233
 },
 "bed": {
-"max": 9344.0,
+"max": 9856.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__bed.png",
-"bytes": 328534
+"bytes": 326283
 },
 "door_SG311": {
-"max": 1236.0,
+"max": 1239.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__door_SG311.png",
-"bytes": 85119
+"bytes": 84984
 },
 "door_SG33s": {
-"max": 2424.0,
+"max": 2414.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__door_SG33s.png",
-"bytes": 95141
+"bytes": 94648
 },
 "door_SG500w": {
 "max": 1626.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__door_SG500w.png",
-"bytes": 77794
+"bytes": 77758
 },
 "hall": {
-"max": 12328.0,
+"max": 11440.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__hall.png",
-"bytes": 488135
+"bytes": 491830
 },
 "study": {
-"max": 8280.0,
+"max": 7900.0,
 "file": "sky_bed_SG311o_SG500wo_SG33so__study.png",
-"bytes": 191971
+"bytes": 191404
 },
 "wic": {
-"max": 441.0,
+"max": 436.25,
 "file": "sky_bed_SG311o_SG500wo_SG33so__wic.png",
-"bytes": 145810
+"bytes": 151446
 }
 },
 "sky_ldk1F@all": {
 "V_hall": {
-"max": 2921.79833984375,
+"max": 2904.6669921875,
 "n": 14955,
 "file": "sky_ldk1F_all__V_hall.png",
-"bytes": 28769
+"bytes": 28594
 },
 "V_ldk": {
-"max": 8491.470703125,
+"max": 8478.9814453125,
 "n": 183109,
 "file": "sky_ldk1F_all__V_ldk.png",
-"bytes": 516132
+"bytes": 516954
 },
 "door_SG311": {
-"max": 82.6875,
+"max": 83.1875,
 "file": "sky_ldk1F_all__door_SG311.png",
-"bytes": 75425
+"bytes": 75029
 },
 "hall": {
-"max": 7740.0,
+"max": 7584.0,
 "file": "sky_ldk1F_all__hall.png",
-"bytes": 584067
+"bytes": 574980
 },
 "ldk": {
-"max": 12016.0,
+"max": 12072.0,
 "file": "sky_ldk1F_all__ldk.png",
-"bytes": 1445741
+"bytes": 1453856
 }
 },
 "sky_study@SG33sc": {
 "V_study": {
-"max": 2764.469970703125,
-"n": 57510,
+"max": 2726.596923828125,
+"n": 57512,
 "file": "sky_study_SG33sc__V_study.png",
-"bytes": 151818
+"bytes": 151879
 },
 "door_SG33s": {
-"max": 640.5,
+"max": 637.5,
 "file": "sky_study_SG33sc__door_SG33s.png",
-"bytes": 66458
+"bytes": 66421
 },
 "study": {
-"max": 9384.0,
+"max": 9488.0,
 "file": "sky_study_SG33sc__study.png",
-"bytes": 179567
+"bytes": 178694
 }
 },
 "sky_study@SG33so": {
 "V_bed": {
-"max": 30.028291702270508,
+"max": 41.968017578125,
 "n": 16401,
 "file": "sky_study_SG33so__V_bed.png",
-"bytes": 47542
+"bytes": 47349
 },
 "V_study": {
-"max": 2779.60205078125,
-"n": 57510,
+"max": 2743.197265625,
+"n": 57512,
 "file": "sky_study_SG33so__V_study.png",
-"bytes": 152257
+"bytes": 152176
 },
 "bed": {
-"max": 10944.0,
+"max": 8512.0,
 "file": "sky_study_SG33so__bed.png",
-"bytes": 380690
+"bytes": 379973
 },
 "door_SG311": {
 "max": 35.125,
 "file": "sky_study_SG33so__door_SG311.png",
-"bytes": 84693
+"bytes": 84869
 },
 "door_SG33s": {
 "max": 754.5,
 "file": "sky_study_SG33so__door_SG33s.png",
-"bytes": 100315
+"bytes": 100883
 },
 "door_SG500w": {
-"max": 14.1484375,
+"max": 14.1796875,
 "file": "sky_study_SG33so__door_SG500w.png",
-"bytes": 62343
+"bytes": 62353
 },
 "study": {
-"max": 9528.0,
+"max": 9496.0,
 "file": "sky_study_SG33so__study.png",
-"bytes": 186195
+"bytes": 185218
 }
 },
 "sky_void@SG311c": {
 "V_hall": {
-"max": 2010.5950927734375,
+"max": 2008.0186767578125,
 "n": 14955,
 "file": "sky_void_SG311c__V_hall.png",
-"bytes": 27778
+"bytes": 27971
 },
 "V_ldk": {
-"max": 993.27734375,
+"max": 698.3961181640625,
 "n": 183109,
 "file": "sky_void_SG311c__V_ldk.png",
-"bytes": 505733
+"bytes": 502463
 },
 "door_SG311": {
 "max": 135.625,
 "file": "sky_void_SG311c__door_SG311.png",
-"bytes": 66790
+"bytes": 66738
 },
 "hall": {
-"max": 9232.0,
+"max": 9280.0,
 "file": "sky_void_SG311c__hall.png",
-"bytes": 550765
+"bytes": 548906
 },
 "ldk": {
-"max": 7860.0,
+"max": 9824.0,
 "file": "sky_void_SG311c__ldk.png",
-"bytes": 1492660
+"bytes": 1493611
 }
 },
 "sky_void@SG311o": {
 "V_bed": {
-"max": 8.837590217590332,
+"max": 11.606352806091309,
 "n": 16401,
 "file": "sky_void_SG311o__V_bed.png",
-"bytes": 47180
+"bytes": 47304
 },
 "V_hall": {
-"max": 2010.564697265625,
+"max": 2008.0406494140625,
 "n": 14955,
 "file": "sky_void_SG311o__V_hall.png",
-"bytes": 27844
+"bytes": 27975
 },
 "V_ldk": {
-"max": 993.2772827148438,
+"max": 698.3961181640625,
 "n": 183109,
 "file": "sky_void_SG311o__V_ldk.png",
-"bytes": 507139
+"bytes": 505315
 },
 "bed": {
-"max": 13272.0,
+"max": 9344.0,
 "file": "sky_void_SG311o__bed.png",
-"bytes": 329421
+"bytes": 340223
 },
 "door_SG311": {
-"max": 84.25,
+"max": 84.4375,
 "file": "sky_void_SG311o__door_SG311.png",
-"bytes": 98687
+"bytes": 98379
 },
 "door_SG33s": {
 "max": 10.890625,
 "file": "sky_void_SG311o__door_SG33s.png",
-"bytes": 97825
+"bytes": 97792
 },
 "door_SG500w": {
-"max": 27.125,
+"max": 27.328125,
 "file": "sky_void_SG311o__door_SG500w.png",
-"bytes": 68063
+"bytes": 68203
 },
 "hall": {
-"max": 9256.0,
+"max": 9272.0,
 "file": "sky_void_SG311o__hall.png",
-"bytes": 553692
+"bytes": 551482
 },
 "ldk": {
-"max": 7880.0,
+"max": 9824.0,
 "file": "sky_void_SG311o__ldk.png",
-"bytes": 1495968
+"bytes": 1493846
 }
 },
 "sun_bed@SG311c_SG500wc_SG33sc": {
 "V_bed": {
-"max": 54693.43359375,
+"max": 54696.296875,
 "n": 16401,
 "file": "sun_bed_SG311c_SG500wc_SG33sc__V_bed.png",
-"bytes": 46606
+"bytes": 46838
 },
 "bed": {
 "max": 65504.0,
 "file": "sun_bed_SG311c_SG500wc_SG33sc__bed.png",
-"bytes": 323090
+"bytes": 320278
 },
 "door_SG311": {
 "max": 716.5,
 "file": "sun_bed_SG311c_SG500wc_SG33sc__door_SG311.png",
-"bytes": 68666
+"bytes": 68495
 },
 "door_SG33s": {
 "max": 976.5,
 "file": "sun_bed_SG311c_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 63695
+"bytes": 63383
 },
 "door_SG500w": {
-"max": 774.0,
+"max": 773.5,
 "file": "sun_bed_SG311c_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 43265
+"bytes": 43113
 }
 },
 "sun_bed@SG311c_SG500wc_SG33so": {
 "V_bed": {
-"max": 54677.9765625,
+"max": 54681.73046875,
 "n": 16401,
 "file": "sun_bed_SG311c_SG500wc_SG33so__V_bed.png",
-"bytes": 46484
+"bytes": 46773
 },
 "V_study": {
-"max": 1435.5552978515625,
-"n": 57510,
+"max": 1258.14990234375,
+"n": 57512,
 "file": "sun_bed_SG311c_SG500wc_SG33so__V_study.png",
-"bytes": 140306
+"bytes": 141005
 },
 "bed": {
 "max": 65504.0,
 "file": "sun_bed_SG311c_SG500wc_SG33so__bed.png",
-"bytes": 322013
+"bytes": 320041
 },
 "door_SG311": {
 "max": 719.0,
 "file": "sun_bed_SG311c_SG500wc_SG33so__door_SG311.png",
-"bytes": 68572
+"bytes": 68577
 },
 "door_SG33s": {
-"max": 466.0,
+"max": 462.0,
 "file": "sun_bed_SG311c_SG500wc_SG33so__door_SG33s.png",
-"bytes": 90983
+"bytes": 90930
 },
 "door_SG500w": {
 "max": 777.0,
 "file": "sun_bed_SG311c_SG500wc_SG33so__door_SG500w.png",
-"bytes": 42789
+"bytes": 42847
 },
 "study": {
-"max": 65504.0,
+"max": 45920.0,
 "file": "sun_bed_SG311c_SG500wc_SG33so__study.png",
-"bytes": 139499
+"bytes": 141055
 }
 },
 "sun_bed@SG311c_SG500wo_SG33sc": {
 "V_bed": {
-"max": 54693.21484375,
+"max": 54698.3046875,
 "n": 16401,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__V_bed.png",
-"bytes": 46586
+"bytes": 46701
 },
 "V_wic": {
-"max": 54.96195983886719,
+"max": 55.087120056152344,
 "n": 48044,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__V_wic.png",
-"bytes": 133740
+"bytes": 133168
 },
 "bed": {
-"max": 65504.0,
+"max": 65408.0,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__bed.png",
-"bytes": 319733
+"bytes": 317538
 },
 "door_SG311": {
 "max": 711.0,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__door_SG311.png",
-"bytes": 68275
+"bytes": 68361
 },
 "door_SG33s": {
-"max": 980.0,
+"max": 983.0,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 63794
+"bytes": 63967
 },
 "door_SG500w": {
 "max": 1260.0,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 84520
+"bytes": 84573
 },
 "wic": {
-"max": 244.875,
+"max": 322.5,
 "file": "sun_bed_SG311c_SG500wo_SG33sc__wic.png",
-"bytes": 172624
+"bytes": 178157
 }
 },
 "sun_bed@SG311c_SG500wo_SG33so": {
 "V_bed": {
-"max": 54675.96875,
+"max": 54682.734375,
 "n": 16401,
 "file": "sun_bed_SG311c_SG500wo_SG33so__V_bed.png",
-"bytes": 46609
+"bytes": 46648
 },
 "V_study": {
-"max": 1435.5552978515625,
-"n": 57510,
+"max": 1258.14990234375,
+"n": 57512,
 "file": "sun_bed_SG311c_SG500wo_SG33so__V_study.png",
-"bytes": 140296
+"bytes": 140970
 },
 "V_wic": {
-"max": 54.51548767089844,
+"max": 54.63672637939453,
 "n": 48044,
 "file": "sun_bed_SG311c_SG500wo_SG33so__V_wic.png",
-"bytes": 133620
+"bytes": 133173
 },
 "bed": {
-"max": 65216.0,
+"max": 65280.0,
 "file": "sun_bed_SG311c_SG500wo_SG33so__bed.png",
-"bytes": 320408
+"bytes": 318488
 },
 "door_SG311": {
-"max": 714.5,
+"max": 715.5,
 "file": "sun_bed_SG311c_SG500wo_SG33so__door_SG311.png",
-"bytes": 67919
+"bytes": 67972
 },
 "door_SG33s": {
 "max": 463.0,
 "file": "sun_bed_SG311c_SG500wo_SG33so__door_SG33s.png",
-"bytes": 91513
+"bytes": 91104
 },
 "door_SG500w": {
-"max": 1273.0,
+"max": 1268.0,
 "file": "sun_bed_SG311c_SG500wo_SG33so__door_SG500w.png",
-"bytes": 84610
+"bytes": 84625
 },
 "study": {
-"max": 65504.0,
+"max": 46272.0,
 "file": "sun_bed_SG311c_SG500wo_SG33so__study.png",
-"bytes": 139842
+"bytes": 141352
 },
 "wic": {
-"max": 246.5,
+"max": 324.25,
 "file": "sun_bed_SG311c_SG500wo_SG33so__wic.png",
-"bytes": 172768
+"bytes": 178132
 }
 },
 "sun_bed@SG311o_SG500wc_SG33sc": {
 "V_bed": {
-"max": 54695.26953125,
+"max": 54696.7890625,
 "n": 16401,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__V_bed.png",
-"bytes": 46580
+"bytes": 46684
 },
 "V_hall": {
-"max": 100.50101470947266,
+"max": 25.309171676635742,
 "n": 14955,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__V_hall.png",
-"bytes": 1854
+"bytes": 1766
 },
 "bed": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__bed.png",
-"bytes": 319484
+"bytes": 319203
 },
 "door_SG311": {
 "max": 931.5,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__door_SG311.png",
-"bytes": 89540
+"bytes": 89525
 },
 "door_SG33s": {
-"max": 969.0,
+"max": 977.0,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__door_SG33s.png",
-"bytes": 64069
+"bytes": 63795
 },
 "door_SG500w": {
 "max": 810.0,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__door_SG500w.png",
-"bytes": 43481
+"bytes": 43467
 },
 "hall": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wc_SG33sc__hall.png",
-"bytes": 234180
+"bytes": 225196
 }
 },
 "sun_bed@SG311o_SG500wc_SG33so": {
 "V_bed": {
-"max": 54681.05859375,
+"max": 54680.00390625,
 "n": 16401,
 "file": "sun_bed_SG311o_SG500wc_SG33so__V_bed.png",
-"bytes": 46511
+"bytes": 46713
 },
 "V_hall": {
-"max": 100.50101470947266,
+"max": 25.242034912109375,
 "n": 14955,
 "file": "sun_bed_SG311o_SG500wc_SG33so__V_hall.png",
-"bytes": 1875
+"bytes": 1753
 },
 "V_study": {
-"max": 1435.5552978515625,
-"n": 57510,
+"max": 1178.66357421875,
+"n": 57512,
 "file": "sun_bed_SG311o_SG500wc_SG33so__V_study.png",
-"bytes": 140229
+"bytes": 140999
 },
 "bed": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wc_SG33so__bed.png",
-"bytes": 318787
+"bytes": 319337
 },
 "door_SG311": {
-"max": 808.5,
+"max": 814.5,
 "file": "sun_bed_SG311o_SG500wc_SG33so__door_SG311.png",
-"bytes": 89719
+"bytes": 89710
 },
 "door_SG33s": {
-"max": 465.5,
+"max": 465.0,
 "file": "sun_bed_SG311o_SG500wc_SG33so__door_SG33s.png",
-"bytes": 90942
+"bytes": 91384
 },
 "door_SG500w": {
-"max": 807.0,
+"max": 803.5,
 "file": "sun_bed_SG311o_SG500wc_SG33so__door_SG500w.png",
-"bytes": 43104
+"bytes": 43324
 },
 "hall": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wc_SG33so__hall.png",
-"bytes": 232587
+"bytes": 225267
 },
 "study": {
-"max": 65504.0,
+"max": 46272.0,
 "file": "sun_bed_SG311o_SG500wc_SG33so__study.png",
-"bytes": 139588
+"bytes": 141182
 }
 },
 "sun_bed@SG311o_SG500wo_SG33sc": {
 "V_bed": {
-"max": 54694.14453125,
+"max": 54698.08203125,
 "n": 16401,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__V_bed.png",
-"bytes": 46620
+"bytes": 46679
 },
 "V_hall": {
-"max": 100.50101470947266,
+"max": 26.26224708557129,
 "n": 14955,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__V_hall.png",
-"bytes": 1892
+"bytes": 1716
 },
 "V_wic": {
-"max": 54.484527587890625,
+"max": 54.59046936035156,
 "n": 48044,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__V_wic.png",
-"bytes": 133720
+"bytes": 133408
 },
 "bed": {
 "max": 65280.0,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__bed.png",
-"bytes": 316534
+"bytes": 316211
 },
 "door_SG311": {
 "max": 938.5,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__door_SG311.png",
-"bytes": 89230
+"bytes": 89718
 },
 "door_SG33s": {
-"max": 983.5,
+"max": 979.0,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__door_SG33s.png",
-"bytes": 63860
+"bytes": 63905
 },
 "door_SG500w": {
 "max": 1257.0,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__door_SG500w.png",
-"bytes": 85221
+"bytes": 85236
 },
 "hall": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__hall.png",
-"bytes": 229456
+"bytes": 222284
 },
 "wic": {
-"max": 239.5,
+"max": 375.25,
 "file": "sun_bed_SG311o_SG500wo_SG33sc__wic.png",
-"bytes": 172875
+"bytes": 177876
 }
 },
 "sun_bed@SG311o_SG500wo_SG33so": {
 "V_bed": {
-"max": 54677.4609375,
+"max": 54681.75390625,
 "n": 16401,
 "file": "sun_bed_SG311o_SG500wo_SG33so__V_bed.png",
-"bytes": 46563
+"bytes": 46695
 },
 "V_hall": {
-"max": 100.50101470947266,
+"max": 26.441892623901367,
 "n": 14955,
 "file": "sun_bed_SG311o_SG500wo_SG33so__V_hall.png",
-"bytes": 1862
+"bytes": 1719
 },
 "V_study": {
-"max": 1435.5552978515625,
-"n": 57510,
+"max": 1178.66357421875,
+"n": 57512,
 "file": "sun_bed_SG311o_SG500wo_SG33so__V_study.png",
-"bytes": 140223
+"bytes": 141029
 },
 "V_wic": {
-"max": 54.03295135498047,
+"max": 54.09550476074219,
 "n": 48044,
 "file": "sun_bed_SG311o_SG500wo_SG33so__V_wic.png",
-"bytes": 133615
+"bytes": 133262
 },
 "bed": {
-"max": 65344.0,
+"max": 65504.0,
 "file": "sun_bed_SG311o_SG500wo_SG33so__bed.png",
-"bytes": 317256
+"bytes": 316196
 },
 "door_SG311": {
-"max": 869.5,
+"max": 869.0,
 "file": "sun_bed_SG311o_SG500wo_SG33so__door_SG311.png",
-"bytes": 89964
+"bytes": 89705
 },
 "door_SG33s": {
-"max": 465.0,
+"max": 464.5,
 "file": "sun_bed_SG311o_SG500wo_SG33so__door_SG33s.png",
-"bytes": 91114
+"bytes": 90863
 },
 "door_SG500w": {
-"max": 1275.0,
+"max": 1281.0,
 "file": "sun_bed_SG311o_SG500wo_SG33so__door_SG500w.png",
-"bytes": 85095
+"bytes": 85316
 },
 "hall": {
 "max": 65504.0,
 "file": "sun_bed_SG311o_SG500wo_SG33so__hall.png",
-"bytes": 229418
+"bytes": 221814
 },
 "study": {
-"max": 65504.0,
+"max": 46240.0,
 "file": "sun_bed_SG311o_SG500wo_SG33so__study.png",
-"bytes": 140281
+"bytes": 140910
 },
 "wic": {
-"max": 241.25,
+"max": 375.25,
 "file": "sun_bed_SG311o_SG500wo_SG33so__wic.png",
-"bytes": 172465
+"bytes": 178277
 }
 },
 "sun_ldk1F@all": {
 "V_hall": {
-"max": 1781.69482421875,
+"max": 1737.5531005859375,
 "n": 14955,
 "file": "sun_ldk1F_all__V_hall.png",
-"bytes": 28225
+"bytes": 28068
 },
 "V_ldk": {
-"max": 64508.16796875,
+"max": 64498.5546875,
 "n": 183109,
 "file": "sun_ldk1F_all__V_ldk.png",
-"bytes": 509235
+"bytes": 512197
 },
 "door_SG311": {
-"max": 17.96875,
+"max": 14.890625,
 "file": "sun_ldk1F_all__door_SG311.png",
-"bytes": 57180
+"bytes": 58684
 },
 "hall": {
-"max": 50528.0,
+"max": 50464.0,
 "file": "sun_ldk1F_all__hall.png",
-"bytes": 523747
+"bytes": 527494
 },
 "ldk": {
 "max": 65504.0,
 "file": "sun_ldk1F_all__ldk.png",
-"bytes": 1252486
+"bytes": 1271572
 }
 },
 "sun_study@SG33sc": {
 "V_study": {
-"max": 70299.4765625,
-"n": 57510,
+"max": 70787.8359375,
+"n": 57512,
 "file": "sun_study_SG33sc__V_study.png",
-"bytes": 166289
+"bytes": 166590
 },
 "door_SG33s": {
-"max": 504.5,
+"max": 505.75,
 "file": "sun_study_SG33sc__door_SG33s.png",
-"bytes": 64329
+"bytes": 64326
 },
 "study": {
-"max": 64032.0,
+"max": 56256.0,
 "file": "sun_study_SG33sc__study.png",
-"bytes": 184672
+"bytes": 183248
 }
 },
 "sun_study@SG33so": {
 "V_bed": {
-"max": 24.013296127319336,
+"max": 28.727523803710938,
 "n": 16401,
 "file": "sun_study_SG33so__V_bed.png",
-"bytes": 46497
+"bytes": 46648
 },
 "V_study": {
-"max": 70749.6015625,
-"n": 57510,
+"max": 70787.8359375,
+"n": 57512,
 "file": "sun_study_SG33so__V_study.png",
-"bytes": 166852
+"bytes": 166453
 },
 "bed": {
-"max": 65504.0,
+"max": 52640.0,
 "file": "sun_study_SG33so__bed.png",
-"bytes": 336093
+"bytes": 339616
 },
 "door_SG311": {
-"max": 6.890625,
+"max": 7.08203125,
 "file": "sun_study_SG33so__door_SG311.png",
-"bytes": 78641
+"bytes": 78434
 },
 "door_SG33s": {
-"max": 192.875,
+"max": 192.75,
 "file": "sun_study_SG33so__door_SG33s.png",
-"bytes": 102701
+"bytes": 102988
 },
 "door_SG500w": {
-"max": 47.65625,
+"max": 48.0,
 "file": "sun_study_SG33so__door_SG500w.png",
-"bytes": 79171
+"bytes": 79128
 },
 "study": {
-"max": 64800.0,
+"max": 64928.0,
 "file": "sun_study_SG33so__study.png",
-"bytes": 183077
+"bytes": 181035
 }
 },
 "sun_void@all": {
 "V_hall": {
-"max": 52461.96484375,
+"max": 52453.8515625,
 "n": 14955,
 "file": "sun_void_all__V_hall.png",
-"bytes": 29033
+"bytes": 28685
 },
 "V_ldk": {
-"max": 1447.5240478515625,
+"max": 1166.8720703125,
 "n": 183109,
 "file": "sun_void_all__V_ldk.png",
-"bytes": 491686
+"bytes": 496029
 },
 "door_SG311": {
-"max": 28.6875,
+"max": 28.09375,
 "file": "sun_void_all__door_SG311.png",
-"bytes": 70192
+"bytes": 70240
 },
 "hall": {
 "max": 65504.0,
 "file": "sun_void_all__hall.png",
-"bytes": 534560
+"bytes": 536669
 },
 "ldk": {
 "max": 65504.0,
 "file": "sun_void_all__ldk.png",
-"bytes": 1225779
+"bytes": 1235081
 }
 }
 },
@@ -2264,8 +2264,8 @@
 "hall": 14955,
 "ldk": 183109,
 "bed": 16401,
-"study": 57510,
+"study": 57512,
 "wic": 48044
 },
-"bytes": 86889101
+"bytes": 86984442
 }
