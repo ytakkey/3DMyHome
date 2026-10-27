@@ -1,4 +1,4 @@
-// 本番（index.html）と検証ページ（STG/）を同じ視点・状態で撮る（見比べ用。CLAUDE.md 8章の確認の一覧）
+// 本番（index.html）と検証ページ（stg/）を同じ視点・状態で撮る（見比べ用。CLAUDE.md 8章の確認の一覧）
 // 使い方：eval(await (await fetch('/tools/pair_cap.js')).text()); await pairCap('<名前>', 960, 540, [視点,...]|null, 夜か)
 // 状態：試作のドア3枚を開（closed で閉）。昼＝照明すべて消灯、夜＝照明すべて点灯。保存は bake/work/pair/<視点>__<名前>.png
 var PAIRV={   // 名前：[目, 見る点, 視野角]（three.js の座標）

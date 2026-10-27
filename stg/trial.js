@@ -1,7 +1,7 @@
 // ===== 焼き込みの検証ページ（本番とは別。CLAUDE.md 1章「照明とドア」）=====
 // 模型：house.glb（tools/blender/export_gltf.py。uv＝元の柄、uv2＝ライトマップ）。光：lm/index.json と層ごと・アトラスごとの画像（tools/blender/lm_images.py）
 // 点灯している光源・ドアの開閉・昼夜・シェードが変わったときだけ、要る層をアトラスごとに1枚（半精度）へ足し合わせ、普段の描画はその1枚を読むだけ
-// ?lm=<方式>_r<縮小>（例 rgbm_r2）で、bake/work/trial_lm/ の比較用の画像を読む（手元の確認用。無指定は STG/lm/）
+// ?lm=<方式>_r<縮小>（例 rgbm_r2）で、bake/work/trial_lm/ の比較用の画像を読む（手元の確認用。無指定は stg/lm/）
 const $=id=>document.getElementById(id);
 const Q=new URLSearchParams(location.search);
 const LMV=Q.get('lm')||'',LMDIR=LMV?'../bake/work/trial_lm/'+LMV+'/':'lm/';
@@ -185,7 +185,7 @@ function buildUI(){
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
  $('roomLbl').textContent='焼いた照明';$('tAllRooms').hidden=true;
  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 比較用の画像（bake/work/）は手元のサーバーでだけ選べる
- const sel=$('lmSel');[['','STG/lm（公開用）'],...(local?['h16','rgbm','logj']:[]).flatMap(e=>[1,2,4].map(k=>[e+'_r'+k,{h16:'半精度',rgbm:'RGBM',logj:'対数JPEG'}[e]+'・'+{1:'原寸',2:'1/2',4:'1/4'}[k]]))].forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);});
+ const sel=$('lmSel');[['','stg/lm（公開用）'],...(local?['h16','rgbm','logj']:[]).flatMap(e=>[1,2,4].map(k=>[e+'_r'+k,{h16:'半精度',rgbm:'RGBM',logj:'対数JPEG'}[e]+'・'+{1:'原寸',2:'1/2',4:'1/4'}[k]]))].forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);});
  sel.value=LMV;sel.onchange=()=>{const q=new URLSearchParams(location.search);if(sel.value)q.set('lm',sel.value);else q.delete('lm');location.search=q.toString();};}
 function syncLights(){const ks=Object.keys(LS),n=ks.filter(k=>LS[k]).length;mark($('tAllOn'),n===ks.length);mark($('tAllOff'),n===0);$('bLight').classList.toggle('lit',n>0);$('indList').querySelectorAll('button[data-k]').forEach(b=>mark(b,LS[b.dataset.k]));}
 function setAll(v){Object.keys(LS).forEach(k=>LS[k]=v);syncLights();changed();}
