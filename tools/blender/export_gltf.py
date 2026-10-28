@@ -1,6 +1,6 @@
 # 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（stg/）用に glTF で書き出す
 # 使い方：blender -b bake_uv.blend -P tools/blender/export_gltf.py -- <出力の .glb>（run.py gltf）
-#  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・頂点で焼く物（V_<アトラス>。頂点の番号 _VID 付き）・窓のガラス（*_glass）
+#  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・頂点で焼く物（V_<アトラス>。頂点の番号 _VID 付き）・シェード（S_<アトラス>。動かすための _SHD 付き）・窓のガラス（*_glass）
 #  UV：1つ目＝元の柄の UV（UVMap。無い物は 0 の UV を足す）、2つ目＝ライトマップの UV（LM）→ glTF の TEXCOORD_0／TEXCOORD_1（three.js の uv／uv2）
 #  材質は元のまま。光る材質（three.js の MeshBasicMaterial から来た物）のうち照明器具の発光面は、近い照明の組のキー（bake_common.LAMPS）を extras の lamp に書く
 import bpy, sys, os, json
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bake_common as bc
 
 out = sys.argv[sys.argv.index('--') + 1]
-keep = lambda o: o.type == 'MESH' and ((o.name.startswith('A_') and o.name != 'A_exterior') or o.name.startswith(('L_', 'V_')) or o.name.endswith('_glass'))
+keep = lambda o: o.type == 'MESH' and ((o.name.startswith('A_') and o.name != 'A_exterior') or o.name.startswith(('L_', 'V_', 'S_')) or o.name.endswith('_glass'))
 for o in list(bpy.data.objects):
     if not keep(o):
         bpy.data.objects.remove(o)

@@ -597,6 +597,29 @@ if GLB:
             b = m.node_tree.nodes.get('Principled BSDF')
             if b and not b.inputs['Base Color'].is_linked:
                 m.diffuse_color = b.inputs['Base Color'].default_value
+# ===== 9a. シェード（common.js 220＝生地・閉めきった形、221＝下端のバー・全開の位置）：検証ページで開度に合わせて上下に動かす（2026-10-28 ユーザー） =====
+# 点ごとの _SHD＝(生地の上端からの割合, 閉めきった長さ, 1＝生地・2＝バー)。生地はほかの面の光をさえぎらない（光の量は開度で弱める）。焼き込みは bake_layers.py の S_<アトラス>
+def mark_shades():
+    fur = [o for o in COLS['furniture'].objects if o.type == 'MESH']
+    fabs = []
+    for o in fur:
+        if o.name.startswith('common_220_'):
+            mw = o.matrix_world; ys = [(mw @ v.co).z for v in o.data.vertices]; top, m = max(ys), max(ys) - min(ys)
+            o.data.attributes.new('_SHD', 'FLOAT_VECTOR', 'POINT').data.foreach_set('vector', [c for y in ys for c in ((top - y) / m, m, 1.0)])
+            for mt in o.data.materials:
+                if mt:
+                    mt['shadefab'] = 1
+            fabs.append((sum((mw @ Vector(c) for c in o.bound_box), Vector()) / 8, m)); o['shade'] = 1
+            for k in ('visible_shadow', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter'):
+                setattr(o, k, False)
+    for o in fur:
+        if o.name.startswith('common_221_'):
+            c = sum((o.matrix_world @ Vector(b) for b in o.bound_box), Vector()) / 8
+            m = min(fabs, key=lambda e: (e[0] - c).xy.length)[1]
+            o.data.attributes.new('_SHD', 'FLOAT_VECTOR', 'POINT').data.foreach_set('vector', [1.0, m, 2.0] * len(o.data.vertices)); o['shade'] = 1
+    print('shades', len(fabs), flush=True)
+if GLB:
+    mark_shades()
 # ===== 9b. 家具の部品どうしで同じ平面に重なった面を離す（2026-10-26） =====
 # 本番は同じ材質・同じ光なので重なっても見えないが、焼き込みでは面ごとに明るさが違うので、深さの奪い合いでチラチラし、星形の模様が出る
 # （エアコンの丸い所の円柱のふたと箱の側面、スツールの重ねた円柱など）。貼り物（本番で描画を手前に出す材質＝decal）は 1.5mm 手前へ、

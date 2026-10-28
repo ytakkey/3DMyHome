@@ -39,7 +39,7 @@ LAMPS = {
  'bath': [('down', (x, 2.12, 0.05125 + 0.45), DL) for x in (-2.19375 + 0.5, -2.19375 + 1.5)],           # 浴室のダウンライト×2 RMN(P1)
 }
 # 窓の組：窓の名前の頭（build_house.py の window() の名前）
-WINS = {'bed': ['FK2442a', 'FK2442b'], 'study': ['FK2442s'], 'void': ['FF2442E', 'FF2442S'], 'ldk1F': ['FF2020', 'FK2042', 'F8671'], 'dress': ['F4415N']}
+WINS = {'bed': ['FK2442a', 'FK2442b'], 'study': ['FK2442s'], 'void': ['FF2442E', 'FF2442S'], 'ldk1F': ['FF2020', 'FK2042', 'F8671'], 'dress': ['F4415N'], 'ent': ['ENTDOOR']}
 
 def room_of(x, y, z):
     """three.js の座標の点がどの部屋のアトラスか（壁の面は、面から部屋の側へ5cm出た点で判定）。1階の西側は 2026-10-27 追加"""
@@ -112,8 +112,12 @@ def setup(samples=128, devices=('HIP', 'CPU')):
         if n.type == 'MATH' and n.operation == 'MULTIPLY':
             return mean_a(n.inputs[0], depth + 1) * mean_a(n.inputs[1], depth + 1)
         return 1.0
+    entg = None
     for m in bpy.data.materials:
         col, alpha = (0.8, 0.8, 0.8, 1), 1.0
+        if m.node_tree and any(n.type == 'EMISSION' and max(abs(a - b) for a, b in zip(n.inputs['Color'].default_value[:3], (0.738, 0.768, 0.784))) < 0.01 for n in m.node_tree.nodes):
+            entg = m   # 玄関ドアの窓（本番 wash.js の entGl、0xdfe3e5 の型ガラス）
+            continue
         if m.node_tree:
             for n in m.node_tree.nodes:
                 if n.type == 'BSDF_PRINCIPLED':
@@ -133,6 +137,18 @@ def setup(samples=128, devices=('HIP', 'CPU')):
     for o in bpy.data.objects:
         if o.name.endswith('_glass'):
             o.hide_render = True
+    # 玄関ドアの窓（C4。2026-10-28）：型ガラスは光をぼかして通す板（Translucent）にし、窓の大きさの見えない板 ENTDOOR_glass を置いて
+    # ほかの窓と同じくポータルとふさぎを作る（光源 sky_ent・sun_ent）。ガラスの面はアトラス A_ent の中にある
+    if entg:
+        nt = entg.node_tree; nt.nodes.clear()
+        t = nt.nodes.new('ShaderNodeBsdfTranslucent'); t.inputs['Color'].default_value = (0.85, 0.85, 0.85, 1); o_ = nt.nodes.new('ShaderNodeOutputMaterial')
+        nt.links.new(t.outputs[0], o_.inputs[0])
+        vs = [o.matrix_world @ o.data.vertices[v].co for o in bpy.data.objects if o.type == 'MESH' and entg.name in o.data.materials
+              for p in o.data.polygons if o.material_slots[p.material_index].material == entg for v in p.vertices]
+        lo = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
+        me = bpy.data.meshes.new('ENTDOOR_glass'); me.from_pydata([lo, Vector((hi.x, lo.y, lo.z)), hi, Vector((lo.x, hi.y, hi.z))], [], [(0, 1, 2, 3)])
+        eg = bpy.data.objects.new('ENTDOOR_glass', me); sc.collection.objects.link(eg); eg.hide_render = True
+        print('entdoor glass', [round(v, 3) for v in lo], [round(v, 3) for v in hi], flush=True)
     return sc
 
 def add_lamps(sc):

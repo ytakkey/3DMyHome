@@ -42,7 +42,7 @@ const SHADE_T=p=>1-0.5*p;   // シェードを閉めた割合 p で、その窓�
 // 焼いた層の組み合わせ（光源→関係するドア。bake_layers.py の COMBOS を lm/index.json の combos で受け取る）。層の名前＝光源@ドアの開閉（関係するドアだけ）
 let COMBOS={};
 const D3=['SG311','SG500w','SG33s'],OLDC={bdl:D3,bbr:D3,sky_bed:D3,sun_bed:D3,j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311']};   // combos の無い一覧（寝室の試作のとき）
-const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F','sky_dress','sun_dress'];
+const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F','sky_dress','sun_dress','sky_ent','sun_ent'];
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
 const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],
  ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];   // 照明のボタン（並びは本番の js/ui.js の LG と同じ）
@@ -75,16 +75,29 @@ function look(px,py,pz,ya,pi,f){cam.position.set(px,py,pz);cam.fov=f;cam.updateP
 function draw(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.render(scene,cam);}
 function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribute('role')==='switch'?'aria-checked':(el.getAttribute('role')==='tab'?'aria-selected':'aria-pressed'),on);}
 const sRGB=h=>new THREE.Color(h).convertSRGBToLinear();
-const UNI={uE:{value:EXPO.day},uG:{value:GAM.day}};   // 明るさの幅を縮める式の露出と指数（すべての材質で共有）
+const UNI={uE:{value:EXPO.day},uG:{value:GAM.day},uShP:{value:0}};   // 明るさの幅を縮める式の露出と指数・シェードを閉めた割合（すべての材質で共有）
+// シェード（S_<アトラス>）：生地は閉めきった形・バーは全開の位置で焼いてある。開度 p で本番の applyShades と同じ長さ max(0.02, 閉めきった長さ×p) に縮め、柄とライトマップは上の端からその長さの分だけ使う
+const SHV=`#include <begin_vertex>
+if(shd.z>0.5){float sL=max(0.02,shd.y*uShP);
+ if(shd.z<1.5){float sf=sL/shd.y;transformed.y+=shd.x*(shd.y-sL);
+#ifdef USE_UV
+ vUv=(uvTransform*vec3(mix(stop.xy,uv,sf),1.0)).xy;
+#endif
+#ifdef USE_LIGHTMAP
+ vUv2=(uv2Transform*vec3(mix(stop.zw,uv2,sf),1.0)).xy;
+#endif
+ if(uShP<=0.0)transformed=vec3(0.0);}
+ else transformed.y-=sL-0.02;}`;
 const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
-function patchMat(m,vl,vo,cg){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+function patchMat(m,vl,vo,cg,sd){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ if(sd){sh.uniforms.uShP=UNI.uShP;sh.vertexShader='attribute vec3 shd;attribute vec4 stop;uniform float uShP;\n'+sh.vertexShader.replace('#include <begin_vertex>',SHV);}
  if(cg){sh.uniforms.uCau={value:compRT('c:'+cg).texture};sh.uniforms.uCauT={value:cauTex};sh.uniforms.uCauP={value:new THREE.Vector3(...CAU.p)};sh.uniforms.uCauK={value:new THREE.Vector4(...CAU.k)};   // cg：G1 のまっすぐ届く光のアトラス
   sh.vertexShader='varying vec3 vWC;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWC=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+(cg?CAUGL:'')+CMP+sh.fragmentShader;
  if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
  if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
  else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
- m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(cg||'');return m;}
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 
 // ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
@@ -166,13 +179,13 @@ let pending=null;function changed(){if(!pending)pending=Promise.resolve().then((
 let CAUG=[];const VCAU={};   // G1 のまっすぐ届く光の届くアトラス、頂点で焼く物の模様の係数（アトラス → 焼いた頂点ごと）
 function vCau(g){if(VCAU[g])return VCAU[g];const n=(IDX.vn||{})[g]||0,f=new Float32Array(n),v=new THREE.Vector3();
  (VMESH[g]||[]).forEach(m=>{const p=m.pos;for(let j=0;j<m.vid.length;j++){v.fromArray(p,j*3);f[m.vid[j]]=cauF(v.x,v.y,v.z);}});return VCAU[g]=f;}
-const DOORN={},LAMPM=[],DOORM=[],VMESH={};   // VMESH：アトラス → 頂点で焼く物の形（{col:色の属性, vid:元の頂点の番号, orig:元の頂点の色}）   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
+const DOORN={},LAMPM=[],DOORM=[],VMESH={},SHM=[];   // SHM：シェード   // VMESH：アトラス → 頂点で焼く物の形（{col:色の属性, vid:元の頂点の番号, orig:元の頂点の色}）   // ドア → {open:[物体],closed:[物体]}、照明器具の発光面、扉（タップの対象）
 function info(o){for(;o;o=o.parent)if(o.userData&&o.userData.atlas)return o.userData;return null;}
 function setupModel(root){const mc=new Map();
  root.traverse(o=>{if(o.userData&&o.userData.door){const d=dk(o.userData.door);(DOORN[d]=DOORN[d]||{open:[],closed:[]})[o.userData.state].push(o);}
   if(!o.isMesh)return;const u=info(o),m=o.material;
   if(!u){o.material=glassMat;return;}
-  const vl=!!u.vlit,key=m.uuid+'|'+u.atlas+'|'+vl;let nm=mc.get(key);
+  const vl=!!u.vlit,sd=!!u.shadeobj,key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
    const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
    if(g.attributes.color_1)g.deleteAttribute('color_1');if(orig)g.setAttribute('vorig',new THREE.BufferAttribute(orig,3));
@@ -181,15 +194,20 @@ function setupModel(root){const mc=new Map();
    (VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,pos});}
   const vo=vl&&!!o.geometry.attributes.vorig;
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null,sd);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
- scene.add(root);}
+ scene.add(root);root.updateMatrixWorld(true);
+ SHM.forEach(o=>{const g=o.geometry;g.applyMatrix4(o.matrixWorld);o.position.set(0,0,0);o.quaternion.identity();o.scale.set(1,1,1);scene.add(o);   // 家全体の座標に直す（上下に動かすのは y）
+  const p=g.attributes.position,s=g.attributes._shd,u=g.attributes.uv,u2=g.attributes.uv2,n=p.count,st=new Float32Array(n*4);
+  for(let i=0;i<n;i++){let j=i;if(s.getZ(i)>0.5&&s.getZ(i)<1.5&&s.getX(i)>1e-4)for(let k=0;k<n;k++)if(s.getZ(k)>0.5&&s.getZ(k)<1.5&&s.getX(k)<1e-4&&Math.abs(p.getX(k)-p.getX(i))<1e-3&&Math.abs(p.getZ(k)-p.getZ(i))<1e-3){j=k;break;}   // 同じ縦の線の上の端の点
+   st[i*4]=u?u.getX(j):0;st[i*4+1]=u?u.getY(j):0;st[i*4+2]=u2.getX(j);st[i*4+3]=u2.getY(j);}
+  g.setAttribute('shd',s);g.deleteAttribute('_shd');g.setAttribute('stop',new THREE.BufferAttribute(st,4));});}
 function applyShown(){const s=shown;
  for(const d in DOORN){DOORN[d].open.forEach(o=>o.visible=s.DS[d]);DOORN[d].closed.forEach(o=>o.visible=!s.DS[d]);}
  LAMPM.forEach(l=>l.o.material=s.LS[l.k]?l.on:l.off);
- r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);UNI.uE.value=s.night?EXPO.night:EXPO.day;UNI.uG.value=s.night?GAM.night:GAM.day;
+ r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);UNI.uE.value=s.night?EXPO.night:EXPO.day;UNI.uShP.value=s.shade;UNI.uG.value=s.night?GAM.night:GAM.day;
  glassMat.color.copy(sRGB(s.night?0x141c28:0xcfdfec));scene.background=sRGB(s.night?0x0b1018:0xcfdfec);}
 
 // ===== 移動範囲（本番の ui.js と同じ。範囲は本番から書き出した move.json）=====

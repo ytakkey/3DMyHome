@@ -15,7 +15,7 @@ a = sys.argv[1:]
 def blender(blend, script, *args):
     r = subprocess.run([BL, '-b', blend, '-P', os.path.join(T, script), '--', *args], capture_output=True, text=True, encoding='utf-8', errors='replace')
     for line in (r.stdout + r.stderr).splitlines():
-        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases', 'emit', 'V_ faces', 'gltf', 'lmimg', 'vlit')):
+        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases', 'emit', 'V_ faces', 'gltf', 'lmimg', 'vlit', 'entdoor')):
             print(line)
 if a[0] == 'view':
     state, layers = a[1], a[2]
@@ -77,6 +77,11 @@ elif a[0] == 'bounce':   # 反射回数の比較：代表の層を反射回数 1
 elif a[0] == 'py':   # 調べる用：py <スクリプト> [引数...]（bake_uv.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print('\n'.join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
+elif a[0] == 'dark':   # 横の同じ向きの面より極端に暗い面を家全体から拾う：dark [比の上限] → bake/work/dark.json（dark_faces.py）
+    blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'dark_faces.py', LAY, os.path.join(W, 'dark.json'), *a[1:2])
+elif a[0] == 'leak':   # 光漏れの場所を探す（窓をすべてふさぎ、ドアを閉じて、空と太陽だけ）：leak [部屋,...]
+    r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.join(T, 'leak_probe.py'), '--', *a[1:2]], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if l.startswith(('==', '  lux', 'Traceback', '  File')) or 'Error' in l))
 elif a[0] == 'pyh':   # 調べる用：pyh <スクリプト> [引数...]（house.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
@@ -112,4 +117,6 @@ elif a[0] == 'status':
     d = LAY
     done = [x for x in os.listdir(d) if os.path.exists(os.path.join(d, x, 'done'))] if os.path.isdir(d) else []
     log = json.load(open(os.path.join(d, 'bake_log.json'))) if os.path.exists(os.path.join(d, 'bake_log.json')) else {}
-    print(len(done), '/ 58 done', 'avg %.0fs' % (sum(v['sec'] for v in log.values()) / max(1, len(log))))
+    ap = os.path.join(d, 'alias.json')   # 焼く仕事＝別名の行き先のフォルダ（bake_layers.py の jobs）
+    n = len({fn for m in json.load(open(ap)).values() for fn in m.values()}) if os.path.exists(ap) else '?'
+    print(len(done), '/', n, 'done', 'avg %.0fs' % (sum(v['sec'] for v in log.values()) / max(1, len(log))))

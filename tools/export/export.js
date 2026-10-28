@@ -18,9 +18,10 @@ const BLD={bedroom:[11,12,13,14],   // 西の壁のアクセント面・腰壁�
 const isBld=k=>{const [f,l]=k.split(':'),n=+l;if(f==='common')return !((n>=219&&n<=221)||(n>=276&&n<=283)||(n>=370&&n<=379));return (BLD[f]||[]).includes(n);};
 // 書き出し：家全体の家具（2026-10-27 から脱衣室・洗面所・玄関・トイレ・浴室も）
 function pick(){return meshes().filter(o=>!isBld(site(frames(o.userData.src))));}
-function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].forEach(S=>S.setShade(0));   // シェードは全開（開度は焼き込みでは光の量で扱う）
+function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].forEach(S=>S.setShade(1));const fab=new Map(pick().map(o=>[o,{g:o.geometry,mw:o.matrixWorld.clone()}]));   // シェードの生地（common.js 220）は閉めきった形、下端のバーは全開の位置で書き出す（検証ページで開度に合わせて動かす）
+ [bedS,stS,ldkS].forEach(S=>S.setShade(0));
  meshes().forEach(o=>{const m=o.material;if(m&&!Array.isArray(m)&&m.polygonOffset)m.userData.decal=1;});   // 貼り物（描画で手前に出す材質＝decalMat）の印。Blender で面を少し手前へ出す
- pick().forEach(o=>{const k=site(frames(o.userData.src)),m=new THREE.Mesh(o.geometry,o.material);o.matrixWorld.decompose(m.position,m.quaternion,m.scale);cnt[k]=(cnt[k]||0)+1;m.name=k.replace(':','_')+'_'+cnt[k];out.add(m);});
+ pick().forEach(o=>{const k=site(frames(o.userData.src)),f=k==='common:220'?fab.get(o):null,m=new THREE.Mesh(f?f.g:o.geometry,o.material);(f?f.mw:o.matrixWorld).decompose(m.position,m.quaternion,m.scale);cnt[k]=(cnt[k]||0)+1;m.name=k.replace(':','_')+'_'+cnt[k];out.add(m);});
  return new Promise(res=>new THREE.GLTFExporter().parse(out,glb=>save('furniture.glb',glb).then(()=>res(out.children.length)),{binary:true}));}
 // 検証ページ（stg/）用：移動範囲・通れない所（ui.js の MBA・MOA と同じ）と、視点（本番の VIEWS と同じ）→ bake/work/export/move.json
 function exportMove(){const J=b=>({b:[...b],door:b.door,shut:b.shut,opn:b.opn}),V={};

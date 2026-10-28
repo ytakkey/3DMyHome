@@ -1,0 +1,414 @@
+{
+ "_note": "光源 → 部屋のアトラス → その部屋の明るさに効く1階のドア。bake/work/measure/full.json（128サンプル・2048）から、ドア1枚を閉めて床の平均が0.5 lux 以上か上位5%が2 lux 以上変わるもの（2026-10-28）",
+ "sky_void": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG33",
+   "SG11H"
+  ],
+  "toilet": [],
+  "bath": []
+ },
+ "sun_void": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG33"
+  ],
+  "toilet": [],
+  "bath": []
+ },
+ "h1": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "j1": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "sky_ldk1F": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG300l",
+   "SG300w",
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG33",
+   "SG11H"
+  ],
+  "toilet": [
+   "SG11H",
+   "SG500"
+  ],
+  "bath": [
+   "SG300l",
+   "BATHD"
+  ]
+ },
+ "sun_ldk1F": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG11H"
+  ],
+  "toilet": [
+   "SG11H",
+   "SG500"
+  ],
+  "bath": []
+ },
+ "a1": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "a2": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "a3": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "a4": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG11H"
+  ],
+  "toilet": [],
+  "bath": []
+ },
+ "a5": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG300l",
+   "SG300w"
+  ],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "a6": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "d1": {
+  "ldk": [
+   "SG33",
+   "SG11H"
+  ],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300w",
+   "BATHD",
+   "SG33"
+  ],
+  "wash": [
+   "SG300w",
+   "SG33"
+  ],
+  "ent": [
+   "SG33",
+   "SG11H"
+  ],
+  "toilet": [],
+  "bath": [
+   "SG300w",
+   "BATHD"
+  ]
+ },
+ "e1": {
+  "ldk": [
+   "SG300l"
+  ],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l",
+   "SG300w",
+   "BATHD"
+  ],
+  "wash": [
+   "SG300l",
+   "SG300w",
+   "BATHD",
+   "SG33"
+  ],
+  "ent": [
+   "SG300w",
+   "SG33"
+  ],
+  "toilet": [],
+  "bath": [
+   "SG300w",
+   "BATHD"
+  ]
+ },
+ "eh": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG500"
+  ],
+  "toilet": [
+   "SG500"
+  ],
+  "bath": []
+ },
+ "b3": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [
+   "SG500"
+  ],
+  "toilet": [
+   "SG500"
+  ],
+  "bath": []
+ },
+ "ec": {
+  "ldk": [
+   "SG11H"
+  ],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300w",
+   "SG33"
+  ],
+  "wash": [
+   "SG33",
+   "SG11H"
+  ],
+  "ent": [
+   "SG33",
+   "SG11H"
+  ],
+  "toilet": [
+   "SG500"
+  ],
+  "bath": []
+ },
+ "ek": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "g1": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "bath": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l",
+   "SG300w",
+   "BATHD"
+  ],
+  "wash": [
+   "SG300w",
+   "BATHD"
+  ],
+  "ent": [],
+  "toilet": [],
+  "bath": [
+   "BATHD"
+  ]
+ },
+ "sky_dress": {
+  "ldk": [
+   "SG300l"
+  ],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [
+   "SG300l"
+  ],
+  "wash": [
+   "SG300l",
+   "SG300w",
+   "BATHD",
+   "SG33"
+  ],
+  "ent": [
+   "SG300w",
+   "SG33"
+  ],
+  "toilet": [],
+  "bath": [
+   "SG300l",
+   "SG300w",
+   "BATHD"
+  ]
+ },
+ "sun_dress": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ },
+ "g1d": {
+  "ldk": [],
+  "hall": [],
+  "bed": [],
+  "wic": [],
+  "study": [],
+  "dress": [],
+  "wash": [],
+  "ent": [],
+  "toilet": [],
+  "bath": []
+ }
+}

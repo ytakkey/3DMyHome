@@ -60,11 +60,20 @@ def widen_thin(objs, need=3):
     """細い面（ドアの見込み・巾木の上面・丸い角の帯など）の UV の島を、細い向きにだけ広げて画素が need 個以上かかるようにする。
     1画素より細い面は画素の中心が面に乗らず焼けないまま黒くなっていた（2026-10-26）。島の主な向きは UV の点の分布（主成分）で"""
     from bpy_extras.mesh_utils import mesh_linked_uv_islands
-    wa = sum(sum(p.area for p in o.data.polygons) * abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3) for o in objs)
-    ua = uv_area(objs)
-    if ua <= 0:
+    # UV の1 → 実寸（m）：細かく焼く面の比で（全体の面積の比だと、粗くした天井の分で大きく見積もり、幅3cm のサッシの枠を「もう広い」として広げていなかった。2026-10-28）
+    rat = []
+    for o in objs:
+        me = o.data; me.calc_loop_triangles(); sc = abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3)
+        uv = np.zeros(len(me.loops) * 2, np.float32); me.uv_layers['LM'].data.foreach_get('uv', uv); uv = uv.reshape(-1, 2)
+        for t in me.loop_triangles:
+            a = t.area * sc
+            if a > 1e-4:
+                q = uv[list(t.loops)]
+                ua_t = 0.5 * abs((q[1, 0] - q[0, 0]) * (q[2, 1] - q[0, 1]) - (q[2, 0] - q[0, 0]) * (q[1, 1] - q[0, 1]))
+                rat.append(ua_t / a)
+    if not rat:
         return
-    k = math.sqrt(wa / ua)   # UV の1 → 実寸（m）
+    k = math.sqrt(1.0 / np.percentile(rat, 95))   # 面の向きに投影した面（＝細かく焼く面）の比が一番大きい
     n = 0
     for o in objs:
         me = o.data; uvl = me.uv_layers['LM'].data
@@ -134,7 +143,7 @@ def prep(out):
     bpy.data.objects.remove(bld)
     # ほかの部品（建具・幅木・窓・階段・家具）を物体の中心で振り分ける。扉は開いた形・閉じた形ごと
     # 小さい物・曲面の物は、ライトマップ（1画素2cm）では画素が足りず隣の部品の値がにじむので、頂点ごとの明るさで焼く（2026-10-21 ユーザー了承）：V_<アトラス>
-    leaves, vparts = {}, {}
+    leaves, vparts, sparts = {}, {}, {}
     g1p = bc.B(*bc.LAMPS['g1'][0][1])   # G1（トイレのペンダント）のガラスと電球の材質に印：揺らいだ光の模様は表示で付けるので、まっすぐ届く光はガラスを外して焼く（g1d）
     for o in bpy.data.collections['furniture'].objects:
         if o.type == 'MESH' and (sum((o.matrix_world @ Vector(c) for c in o.bound_box), Vector()) / 8 - g1p).length < 0.1:
@@ -154,6 +163,9 @@ def prep(out):
                 leaves.setdefault((dk, cn[6:]), []).append(o)
                 continue
             g = 'door_' + dk if dk else room_of(x, y, z)
+            if o.get('shade'):   # シェードの生地と下端のバー（検証ページで動かすので別の物体 S_<アトラス> に）
+                sparts.setdefault(g, []).append(o)
+                continue
             if vlit(o, bb):
                 vparts.setdefault(g, []).append(o)
                 continue
@@ -174,6 +186,10 @@ def prep(out):
     atlas = {}
     for g, objs in parts.items():
         o = join(objs, 'A_' + g); o['atlas'] = g; atlas.setdefault(g, []).append(o)
+    for g, objs in sparts.items():   # シェード：ほかの面の光をさえぎらない（光の量は開度で弱める）。焼くときは生地の裏から透ける光も足す（bake）
+        o = join(objs, 'S_' + g); o['atlas'] = g; o['shadeobj'] = 1; atlas.setdefault(g, []).append(o)
+        for k in ('visible_shadow', 'visible_diffuse', 'visible_glossy', 'visible_transmission', 'visible_volume_scatter'):
+            setattr(o, k, False)
     for (dk, st), objs in leaves.items():
         o = join(objs, 'L_%s_%s' % (dk, st)); o['atlas'] = 'door_' + dk; o['door'] = dk; o['state'] = st; atlas['door_' + dk].append(o)
     for g, objs in vparts.items():   # 頂点で焼く物：アトラスごとに1つの物体。焼いた値は点（頂点）ごと、ページでは _VID（頂点の番号）で引く
@@ -223,6 +239,8 @@ def prep(out):
                     for li in p.loop_indices:
                         uvl[li].uv = uvl[li].uv * COARSE
         res = int(math.ceil(math.sqrt(area / TEXEL ** 2 / 0.6) / 64) * 64); res = max(256, min(2048, res))
+        for o in objs:
+            o.data.uv_layers.active = o.data.uv_layers['LM']   # 島は今の UV（LM）で数える
         widen_thin(objs)   # 粗くした後で（先に広げると、下向きの面を粗くしたときにまた1画素より細くなり、ほかの島の明るい値で埋まっていた）
         print('uvdbg', g, 'before pack', uv_area(objs), flush=True)
         def uvmax():
@@ -231,18 +249,40 @@ def prep(out):
         for o in objs:
             u = np.zeros(len(o.data.loops) * 2, np.float32); o.data.uv_layers['LM'].data.foreach_get('uv', u); saved[o.name] = u
         need = area / TEXEL ** 2   # 狙った細かさで要る画素の数
-        for k in range(8):   # 詰めるたびに元の UV に戻す。0〜1 に収まらない・狙った細かさの 6 割に届かないときは画像を大きくする（小さな島が多いと余白が場所を取る）。凹んだ形での詰め込みに失敗したら外形の箱で
+        from bpy_extras.mesh_utils import mesh_linked_uv_islands
+        for rnd in range(4):
+            for k in range(8):   # 詰めるたびに元の UV に戻す。0〜1 に収まらない・狙った細かさの 6 割に届かないときは画像を大きくする（小さな島が多いと余白が場所を取る）。凹んだ形での詰め込みに失敗したら外形の箱で
+                for o in objs:
+                    o.data.uv_layers['LM'].data.foreach_set('uv', saved[o.name])
+                bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.uv.select_all(action='SELECT')
+                bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=2 / res, shape_method='CONCAVE' if k < 4 else 'AABB')
+                bpy.ops.object.mode_set(mode='OBJECT')
+                used = uv_area(objs); um = uvmax()
+                print('uvdbg', g, 'pack', res, round(used, 3), round(um, 3), 'texel ratio %.2f' % (used * res * res / need), flush=True)
+                if um <= 1.0 and used > 0 and (used * res * res / need > 0.6 or res >= 2048):
+                    break
+                res = min(2048, int(res * 1.3 / 64 + 1) * 64)
+            assert 0 < uvmax() <= 1.0, g
+            # 詰めた後の画素の幅で確かめ、3画素に満たない島（1cm² 以上）は詰める前の UV でその分だけ細い向きに広げて詰め直す
+            # （広げる量を実寸から見積もると、粗くした面の比でずれて、幅3cm のサッシの枠などが 1.5画素のまま黒く焼けていた。2026-10-28）
+            nthin = 0
             for o in objs:
-                o.data.uv_layers['LM'].data.foreach_set('uv', saved[o.name])
-            bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.uv.select_all(action='SELECT')
-            bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=2 / res, shape_method='CONCAVE' if k < 4 else 'AABB')
-            bpy.ops.object.mode_set(mode='OBJECT')
-            used = uv_area(objs); um = uvmax()
-            print('uvdbg', g, 'pack', res, round(used, 3), round(um, 3), 'texel ratio %.2f' % (used * res * res / need), flush=True)
-            if um <= 1.0 and used > 0 and (used * res * res / need > 0.6 or res >= 2048):
+                me = o.data; me.uv_layers.active = me.uv_layers['LM']; uvl = me.uv_layers['LM'].data; sc = abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3)
+                u = np.zeros(len(me.loops) * 2, np.float32); uvl.foreach_get('uv', u); u = u.reshape(-1, 2)
+                s = saved[o.name].reshape(-1, 2).astype(np.float64)
+                for isl in mesh_linked_uv_islands(me):
+                    li = [l for pi in isl for l in me.polygons[pi].loop_indices]
+                    if len(li) < 3 or sum(me.polygons[pi].area for pi in isl) * sc < 1e-4:
+                        continue
+                    q = u[li].astype(np.float64); d = q - q.mean(0); w_, v_ = np.linalg.eigh(d.T @ d); t_ = d @ v_[:, 0]; px = (t_.max() - t_.min()) * res
+                    if 0 < px < 2.8:
+                        nthin += 1
+                        q = s[li]; c = q.mean(0); d = q - c; w_, v_ = np.linalg.eigh(d.T @ d); ax = v_[:, 0]; t_ = d @ ax
+                        s[li] = c + d + np.outer(t_ * (min(3.3 / px, 40.0) - 1), ax)
+                saved[o.name] = s.astype(np.float32).ravel()
+            print('uvdbg', g, 'thin islands after pack', nthin, flush=True)
+            if not nthin:
                 break
-            res = min(2048, int(res * 1.3 / 64 + 1) * 64)
-        assert 0 < uvmax() <= 1.0, g
         for o in objs:
             o['lm_res'] = res
             o.data.uv_layers.active = o.data.uv_layers[0]   # 表示の柄の UV は元のまま（LM は2つ目以降）
@@ -255,12 +295,18 @@ def prep(out):
 D3 = ['SG311', 'SG500w', 'SG33s']
 COMBOS = {'bdl': D3, 'bbr': D3, 'sky_bed': D3, 'sun_bed': D3,
           'j1': ['SG311', 'SG500w'], 'l1': ['SG500w', 'SG311'],
-          'k1': ['SG33s'], 'sky_study': ['SG33s'], 'sun_study': ['SG33s'], 'sky_void': ['SG311'],
-          'h1': [], 'sun_void': [], 'sky_ldk1F': [], 'sun_ldk1F': [],
-          'a1': [], 'a2': [], 'a3': [], 'a4': [], 'a5': [], 'a6': []}   # LDK の照明（2026-10-25 追加。光は 2階廊下・吹抜けと SG311 の周りまで）
+          'k1': ['SG33s'], 'sky_study': ['SG33s'], 'sun_study': ['SG33s'],
+          # 1階のドアは測って決めた（bake_rel.json。2026-10-28）。LDK の照明は 2026-10-25 追加（光は 2階廊下・吹抜けと SG311 の周りまで）
+          'sky_void': ['SG311', 'SG300l', 'SG33', 'SG11H'], 'sun_void': ['SG300l', 'SG33', 'SG11H'], 'h1': [],
+          'sky_ldk1F': ['SG300l', 'SG300w', 'BATHD', 'SG33', 'SG11H', 'SG500'], 'sun_ldk1F': ['SG300l', 'SG33', 'SG11H', 'SG500'],
+          'a1': ['SG300l'], 'a2': [], 'a3': [], 'a4': ['SG33', 'SG11H'], 'a5': ['SG300l', 'SG300w'], 'a6': [],
+          'd1': ['SG300w', 'BATHD', 'SG33', 'SG11H'], 'e1': ['SG300l', 'SG300w', 'BATHD', 'SG33'], 'sky_dress': ['SG300l', 'SG300w', 'BATHD', 'SG33'], 'sun_dress': [],
+          'eh': ['SG33', 'SG11H', 'SG500'], 'b3': ['SG500'], 'ec': ['SG300w', 'SG33', 'SG11H', 'SG500'], 'ek': [], 'g1': [], 'g1d': [],
+          'bath': ['SG300l', 'SG300w', 'BATHD'],
+          'sky_ent': ['SG33', 'SG11H', 'SG500'], 'sun_ent': ['SG33', 'SG11H', 'SG500']}   # 玄関ドアの窓（C4。2026-10-28）：ドアは玄関ホールの照明 eh と同じ
 HOME = {'g1d': 'toilet', 'bdl': 'bed', 'bbr': 'bed', 'sky_bed': 'bed', 'sun_bed': 'bed', 'j1': 'hall', 'h1': 'hall', 'sky_void': 'hall', 'sun_void': 'hall', 'l1': 'wic',
         'k1': 'study', 'sky_study': 'study', 'sun_study': 'study', 'sky_ldk1F': 'ldk', 'sun_ldk1F': 'ldk', 'a1': 'ldk', 'a2': 'ldk', 'a3': 'ldk', 'a4': 'ldk', 'a5': 'ldk', 'a6': 'ldk',
-        'd1': 'wash', 'e1': 'dress', 'sky_dress': 'dress', 'sun_dress': 'dress', 'eh': 'ent', 'b3': 'ent', 'ec': 'ent', 'ek': 'ent', 'g1': 'toilet', 'bath': 'bath'}   # 光源のある部屋
+        'd1': 'wash', 'e1': 'dress', 'sky_dress': 'dress', 'sun_dress': 'dress', 'eh': 'ent', 'b3': 'ent', 'ec': 'ent', 'ek': 'ent', 'g1': 'toilet', 'bath': 'bath', 'sky_ent': 'ent', 'sun_ent': 'ent'}   # 光源のある部屋
 def atlases(src, op):
     """光源と開いたドアの組から、焼くアトラス（光の届く部屋とドアの周り）：光源の部屋から、開いたドア（組み合わせに入れたドアだけ）でつながる部屋。
     LDK と2階廊下（吹抜け）は、光源がどちらかにあるときだけつなぐ（寝室・1階の西側の光は吹抜けの向こうまで焼かない。試作のときと同じ）"""
@@ -292,7 +338,7 @@ def rel(src, g):
         r1, r2 = ADJ[g[5:]]
         return [d for d in ds if d in rel(src, r1) or d in rel(src, r2) or d == g[5:]]
     r = REL.get(src, {}).get(g)
-    return list(ds) if r is None else [d for d in ds if d in r]
+    return list(ds) if r is None else [d for d in ds if d in r or d in DOOR2F]   # 測ったのは1階のドアだけ（2階のドアは閉じたまま）。2階のドアは COMBOS のとおり
 def jobs():
     """焼く仕事：{(フォルダ, 光源, 開いたドア): アトラスの組}。アトラスごとに、その明るさに効かないドアは閉じた形にそろえ、同じ形は1回だけ焼く。
     あわせて、すべての組み合わせの名前 → アトラス → フォルダの対応（alias。lm_images.py が index.json に展開する）"""
@@ -356,6 +402,20 @@ def bake_main(outdir, samples, only):
             if not any(n.type == 'TEX_IMAGE' for n in mc.node_tree.nodes):
                 n = mc.node_tree.nodes.new('ShaderNodeTexImage'); n.image = imgs[g]; mc.node_tree.nodes.active = n
             o.data.materials[i] = mc
+    def shb(g, fab):   # シェードを焼く材質：白い拡散（生地は裏から透ける光も同じ強さで。閉めても5割通す生地の色×光）
+        nm = 'SHB_%s_%d' % (g, fab)
+        m = bpy.data.materials.get(nm)
+        if m:
+            return m
+        m = bpy.data.materials.new(nm); m.use_nodes = True; nt = m.node_tree; nt.nodes.clear()
+        out = nt.nodes.new('ShaderNodeOutputMaterial'); d = nt.nodes.new('ShaderNodeBsdfDiffuse'); d.inputs['Color'].default_value = (1, 1, 1, 1)
+        if fab:
+            t = nt.nodes.new('ShaderNodeBsdfTranslucent'); t.inputs['Color'].default_value = (1, 1, 1, 1); a = nt.nodes.new('ShaderNodeAddShader')
+            nt.links.new(d.outputs[0], a.inputs[0]); nt.links.new(t.outputs[0], a.inputs[1]); nt.links.new(a.outputs[0], out.inputs['Surface'])
+        else:
+            nt.links.new(d.outputs[0], out.inputs['Surface'])
+        im = nt.nodes.new('ShaderNodeTexImage'); im.image = imgs[g]; nt.nodes.active = im
+        return m
     # 物体ごとの、UV が覆う画素（範囲の外を周りの値で埋めるとき・ノイズ除去の前に使う）
     cover = {}
     lab = {g: np.full((res[g], res[g]), -1, np.int32) for g in names}   # 画素ごとの UV の島の番号（ならす処理を島の中だけにする）
@@ -468,9 +528,24 @@ def bake_main(outdir, samples, only):
         set_doors(op)
         for g in A:
             imgs[g].pixels.foreach_set(np.zeros(res[g] ** 2 * 4, dtype=np.float32))
-        tg = [o for o in objs if o['atlas'] in A and not o.hide_render]
+        tg = [o for o in objs if o['atlas'] in A and not o.hide_render and not o.get('shadeobj')]
         bake(tg, False, pf)
         vis = {o.name for o in tg}
+        st = [o for o in objs if o['atlas'] in A and o.get('shadeobj')]
+        if st:   # シェード：見える明るさ（部屋の側に当たる光＋窓の側から透ける光。白い材質で COMBINED）。ほかの島を上書きしないよう余白なしで
+            saved = {o.name: list(o.data.materials) for o in st}
+            for o in st:
+                for i, m in enumerate(saved[o.name]):
+                    o.data.materials[i] = shb(o['atlas'], bool(m and m.get('shadefab')))
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in st:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = st[0]
+            bpy.ops.object.bake(type='COMBINED', pass_filter=pf | {'DIFFUSE', 'TRANSMISSION'}, margin=0, use_clear=False, target='IMAGE_TEXTURES')
+            for o in st:
+                for i, m in enumerate(saved[o.name]):
+                    o.data.materials[i] = m
+            vis |= {o.name for o in st}
         # 組み合わせに入れていないドアの周りを焼くとき：扉の開いた形も、そのドアを開けて焼いておく（扉だけ）
         extra = [d for d in DOORS if d not in COMBOS[src] and 'door_' + d in A]
         if extra:
