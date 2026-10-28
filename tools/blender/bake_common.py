@@ -112,7 +112,7 @@ def setup(samples=128, devices=('HIP', 'CPU')):
         if n.type == 'MATH' and n.operation == 'MULTIPLY':
             return mean_a(n.inputs[0], depth + 1) * mean_a(n.inputs[1], depth + 1)
         return 1.0
-    entg = None
+    entg = None; bathg = []
     for m in bpy.data.materials:
         col, alpha = (0.8, 0.8, 0.8, 1), 1.0
         if m.node_tree and any(n.type == 'EMISSION' and max(abs(a - b) for a, b in zip(n.inputs['Color'].default_value[:3], (0.738, 0.768, 0.784))) < 0.01 for n in m.node_tree.nodes):
@@ -128,6 +128,9 @@ def setup(samples=128, devices=('HIP', 'CPU')):
                     col = tuple(n.inputs['Color'].default_value) if n.type == 'EMISSION' else tuple(n.outputs[0].default_value)
         else:
             col = tuple(m.diffuse_color)
+        if max(abs(a - b) for a, b in zip(col[:3], (0.565, 0.604, 0.584))) < 0.01:
+            bathg.append(m)   # 浴室のドアのすりガラス調のパネル（本番 common.js の bathGlM、0xc6ccc9）
+            continue
         m.use_nodes = True
         nt = m.node_tree; nt.nodes.clear()
         p = nt.nodes.new('ShaderNodeBsdfPrincipled'); o = nt.nodes.new('ShaderNodeOutputMaterial')
@@ -139,6 +142,12 @@ def setup(samples=128, devices=('HIP', 'CPU')):
             o.hide_render = True
     # 玄関ドアの窓（C4。2026-10-28）：型ガラスは光をぼかして通す板（Translucent）にし、窓の大きさの見えない板 ENTDOOR_glass を置いて
     # ほかの窓と同じくポータルとふさぎを作る（光源 sky_ent・sun_ent）。ガラスの面はアトラス A_ent の中にある
+    # 浴室のドアのパネル（曇りガラス。両方向に光を通す。2026-10-28 ユーザー）：玄関ドアの窓と同じく光をぼかして通す板に。窓ではないのでポータルは無し
+    for m in bathg:
+        m.use_nodes = True; nt = m.node_tree; nt.nodes.clear()
+        t = nt.nodes.new('ShaderNodeBsdfTranslucent'); t.inputs['Color'].default_value = (0.85, 0.85, 0.85, 1); o_ = nt.nodes.new('ShaderNodeOutputMaterial')
+        nt.links.new(t.outputs[0], o_.inputs[0])
+    print('bathglass', [m.name for m in bathg], flush=True)
     if entg:
         nt = entg.node_tree; nt.nodes.clear()
         t = nt.nodes.new('ShaderNodeBsdfTranslucent'); t.inputs['Color'].default_value = (0.85, 0.85, 0.85, 1); o_ = nt.nodes.new('ShaderNodeOutputMaterial')

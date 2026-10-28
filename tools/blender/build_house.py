@@ -182,11 +182,12 @@ box('K_tarekabe', EX1 - TWD, EX1, H1 - 0.1, H1 + 0.01, KZ0 - 0.01, D + 0.01, 'wa
 # ===== 4. ドア・窓 =====
 DOOR_GAPS = []    # 幅木を止める所（平面の範囲）
 def gap(wl, u0, u1):
-    a, b = wl.p(u0, 0, -0.2), wl.p(u1, 0, 0.013)   # 部屋の側は巾木の厚さ（12）まで（5cm にしていたので、隣の直角の壁の巾木の端まで止めて途切れていた。2026-10-26）
+    a, b = wl.p(u0, 0, -0.002), wl.p(u1, 0, 0.013)   # 部屋の側は巾木の厚さ（12）まで（5cm にしていたので、隣の直角の壁の巾木の端まで止めて途切れていた。2026-10-26）。
+    # 壁の裏へは延ばさない（20cm 延ばしていたので、裏の部屋の幅木を、戸袋・ヘッダーボックスの幅まで止めて途切れていた。裏の側はどのドアも裏の壁の gap で止める。2026-10-28）
     DOOR_GAPS.append((min(a[0], b[0]), max(a[0], b[0]), min(a[2], b[2]), max(a[2], b[2]), a[1]))   # 最後は床の高さ（ほかの階の巾木を止めない）
 def cut(wl, name, u0, u1, y0, y1, w0, w1, m='frame'):
-    if y0 == -E:   # 床からの開口：その壁の床の高さ（石目の床は 2mm 高い）から
-        y0 = getattr(wl, 'fy', 0) - E
+    if y0 == -E:   # 床からの開口：その壁の床の高さ（石目の床は 2mm 高い）ちょうどから（1mm 下げていたので、開口の床が溝になり、溝の縁の細い面が黒い線に焼けていた。2026-10-28）
+        y0 = getattr(wl, 'fy', 0)
     return wl.box('C_' + name, u0, u1, y0, y1, w0, w1, m, 'cut_open')
 def rbox(name, wl, u0, u1, y0, y1, w0, w1, m, c, piv=None, ang=0.0):
     """壁の座標の箱。piv＝(u, w) を軸に、three.js の rotation.y＝ang（ラジアン）だけ回す（開いた開き戸）"""
@@ -517,8 +518,8 @@ def baseboards(room, pts, skip_edges, y0):
         L = math.hypot(e[0] - s[0], e[1] - s[1])
         d = ((e[0] - s[0]) / L, (e[1] - s[1]) / L)
         nrm = (-d[1], d[0])                       # 部屋の側
-        t0 = 0.012 if turn(i) > 0 else 0.0       # 始まり：入隅は前の幅木に突き付け
-        t1 = L + (0.012 if turn((i + 1) % n) < 0 else 0.0)   # 終わり：出隅は回り込む
+        t0 = 0.012 if turn(i) > 0 and (i - 1) % n not in skip_edges else 0.0       # 始まり：入隅は前の幅木に突き付け（前の辺に幅木が無いときは角まで）
+        t1 = L + (0.012 if turn((i + 1) % n) < 0 and (i + 1) % n not in skip_edges else 0.0)   # 終わり：出隅は回り込む
         ivs = []
         for gx0, gx1, gz0, gz1, gy in DOOR_GAPS:      # ドアの所を除く（同じ階のだけ。2階のドアが同じ線の上にある1階のテレビの壁の巾木を止めていた）
             if abs(gy - y0) > 0.5:
@@ -543,7 +544,7 @@ baseboards('study', [(SX0_, SZ0_), (SX1_, SZ0_), (SX1_, SZ1_), (SX0_, SZ1_)], []
 baseboards('hall', [(HALLX, HALLZ), (W, HALLZ), (W, VZ), (VX, VZ), (VX, PZ0), (HALLX, PZ0)], [2, 3], FL2)
 baseboards('dress', [(X0, DZ0), (LW, DZ0), (LW, DZ1), (X0, DZ1)], [], 0.002)
 baseboards('wash', [(X0, SZ0), (LW, SZ0), (LW, PZ0), (SX1, PZ0), (SX1, SZ1), (X0, SZ1)], [], 0.002)
-baseboards('ent', [(CX0, PZ1), (CX1, PZ1), (CX1, zb(CX1)), (EX1, zb(EX1)), (EX1, EZ0), (CX0, EZ0)], [2], 0)   # 廊下・玄関ホール（框の所は無し）
+baseboards('ent', [(CX0, PZ1), (CX1, PZ1), (CX1, zf(CX1)), (EX1, zf(EX1)), (EX1, EZ0), (CX0, EZ0)], [2], 0)   # 廊下・玄関ホール（框の前の辺は無し。横の壁は框の土間側の端まで＝土間の幅木につながる。框の幅で途切れていた。2026-10-28）
 baseboards('doma', [(EX1, zf(EX1)), (CX1, zf(CX1)), (CX1, D), (X0, D), (X0, KZ0), (EX1, KZ0)], [0], 0)   # 土間の壁：床の高さに（その下は土間のタイル。本番と同じ）
 baseboards('toilet', [(X0, EZ0), (TX1, EZ0), (TX1, TZ1), (X0, TZ1)], [], 0)
 box('bed_wainscot_cap', OX, OX + 0.11, FL2 + 1.0, FL2 + 1.025, OZ, OZ + BD_, 'walnut_top', 'fixtures')   # 腰壁の天板（ブラックウォルナット、bedroom.js 13）
@@ -584,6 +585,77 @@ def srgb_factors(mats):
                 if sk.type == 'RGBA' and not sk.is_linked:
                     v = sk.default_value; sk.default_value = (srgb2lin(v[0]), srgb2lin(v[1]), srgb2lin(v[2]), v[3])
         m.diffuse_color = tuple(srgb2lin(c) for c in m.diffuse_color[:3]) + (m.diffuse_color[3],)
+def scene_bvh():
+    """見える側の判定に使う、建物と家具の全部の面（ワールド座標）"""
+    vs, fs = [], []
+    for o in bpy.data.objects:
+        if o.type != 'MESH' or o.hide_render or any(c.name in ('cut_void', 'cut_open', 'keep') for c in o.users_collection):
+            continue
+        me = o.data; mw = o.matrix_world; me.calc_loop_triangles(); b0 = len(vs)
+        vs += [mw @ v.co for v in me.vertices]
+        fs += [tuple(b0 + i for i in t.vertices) for t in me.loop_triangles]
+    return BVHTree.FromPolygons(vs, fs, epsilon=0.0)
+def outward_closed(objs):
+    """閉じた形の部品（同じ位置の点をつなぐと、どの辺も面2枚に接する）と、本番で両面に描く曲面の部品は、面の向きを外向きにそろえる。
+    本番は両面で描くので向きが内向きでも見えるが、焼き込みは面の向きの側の光を拾うので、内向きの面は形の中の暗さに焼けて真っ黒になる
+    （脱衣室の照明 E1 の光るリング：LatheGeometry の断面の向きで内向きだった。2026-10-28）。点の法線も一緒に裏返す"""
+    nf = 0
+    for o in objs:
+        me = o.data
+        bm = bmesh.new(); bm.from_mesh(me)
+        oi = bm.faces.layers.int.new('oi')
+        for f in bm.faces:
+            f[oi] = f.index
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bm.faces.ensure_lookup_table()
+        seen, flip = set(), set()
+        for f0 in bm.faces:
+            if f0.index in seen:
+                continue
+            comp, st = [], [f0]; seen.add(f0.index)
+            while st:
+                f = st.pop(); comp.append(f)
+                for e in f.edges:
+                    for g in e.link_faces:
+                        if g.index not in seen:
+                            seen.add(g.index); st.append(g)
+            if len(comp) < 4:
+                continue
+            if any(len(e.link_faces) != 2 for f in comp for e in f.edges):   # 開いた形：本番で両面に描く曲面（断面の開いた回転体＝E1 の上のリングなど）だけ。平らな板（シェードなど）は向きを決められないので触らない
+                ms = {f.material_index for f in comp}
+                if not all(i < len(me.materials) and me.materials[i] and not me.materials[i].use_backface_culling for i in ms):
+                    continue
+                n0 = comp[0].normal
+                if all(f.normal.dot(n0) > 0.87 for f in comp):
+                    continue
+                # 見える側＝開けた空間に向いている側（中心から外向きとは限らない：洗面ボウル・浴槽は内側が表）。面の両側へ光線を飛ばし、ほかの物に当たらず抜ける数の多い側を表に
+                mw = o.matrix_world; n3 = mw.to_3x3()
+                esc = [0, 0]
+                for f in comp[::max(1, len(comp) // 40)]:
+                    c = mw @ f.calc_center_median(); nn = (n3 @ f.normal).normalized()
+                    for k, sg in enumerate((1, -1)):
+                        for dv in ((0, 0, 0), (0.5, 0, 0), (-0.5, 0, 0), (0, 0.5, 0), (0, -0.5, 0), (0, 0, 0.5), (0, 0, -0.5)):
+                            d = (nn * sg + Vector(dv)).normalized()
+                            if d.dot(nn * sg) < 0.3:
+                                continue
+                            if SCN_BVH.ray_cast(c + nn * sg * 0.001, d, 0.3)[0] is None:
+                                esc[k] += 1
+                if esc[1] <= esc[0] * 1.5:
+                    continue
+                flip |= {f[oi] for f in comp}
+                continue
+            before = {f.index: f.normal.copy() for f in comp}
+            bmesh.ops.recalc_face_normals(bm, faces=comp)
+            flip |= {f[oi] for f in comp if f.normal.dot(before[f.index]) < 0}
+        bm.free()
+        if not flip:
+            continue
+        ln = {(p.index, me.loops[li].vertex_index): me.corner_normals[li].vector.copy() for p in me.polygons for li in p.loop_indices}
+        for i in flip:
+            me.polygons[i].flip()
+        me.normals_split_custom_set([(-ln[(p.index, me.loops[li].vertex_index)] if p.index in flip else ln[(p.index, me.loops[li].vertex_index)]) for p in me.polygons for li in p.loop_indices])
+        nf += len(flip); print('outward', o.name, len(flip), '/', len(me.polygons), flush=True)
+    print('outward faces flipped', nf, flush=True)
 if GLB:
     before = set(bpy.data.objects); mb = set(bpy.data.materials)
     bpy.ops.import_scene.gltf(filepath=GLB)
@@ -592,6 +664,8 @@ if GLB:
         for c in o.users_collection:
             c.objects.unlink(o)
         COLS['furniture'].objects.link(o)
+    SCN_BVH = scene_bvh()
+    outward_closed([o for o in COLS['furniture'].objects if o.type == 'MESH'])
     for m in bpy.data.materials:     # 確認の画像（Workbench）で色が出るように
         if m.use_nodes and m.node_tree:
             b = m.node_tree.nodes.get('Principled BSDF')
@@ -737,6 +811,39 @@ def cut_buried():
     print('buried cut', len(done), '; '.join(done[:40]), flush=True)
 if GLB:
     cut_buried()
+
+# ===== 9d. 閉じた扉の、開口の外（壁や上枠の中）に入った所を切り取る（2026-10-28） =====
+# 閉じた扉は左右の見込み・上枠に重ねてすき間をなくしている（8章）が、重なった所の面は壁の中にあり、向こうの部屋の光で焼ける。
+# その明るさが見える端の画素へにじみ、真っ暗な洗面所に引き戸 SG300w の端の細い光の線が出た。開口（C_<ドア>_open）の幅と上端で切る。
+# 下は床までのまま（切ると足元にすき間ができる）
+def trim_leaves():
+    out = []
+    for o in COLS['doors_closed'].objects:
+        if o.type != 'MESH' or '_leaf' not in o.name:
+            continue
+        c = bpy.data.objects.get('C_%s_open' % o.name.split('_leaf')[0])
+        if c is None:
+            continue
+        bb = [c.matrix_world @ Vector(v) for v in c.bound_box]
+        lo = Vector([min(v[i] for v in bb) for i in range(3)]); hi = Vector([max(v[i] for v in bb) for i in range(3)])
+        al = 1 if hi.x - lo.x < hi.y - lo.y else 0   # 壁に沿った向き（Blender の x か y）
+        mw = o.matrix_world; mi = mw.inverted(); m3 = mw.to_3x3().transposed()
+        ob = [mw @ Vector(v) for v in o.bound_box]
+        if min(v[1 - al] for v in ob) < lo[1 - al] - 0.001 or max(v[1 - al] for v in ob) > hi[1 - al] + 0.001:
+            continue   # 壁の外に付く引き戸（SG500・SG500w のアウトセット）は、壁に重なった所も見えるので切らない
+        bm = bmesh.new(); bm.from_mesh(o.data); cut = []
+        for p, ax, s in ((lo, al, -1), (hi, al, 1), (hi, 2, 1)):   # 開口の両端（沿った向き）と上端の外側を消す
+            d = max(((mw @ v.co)[ax] - p[ax]) * s for v in bm.verts)
+            if d <= 0.0005:
+                continue
+            nv = Vector((0, 0, 0)); nv[ax] = s; co = Vector((0, 0, 0)); co[ax] = p[ax]
+            bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=mi @ co, plane_no=(m3 @ nv).normalized(), clear_outer=True)
+            cut.append('%s%.0fmm' % ('xyz'[ax], d * 1000))
+        if cut:
+            bm.to_mesh(o.data); out.append('%s %s' % (o.name, '/'.join(cut)))
+        bm.free()
+    print('leaves trimmed', len(out), '; '.join(out), flush=True)
+trim_leaves()
 
 # ===== 10. 本番の材質（色・柄・柄の向きと大きさ）を移す =====
 # 本番の建物の部品（tools/export の exportBuilding → building.glb。柄の繰り返し・回転は UV に焼き込み済み）から、面ごとに一番近い同じ向きの本番の三角形を探し、

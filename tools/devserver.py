@@ -9,4 +9,5 @@ class H(http.server.SimpleHTTPRequestHandler):
         if not str(p).startswith(str((ROOT/'bake'/'work').resolve())): s.send_error(403);return
         p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(s.rfile.read(int(s.headers['Content-Length'])))
         s.send_response(200);s.end_headers();s.wfile.write(b'ok')
-http.server.ThreadingHTTPServer(('127.0.0.1',int(sys.argv[1]) if len(sys.argv)>1 else 8765),H).serve_forever()
+class S(http.server.ThreadingHTTPServer): request_queue_size=256   # 夜は焼いた画像を一度に数百枚読む。既定の5では接続が時間切れになった
+S(('127.0.0.1',int(sys.argv[1]) if len(sys.argv)>1 else 8765),H).serve_forever()

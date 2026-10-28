@@ -11,13 +11,17 @@ import numpy as np
 argv = sys.argv[sys.argv.index('--') + 1:]
 LD, OUT, ENC, K = argv[0], argv[1], argv[2], int(argv[3])
 SIT, SRNG = int(os.environ.get('LM_SMOOTH_IT', '50')), float(os.environ.get('LM_SMOOTH_RANGE', '0.45'))   # ならす回数・明るさの差の幅（対数 2 の底）
+SDIM = float(os.environ.get('LM_SMOOTH_DIM', '3'))   # 暗い所ほど幅を広げる倍率（その層・アトラスの明るい所の 1/4 より暗い所から広げ始め、1/1024 で 1＋SDIM 倍）
 
 def vgsmooth(a, e, it=SIT, rng=SRNG):
     """頂点で焼く物：辺でつながった頂点どうし、明るさが近いものをならす（頂点の焼き込みのノイズ＝ベッドなどの広い面のまだらを消す。影の縁は残す）"""
     n = len(a); e0, e1 = e[:, 0], e[:, 1]
+    y0 = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))   # 暗い所ほど幅を広げる（ismooth と同じ。窓の無いトイレの昼の便器のまだら。2026-10-28）
+    ref = np.percentile(y0, 99) if n else 0.0
+    R = rng * (1 + SDIM * np.clip((ref - y0 - 2) / 8, 0, 1)); rr = np.maximum(R[e0], R[e1])
     for _ in range(it):
         y = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
-        w = np.exp(-((y[e0] - y[e1]) ** 2) / (2 * rng * rng))
+        w = np.exp(-((y[e0] - y[e1]) ** 2) / (2 * rr * rr))
         ws = 1 + np.bincount(e0, w, n) + np.bincount(e1, w, n)
         a = np.stack([(a[:, c] + np.bincount(e0, a[e1, c] * w, n) + np.bincount(e1, a[e0, c] * w, n)) / ws for c in range(3)], 1)
     return a
@@ -26,6 +30,11 @@ def ismooth(a, L, it=SIT, rng=SRNG):
     """ライトマップの島の中だけ、隣の画素と明るさが近いものどうしで少しずつならす（3×3 を it 回。光が回り込むだけの暗い所に残る、ノイズ除去のまだら＝黒いモヤを消す）。
     明るさの比が大きい所（影の縁・照明のすぐ近く）は、明るさの差の重み（対数で rng）でほとんど混ぜない。島の外（埋めた画素）はそのまま"""
     h, w = L.shape; inside = L >= 0
+    # 光が回り込むだけの暗い所（窓の無い部屋の昼など）はノイズが大きく、明るさの近い所だけならすと、ノイズ除去のまだら（モヤ）が残る
+    # → 暗い所ほど幅を広げる（そのアトラスの明るい所＝島の中の上位1%の明るさを基準に。明るい所の影の縁は今のまま。2026-10-28）
+    y0 = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
+    ref = np.percentile(y0[inside], 99) if inside.any() else 0.0
+    R = rng * (1 + SDIM * np.clip((ref - y0 - 2) / 8, 0, 1))
     for _ in range(it):
         y = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
         acc = a.copy(); wsum = np.ones((h, w))
@@ -33,7 +42,8 @@ def ismooth(a, L, it=SIT, rng=SRNG):
             ws = 0.5 if dx and dy else 1.0
             ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
             src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
-            wt = ws * np.exp(-((y[src] - y[dst]) ** 2) / (2 * rng * rng)) * ((L[src] == L[dst]) & inside[dst])
+            rr = np.maximum(R[src], R[dst])
+            wt = ws * np.exp(-((y[src] - y[dst]) ** 2) / (2 * rr * rr)) * ((L[src] == L[dst]) & inside[dst])
             acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
         a = np.where(inside[..., None], acc / wsum[..., None], a)
     for _ in range(2):   # 最後に明るさの差を問わず軽くぼかす（画素の段々＝日なたの縁のギザギザを和らげる。E4）

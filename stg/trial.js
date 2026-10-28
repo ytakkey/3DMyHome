@@ -231,9 +231,8 @@ function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(
 function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 function buildUI(){
  const vr=$('viewRow');vr.innerHTML='';['リビング','キッチン','寝室','WIC','書斎','2F廊下','洗面脱衣','浴室','玄関','トイレ'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
- const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
+ const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';rw.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
- $('roomLbl').textContent='焼いた照明';$('tAllRooms').hidden=true;
  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 比較用の画像（bake/work/）は手元のサーバーでだけ選べる
  const sel=$('lmSel');[['','stg/lm（公開用）'],...(local?['h16','rgbm','logj']:[]).flatMap(e=>[1,2,4].map(k=>[e+'_r'+k,{h16:'半精度',rgbm:'RGBM',logj:'対数JPEG'}[e]+'・'+{1:'原寸',2:'1/2',4:'1/4'}[k]]))].forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);});
  sel.value=LMV;sel.onchange=()=>{const q=new URLSearchParams(location.search);if(sel.value)q.set('lm',sel.value);else q.delete('lm');location.search=q.toString();};}
@@ -241,7 +240,19 @@ function syncLights(){const ks=Object.keys(LS),n=ks.filter(k=>LS[k]).length;mark
 function setAll(v){Object.keys(LS).forEach(k=>LS[k]=v);syncLights();changed();}
 $('tAllOn').onclick=()=>setAll(true);$('tAllOff').onclick=()=>setAll(false);
 let openK=null;
-function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();}
+// いまいる部屋（本番の ui.js の curRoom と同じ。寸法は move.json の room）。照明のパネルは、いまの部屋の照明だけを出す
+function curRoom(){const p=cam.position,G=MOVE.room;if(!G)return null;const EN=G.EN,B=G.B,in2=(x0,x1,z0,z1)=>p.x>=x0&&p.x<=x1&&p.z>=z0&&p.z<=z1;
+ if(p.y>G.FL2){if(p.x>=G.VX&&p.z>=G.VZ)return 'リビング';if(p.x>G.BX&&p.z>G.BZ0)return p.z<G.WZ?'WIC':'書斎';return '寝室';}
+ if(in2(G.WX,EN.TX1,EN.Z0,EN.TZ1))return 'トイレ';
+ if(in2(G.CX0,G.CX1,G.PZ1,EN.Z1)||in2(EN.X1,G.CX1,EN.Z0,EN.Z1)||in2(G.WX,EN.X1,EN.KZ0,EN.Z1))return '玄関';
+ if(in2(B.X0,B.X1,B.Z0,B.Z1))return '浴室';
+ if(in2(G.WX,G.LW,G.DZ0,G.SZ1))return '洗面脱衣';
+ if(in2(0,G.W,0,G.D))return p.z<G.VZ?'キッチン':'リビング';
+ return null;}
+let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
+function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});}
+$('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};
+function openSheet(k){if(k&&openK===k)k=null;if(k==='light'&&openK!=='light')allRooms=false;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();if(k==='light')renderInd();}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');changed();}
 $('bDay').onclick=()=>setNight(!night);
@@ -270,7 +281,7 @@ document.addEventListener('fullscreenchange',onFs);document.addEventListener('we
 const keys={f:0,b:0,l:0,r:0,u:0,d:0},joy={f:0,r:0},SPEED=1.8,VSPEED=1.2;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 let moving=false,last=0;
-function step(t){const dt=clamp((t-last)/1000,0,0.05);last=t;const mf=keys.f-keys.b+joy.f,mr=keys.r-keys.l+joy.r,mu=keys.u-keys.d;if(!mf&&!mr&&!mu){moving=false;return;}
+function step(t){const dt=clamp((t-last)/1000,0,0.05);last=t;const mf=keys.f-keys.b+joy.f,mr=keys.r-keys.l+joy.r,mu=keys.u-keys.d;if(!mf&&!mr&&!mu){moving=false;if(openK==='light')renderInd();return;}   // 止まったら、照明のパネルの部屋を更新
 const p=cam.position,o=p.clone();
 if(mf||mr){const h=Math.hypot(mf,mr),n=h/Math.min(1,h),fx=-Math.sin(yaw),fz=-Math.cos(yaw),rx=Math.cos(yaw),rz=-Math.sin(yaw);p.x+=(fx*mf+rx*mr)/n*SPEED*dt;p.z+=(fz*mf+rz*mr)/n*SPEED*dt;}
 p.y+=mu*VSPEED*dt;
@@ -293,8 +304,9 @@ b.addEventListener('contextmenu',e=>e.preventDefault());b.addEventListener('touc
 r.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
 document.addEventListener('contextmenu',e=>e.preventDefault());
 const keyMap={ArrowUp:'f',KeyW:'f',ArrowDown:'b',KeyS:'b',ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r',KeyE:'u',PageUp:'u',KeyQ:'d',PageDown:'d'};
-window.addEventListener('keydown',e=>{const k=keyMap[e.code];if(!k)return;e.preventDefault();keys[k]=1;startMove();});
-window.addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0;});
+const shiftMap={ArrowUp:'u',ArrowDown:'d'};   // Shift＋↑／↓：上下に移動
+window.addEventListener('keydown',e=>{const k=(e.shiftKey&&shiftMap[e.code])||keyMap[e.code];if(!k)return;e.preventDefault();if(shiftMap[e.code])keys[e.shiftKey?keyMap[e.code]:shiftMap[e.code]]=0;keys[k]=1;startMove();});   // 押したまま Shift を変えたら、もう片方の動きは止める
+window.addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)keys[k]=0;if(shiftMap[e.code])keys[shiftMap[e.code]]=0;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=0;});
 // ドラッグで見回し、ピンチ・ホイールで拡大縮小、タップでドアの開閉
 const cvs=r.domElement,pts=new Map();let pinch=0,tap=null;

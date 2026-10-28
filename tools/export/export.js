@@ -26,7 +26,9 @@ function exportFurniture(){const out=new THREE.Scene(),cnt={};[bedS,stS,ldkS].fo
 // 検証ページ（stg/）用：移動範囲・通れない所（ui.js の MBA・MOA と同じ）と、視点（本番の VIEWS と同じ）→ bake/work/export/move.json
 function exportMove(){const J=b=>({b:[...b],door:b.door,shut:b.shut,opn:b.opn}),V={};
  [['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKit()],['寝室',()=>bedS.home()],['2F廊下',()=>ldkS.viewHall()],['WIC',()=>stS.viewWic()],['書斎',()=>stS.viewStudy()],['洗面脱衣',()=>washS.viewWash()],['浴室',()=>bathS.viewBath()],['玄関',()=>washS.viewEntry()],['トイレ',()=>washS.viewToilet()]].forEach(([n,f])=>{f();V[n]=[cam.position.x,cam.position.y,cam.position.z,yaw,pitch,cam.fov];});
- return save('move.json',JSON.stringify({boxes:[...ldkS.boxes,...stS.boxes,...washS.boxes,...bathS.boxes].map(J),obs:[...ldkS.obs,...stS.obs,...washS.obs,...bathS.obs].map(J),wallMargin:HOUSE.wallMargin,DS,views:V}));}
+ return save('move.json',JSON.stringify({boxes:[...ldkS.boxes,...stS.boxes,...washS.boxes,...bathS.boxes].map(J),obs:[...ldkS.obs,...stS.obs,...washS.obs,...bathS.obs].map(J),wallMargin:HOUSE.wallMargin,DS,views:V,room:roomGeo()}));}
+// いまいる部屋の判定（本番の ui.js の curRoom）に使う寸法
+function roomGeo(){const L=HOUSE.ldk,Wa=HOUSE.wash,EN=HOUSE.entry,B=HOUSE.bath;return {FL2:L.FL2,VX:L.VX,VZ:L.VZ,PZ1:L.PZ1,W:L.W,D:L.D,WX:Wa.X0,LW:Wa.LW,DZ0:Wa.DZ0,SZ1:Wa.SZ1,CX0:Wa.CX0,CX1:Wa.CX1,EN:{X1:EN.X1,Z0:EN.Z0,Z1:EN.Z1,TX1:EN.TX1,TZ1:EN.TZ1,KZ0:EN.KZ0},B:{X0:B.X0,X1:B.X1,Z0:B.Z0,Z1:B.Z1},BX:HOUSE.bed.X0+HOUSE.bed.W+0.0575,BZ0:HOUSE.bed.Z0,WZ:(HOUSE.wic.Z1+HOUSE.study.Z0)/2};}
 // 建物の材質の書き出し（Blender の建物に、本番の色・柄・柄の向きと大きさを移すため）：家全体の建物の部品（BLD）を、柄の繰り返し・回転を UV に焼き込んで GLTF に → bake/work/export/building.glb
 function exportBuilding(){const out=new THREE.Scene(),cnt={},mc=new Map();
  meshes().filter(o=>isBld(site(frames(o.userData.src)))).forEach(o=>{const m0=o.material,k=site(frames(o.userData.src));if(Array.isArray(m0))return;
