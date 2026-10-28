@@ -307,13 +307,14 @@ COMBOS = {'bdl': D3, 'bbr': D3, 'sky_bed': D3, 'sun_bed': D3,
 HOME = {'g1d': 'toilet', 'bdl': 'bed', 'bbr': 'bed', 'sky_bed': 'bed', 'sun_bed': 'bed', 'j1': 'hall', 'h1': 'hall', 'sky_void': 'hall', 'sun_void': 'hall', 'l1': 'wic',
         'k1': 'study', 'sky_study': 'study', 'sun_study': 'study', 'sky_ldk1F': 'ldk', 'sun_ldk1F': 'ldk', 'a1': 'ldk', 'a2': 'ldk', 'a3': 'ldk', 'a4': 'ldk', 'a5': 'ldk', 'a6': 'ldk',
         'd1': 'wash', 'e1': 'dress', 'sky_dress': 'dress', 'sun_dress': 'dress', 'eh': 'ent', 'b3': 'ent', 'ec': 'ent', 'ek': 'ent', 'g1': 'toilet', 'bath': 'bath', 'sky_ent': 'ent', 'sun_ent': 'ent'}   # 光源のある部屋
+GLASSD = {'BATHD'}   # 閉じても光を通すドア（浴室のドアは曇りガラスのパネル。両方向に光を通す。2026-10-28 ユーザー）：閉じた形でも向こうの部屋を焼く
 def atlases(src, op):
     """光源と開いたドアの組から、焼くアトラス（光の届く部屋とドアの周り）：光源の部屋から、開いたドア（組み合わせに入れたドアだけ）でつながる部屋。
     LDK と2階廊下（吹抜け）は、光源がどちらかにあるときだけつなぐ（寝室・1階の西側の光は吹抜けの向こうまで焼かない。試作のときと同じ）"""
     h = HOME[src]; A = {h}; todo = [h]
     while todo:
         r = todo.pop()
-        nb = [b if a == r else a for d, (a, b) in ADJ.items() if d in op and r in (a, b)]
+        nb = [b if a == r else a for d, (a, b) in ADJ.items() if (d in op or d in GLASSD) and r in (a, b)]
         if h in ('ldk', 'hall') and r in ('ldk', 'hall'):
             nb.append('hall' if r == 'ldk' else 'ldk')
         for n in nb:

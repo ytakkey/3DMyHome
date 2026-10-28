@@ -60,7 +60,16 @@ var PAIRV={   // 名前：[目, 見る点, 視野角]（three.js の座標）
  sg500:[[-0.8,1.2,4.95],[-1.4,0.9,4.95],75],        // ホールからトイレの引き戸
  sg11h_c:[[-0.3,1.2,4.0],[0.4,1.0,4.0],75],         // 廊下から LDK のハイドア
  sg300l_l:[[1.7,1.2,2.3],[0.0,1.0,2.3],85],         // LDK から脱衣室の引き戸
- doma_store:[[-0.6,1.1,6.8],[-2.2,0.8,6.8],80]};    // 土間収納
+ doma_store:[[-0.6,1.1,6.8],[-2.2,0.8,6.8],80],    // 土間収納
+ u_sill:[[-0.7,1.0,2.7],[-1.0,0.0,3.3],60],         // 2026-10-28 の指摘：脱衣室と洗面所の境の床（隆起と黒い面）
+ u_hb:[[-0.96,1.0,3.5],[-0.96,0.7,4.43],60],         // 洗面所の床暖房のヘッダーボックスのまわり（黒いモヤ）
+ u_bbN:[[-0.3,0.9,5.2],[-1.0,0.2,4.55],70],          // 玄関・トイレ前の北の壁の幅木
+ u_hallend:[[0.0,0.5,4.2],[-0.05,1.8,3.64],80],      // 1階廊下の北の突き当り（壁紙と幅木）
+ u_sg11h:[[-0.2,1.0,4.3],[0.4,1.2,3.7],80],          // 廊下から SG11H の横の壁
+ u_kamachi:[[-0.9,0.35,5.9],[-1.365,0.05,6.08],50],  // 玄関の手すりの下（框の所の幅木）
+ u_e1:[[-1.2,1.3,2.6],[-1.2,2.4,2.3],70]};          // 脱衣室の照明 E1（消灯で真っ黒）
+// ドア枠のまわりの視点（tools/blender/door_views.py が模型の開口から作る。d_<ドア>_<側><a|b|ta|tb>）を足す：await loadDoorViews()
+async function loadDoorViews(){Object.assign(PAIRV,await (await fetch('/tools/door_views.json',{cache:'no-store'})).json());return Object.keys(PAIRV).filter(k=>k.startsWith('d_'));}
 // closed：ドアをすべて閉じて撮る（開けた状態だけでは、閉じた扉の周りの見込みの黒が見えない）
 const PDK=['sg311','sg500w','sg33s','sg300l','sg300w','bath','sg33','sg11h','sg500'];   // 開閉できるドア（両方のページで同じにそろえる）
 async function pairCap(tag,W=960,H=540,only,night=false,closed=false){const trial=typeof T!=='undefined',op=!closed;
@@ -69,5 +78,6 @@ async function pairCap(tag,W=960,H=540,only,night=false,closed=false){const tria
  if(trial)await new Promise(r=>setTimeout(r,1500));   // 組み合わせの重ね直しを待つ
  r.setPixelRatio(1);r.setSize(W,H,false);cam.aspect=W/H;cam.updateProjectionMatrix();
  for(const v in PAIRV){if(only&&!only.includes(v))continue;const [e,t,f]=PAIRV[v],d=[t[0]-e[0],t[1]-e[1],t[2]-e[2]];cam.position.set(...e);cam.fov=f;cam.updateProjectionMatrix();yaw=Math.atan2(-d[0],-d[2]);pitch=Math.atan2(d[1],Math.hypot(d[0],d[2]));draw();
-  const u=r.domElement.toDataURL('image/png');await fetch('/save?path=bake/work/pair/'+v+'__'+tag+'.png',{method:'POST',body:await (await fetch(u)).blob()});}
+  const b=await (await fetch(r.domElement.toDataURL('image/png'))).blob();
+  for(let k=0;;k++){try{await fetch('/save?path=bake/work/pair/'+v+'__'+tag+'.png',{method:'POST',body:b});break;}catch(e){if(k>=4)throw e;await new Promise(q=>setTimeout(q,1000));}}}   // 保存の失敗（たまに起きる）はやり直す
  r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));r.setSize(window.innerWidth,window.innerHeight);cam.aspect=window.innerWidth/window.innerHeight;cam.updateProjectionMatrix();draw();return 'ok';}

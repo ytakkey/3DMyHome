@@ -24,7 +24,7 @@ buildWall(wallGroup(W,0,D,Math.PI),W-TVX,H2,[{a:0.9615,b:3.4485,y1:0.02,y2:2.194
 buildWall(wallGroup(0,0,PZ0,Math.PI/2),PZ0,H1,[{a:PZ0-SGZ1,b:PZ0-SGZ0,y1:0,y2:2.0,door:'slide',open:1,T:-HOUSE.wash.LW,toggle:'sg300l'}],plasterMat,1,true);              // 西（SG300：開閉できる引き戸。北へ引いて開ける）
 buildWall(wallGroup(TVX,0,D,Math.PI/2),D-HOUSE.wash.SZ1,H1,[],accentMat,0.4,true);                                                             // リビング西（アクセント面：IC-5025）。北端はSG11Hの開口の端（建具の横）まで
 buildWall(wallGroup(TVX,0,HOUSE.wash.SZ1,Math.PI/2),HOUSE.wash.SZ1-PZ1,H1,[{a:0,b:HOUSE.wash.SZ1-PZ1,y1:0,y2:H1-0.03,door:'high',open:1,T:TVX-HOUSE.wash.CX1,uw:1,toggle:'sg11h'}],plasterMat,1,true);   // 西のドア（SG11H：北側吊元でリビング側へ開いた状態）
-wbox(PX1,H1,PZ1-PZ0,PX1/2,H1/2,(PZ0+PZ1)/2,plasterMat,1);                                                                                         // 仕切り壁
+{const ofs=(o,f,d)=>{const uv=o.geometry.attributes.uv;for(let k=0;k<4;k++)uv.setX(f*4+k,uv.getX(f*4+k)+d);};ofs(wbox(PX1-TVX,H1,PZ1-PZ0,(TVX+PX1)/2,H1/2,(PZ0+PZ1)/2,plasterMat,1),4,TVX);ofs(wbox(TVX,H1,0.06,TVX/2,H1/2,PZ0+0.03,plasterMat,1),5,PX1-TVX);}   // 仕切り壁。西の端（X＝0〜TVX）は LDK 側の面だけ（南の面は1階廊下の突き当りの壁＝廊下の壁紙1枚。灰色の面を壁紙の裏に重ねていた。2026-10-28）。柄は1つの箱のときと同じ位置
 box(PX1+0.012,0.06,0.012,(PX1+0.012)/2,0.03,PZ0-0.006,FIT);box(0.012,0.06,PZ1-PZ0+0.012,PX1+0.006,0.03,(PZ0+PZ1+0.012)/2,FIT);box(PX1-TVX,0.06,0.012,(TVX+PX1)/2,0.03,PZ1+0.006,FIT);box(HOUSE.wash.CX1,0.06,0.012,HOUSE.wash.CX1/2,0.03,PZ1+0.006,FIT);   // 仕切り壁の幅木（北・東の端・南の LDK 側・南の廊下側。テレビ面の壁の中は通さない＝廊下と LDK をつながない）
 
 // 押入（2枚扉の観音開き）

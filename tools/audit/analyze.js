@@ -1,5 +1,5 @@
-// 点検：ぴったり重なった面（gap<0.5mm）と近すぎる面（<2mm）を、部品の組ごとに重なりの面積で数える
-function audit(){scene.updateMatrixWorld(true);
+// 点検：ぴったり重なった面（gap<0.5mm）と近すぎる面（<2mm）を、部品の組ごとに重なりの面積で数える。maxGap を広げると、裏に隠して重ねた面（壁紙の板の 2.5mm 奥の別の壁の面など）も拾う
+function audit(maxGap=0.0019){scene.updateMatrixWorld(true);
  const stateOf=new Map();Object.entries(DOORS).forEach(([k,d])=>{d.gO.traverse(o=>{if(o.isMesh)stateOf.set(o,k+':O')});d.gC.traverse(o=>{if(o.isMesh)stateOf.set(o,k+':C')});});
  const visibleIn=(o,stop)=>{for(let q=o;q&&q!==stop;q=q.parent)if(!q.visible)return false;return true;};
  const meshes=[];scene.traverse(o=>{if(!o.isMesh)return;const st=stateOf.get(o);if(st){const d=DOORS[st.split(':')[0]];if(!visibleIn(o,st.endsWith('O')?d.gO:d.gC))return;}else if(!visibleIn(o,null))return;meshes.push(o);});
@@ -11,7 +11,7 @@ function audit(){scene.updateMatrixWorld(true);
  const clip=(S,C)=>{if(area2(C)<0)C=C.slice().reverse();let out=S;for(let i=0;i<C.length&&out.length;i++){const A=C[i],B=C[(i+1)%C.length],inp=out;out=[];const side=p=>(B[0]-A[0])*(p[1]-A[1])-(B[1]-A[1])*(p[0]-A[0]);for(let j=0;j<inp.length;j++){const P=inp[j],Q=inp[(j+1)%inp.length],sp=side(P),sq=side(Q);if(sp>=0)out.push(P);if((sp>=0)!==(sq>=0)){const tt=sp/(sp-sq);out.push([P[0]+(Q[0]-P[0])*tt,P[1]+(Q[1]-P[1])*tt]);}}}return out.length>=3?Math.abs(area2(out)):0;};
  const G=new Map();T.forEach((tr,i)=>{const k=[tr.n.x,tr.n.y,tr.n.z].map(v=>Math.round(v*200)).join(',');(G.get(k)||G.set(k,[]).get(k)).push(i);});
  const res=new Map(),RC=new THREE.Raycaster(),sides=new Map();meshes.forEach(o=>{sides.set(o.material,o.material.side);o.material.side=THREE.DoubleSide;});   // 光線は面の裏にも当てる
- G.forEach(ids=>{ids.sort((x,y)=>T[x].d-T[y].d);for(let ii=0;ii<ids.length;ii++){const A=T[ids[ii]];for(let jj=ii+1;jj<ids.length;jj++){const B=T[ids[jj]];const gap=B.d-A.d;if(gap>0.0019)break;if(A.mi===B.mi)continue;const MA=meshes[A.mi].material,MB=meshes[B.mi].material;if(MA.polygonOffset||MB.polygonOffset)continue;if(MA===MB&&!MA.map)continue;   // 貼り物（描画で手前に出す設定）と、同じ材質（柄なし）どうしは見た目に差が出ないので数えない
+ G.forEach(ids=>{ids.sort((x,y)=>T[x].d-T[y].d);for(let ii=0;ii<ids.length;ii++){const A=T[ids[ii]];for(let jj=ii+1;jj<ids.length;jj++){const B=T[ids[jj]];const gap=B.d-A.d;if(gap>maxGap)break;if(A.mi===B.mi)continue;const MA=meshes[A.mi].material,MB=meshes[B.mi].material;if(MA.polygonOffset||MB.polygonOffset)continue;if(MA===MB&&!MA.map)continue;   // 貼り物（描画で手前に出す設定）と、同じ材質（柄なし）どうしは見た目に差が出ないので数えない
   const sa=stateOf.get(meshes[A.mi]),sb=stateOf.get(meshes[B.mi]);if(sa&&sb&&sa.split(':')[0]===sb.split(':')[0]&&sa!==sb)continue;
   const [u,w]=basis(A.n);const P2=clipP(A.v.map(p=>[p.dot(u),p.dot(w)]),B.v.map(p=>[p.dot(u),p.dot(w)]));const ov=P2?Math.abs(area2(P2)):0;if(ov<1e-6)continue;
   // 見えない重なり：重なった所が、反対向きの面（床・壁・天井など。3つ目の部品）でぴったりふさがれている
