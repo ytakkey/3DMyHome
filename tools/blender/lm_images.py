@@ -55,6 +55,61 @@ def ismooth(a, L, it=SIT, rng=SRNG):
             acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
         a = np.where(inside[..., None], acc / wsum[..., None], a)
     return a
+FIT = int(os.environ.get('LM_FAR_IT', '300'))   # 光源の部屋からドア2枚以上先の層の、島の中のぼかしの回数（3×3。2cm の画素で幅 約30cm）
+
+def iblur(a, L, it=FIT, sparse_only=False):
+    """島の中だけ、明るさの差を問わず 3×3 で it 回ぼかす（島全体をなめらかな形に）。
+    sparse_only：点の集まりになった島（島の上位10%の 1/100 未満の画素が3割以上）だけ。ドアの周りのアトラスには近い側の部屋の面（照明の光の縁が見える枠など）も入るので"""
+    h, w = L.shape; inside = L >= 0
+    if sparse_only:
+        y = a @ np.array([0.2126, 0.7152, 0.0722]); keep = np.zeros(int(L.max()) + 1, bool)
+        for i in np.unique(L[inside]):
+            v = y[L == i]; p = np.percentile(v, 90)
+            keep[i] = p > 0 and (v < p / 100).mean() >= 0.3
+        inside = inside & keep[np.maximum(L, 0)]
+        if not inside.any():
+            return a
+    for _ in range(it):
+        acc = a.copy(); wsum = np.ones((h, w))
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+            src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+            wt = (L[src] == L[dst]) & inside[dst]
+            acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
+        a = np.where(inside[..., None], acc / wsum[..., None], a)
+    return a
+
+def vblur(a, e, it=FIT // 2):
+    """頂点で焼く物：辺でつながった頂点どうし、明るさの差を問わず it 回ならす"""
+    n = len(a); e0, e1 = e[:, 0], e[:, 1]; ws = 1 + np.bincount(e0, None, n) + np.bincount(e1, None, n)
+    for _ in range(it):
+        a = np.stack([(a[:, c] + np.bincount(e0, a[e1, c], n) + np.bincount(e1, a[e0, c], n)) / ws for c in range(3)], 1)
+    return a
+
+# 光源の部屋からドア2枚以上先の部屋（窓の無いトイレへ LDK の窓の光など）：光は何度も跳ね返ってから届くだけで、焼くと数画素の点の集まりになり
+# （サンプルを4倍にしても変わらない）、暗い所ほど強くならしてもしみになった。光はなめらかに変わるはずなので、その部屋のアトラス
+# （ドアの周りのアトラスは、つなぐ部屋のどちらかが2枚以上先なら）だけ、島の中で大きくぼかす（2026-10-29）
+ROOMS = json.load(open(os.path.join(LD, 'rooms.json'))) if os.path.exists(os.path.join(LD, 'rooms.json')) else None
+def far(layer, g):
+    if not ROOMS:
+        return False
+    home = ROOMS['home'].get(layer.split('@')[0])
+    if not home:
+        return False
+    one = {r: grp[0] for grp in ROOMS['joined'] for r in grp}
+    nb = {}
+    for a_, b_ in ROOMS['adj'].values():
+        a_, b_ = one.get(a_, a_), one.get(b_, b_)
+        nb.setdefault(a_, set()).add(b_); nb.setdefault(b_, set()).add(a_)
+    dist = {one.get(home, home): 0}; q = [one.get(home, home)]
+    while q:
+        r = q.pop(0)
+        for s in nb.get(r, ()):
+            if s not in dist:
+                dist[s] = dist[r] + 1; q.append(s)
+    g = g[2:] if g.startswith('V_') else g
+    rooms = ROOMS['adj'].get(g[5:], ()) if g.startswith('door_') else (g,)
+    return any(dist.get(one.get(r, r), 0) >= 2 for r in rooms)
 os.makedirs(OUT, exist_ok=True)
 
 def png(path, a, depth):
@@ -104,7 +159,8 @@ for L in sorted(os.listdir(LD)):
             a = np.nan_to_num(np.maximum(a, 0), posinf=65504.0); n = len(a); index.setdefault('vn', {})[g[2:]] = n
             ef = os.path.join(LD, '_labels', g + '_edges.npy')
             if SIT > 0 and os.path.exists(ef):
-                a = vgsmooth(a.astype(np.float64), np.load(ef)).astype(np.float32)
+                a = vgsmooth(a.astype(np.float64), np.load(ef))
+                a = (vblur(a, np.load(ef)) if FIT > 0 and far(L, g) else a).astype(np.float32)
             mx = float(a.max()); name = '%s__%s' % (L.replace('@', '_'), g)
             if mx <= 0:
                 ent[g] = None; continue
@@ -120,7 +176,8 @@ for L in sorted(os.listdir(LD)):
         a = np.maximum(a, 0)
         lf = os.path.join(LD, '_labels', g + '.npy')
         if SIT > 0 and os.path.exists(lf):
-            a = ismooth(a.astype(np.float64), np.load(lf)).astype(np.float32)
+            a = ismooth(a.astype(np.float64), np.load(lf))
+            a = (iblur(a, np.load(lf), sparse_only=g.startswith('door_')) if FIT > 0 and far(L, g) else a).astype(np.float32)
         if K > 1:
             r = a.shape[0] // K
             a = a[:r * K, :r * K].reshape(r, K, r, K, 3).mean((1, 3))

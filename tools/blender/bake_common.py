@@ -75,7 +75,7 @@ def setup(samples=128, devices=('HIP', 'CPU')):
     db = int(os.environ.get('BAKE_BOUNCES', '4'))   # 拡散の反射回数：4回（2026-10-21 ユーザー。比べるときは環境変数で変える）
     c.samples = samples; c.use_denoising = False; c.max_bounces = max(8, db + 2); c.diffuse_bounces = db; c.glossy_bounces = 2
     c.transmission_bounces = 4; c.transparent_max_bounces = 8; c.caustics_reflective = False; c.caustics_refractive = False
-    c.sample_clamp_indirect = 1.0
+    c.sample_clamp_indirect = float(os.environ.get('BAKE_CLAMP', '1.0'))   # 間接光の1回の値の上限（比べるときは環境変数で変える）
     sc.render.use_persistent_data = True
     # 材質：すべて拡散だけ（反射率＝色）。光る面（MeshBasicMaterial から来た発光）は光らせない。半透明（アクリル板など）は透過のまま
     def mean_rgb(sock, depth=0):
