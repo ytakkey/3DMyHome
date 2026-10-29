@@ -368,7 +368,9 @@ def bake_main(outdir, samples, only):
     json.dump(COMBOS, open(os.path.join(outdir, 'combos.json'), 'w'))   # 検証ページが層の名前を作るのに使う（lm_images.py が index.json へ）
     JOBS, alias = jobs()
     json.dump(alias, open(os.path.join(outdir, 'alias.json'), 'w'))
+    json.dump({'adj': ADJ, 'home': HOME, 'joined': [['hall', 'ldk']]}, open(os.path.join(outdir, 'rooms.json'), 'w'))   # 部屋のつながり（lm_images.py が、光源の部屋からドア2枚以上先の層をぼかすのに使う。2階廊下と LDK は吹抜けでひとつ）
     sc = bc.setup(samples)
+    clamp0 = sc.cycles.sample_clamp_indirect
     lamps = bc.add_lamps(sc)
     sky = bc.add_sky_sun(sc)
     objs = [o for o in bpy.data.objects if 'atlas' in o and o['atlas'] != 'exterior' and 'vlit' not in o]
@@ -498,6 +500,52 @@ def bake_main(outdir, samples, only):
         im = bpy.data.images.load(tmp, check_existing=False); out = np.empty(r * r * 4, dtype=np.float32); im.pixels.foreach_get(out); bpy.data.images.remove(im)
         return out
 
+    # 玄関ドアの窓の光（sky_ent・sun_ent）：型ガラス（光をぼかして通す板）のすぐ内側に、室内へ光を出す面（ENT_EMIT）を置く。
+    # 窓の板の外の面に当たる光（E）を先に焼いて測り、その 0.85 倍（型ガラスの透過の色）を拡散の光として出す（Translucent と同じ光。
+    # 裏は黒で、ガラスを通った光は二重に入らない）。ガラスのままでは、室内の点から光源を直接探せず（板が影の線を止める）、
+    # 跳ね返った道がたまたま小さな窓に当たったときだけ光が見つかり、トイレのように回り込む光しか無い所が数画素の点の集まりと真っ黒になった（2026-10-29）
+    emit = {}
+    def ent_emit(src):
+        if 'ENTDOOR' not in bc.window_frames():
+            return None
+        c, thin, s = bc.window_frames()['ENTDOOR']
+        ax = Vector((0, 0, 0)); ax[thin] = 1
+        out = ax if (c[thin] > (bc.W / 2 if thin == 0 else -bc.D / 2)) else -ax
+        u = Vector((0, 0, 1)).cross(out).normalized(); wdt = s[0] if thin == 1 else s[1]; NU, NV = 7, 15
+        def grid(name, off, facing):
+            vs = [c + out * off + u * (wdt * (i / (NU - 1) - 0.5)) + Vector((0, 0, s[2] * (j / (NV - 1) - 0.5))) for j in range(NV) for i in range(NU)]
+            fs = [(j * NU + i, j * NU + i + 1, (j + 1) * NU + i + 1, (j + 1) * NU + i) for j in range(NV - 1) for i in range(NU - 1)]
+            me = bpy.data.meshes.new(name); me.from_pydata(vs, [], fs); me.update()
+            if me.polygons[0].normal.dot(facing) < 0:
+                me.flip_normals()
+            me.color_attributes.new('E', 'FLOAT_COLOR', 'POINT')
+            o = bpy.data.objects.new(name, me); sc.collection.objects.link(o); return o
+        if src not in emit:
+            # 1) 窓の板の外の面（ガラスの外 3mm、外向き）に当たる光を、白い拡散の面として頂点に焼く（値＝E/π）
+            mw = bpy.data.materials.new('ENT_MEAS'); mw.use_nodes = True; nt = mw.node_tree; nt.nodes.clear()
+            dw = nt.nodes.new('ShaderNodeBsdfDiffuse'); dw.inputs['Color'].default_value = (1, 1, 1, 1)
+            nt.links.new(dw.outputs[0], nt.nodes.new('ShaderNodeOutputMaterial').inputs['Surface'])
+            mo = grid('ENT_MEAS', s[thin] / 2 + 0.003, out); mo.data.materials.append(mw)
+            bpy.ops.object.select_all(action='DESELECT'); mo.select_set(True); bpy.context.view_layer.objects.active = mo
+            mo.data.color_attributes.active_color = mo.data.color_attributes['E']
+            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, target='VERTEX_COLORS', use_clear=True)
+            e = np.empty(len(mo.data.vertices) * 4, np.float32); mo.data.color_attributes['E'].data.foreach_get('color', e)
+            bpy.data.objects.remove(mo)
+            # 2) ガラスの内 2mm に、室内向きに光を出す面（色＝0.85×E/π＝放射輝度）。裏は黒い拡散
+            eo = grid('ENT_EMIT_' + src, -(s[thin] / 2 + 0.002), -out)
+            e = e.reshape(-1, 4); e[:, :3] = np.maximum(e[:, :3], 0) * 0.85; e[:, 3] = 1
+            eo.data.color_attributes['E'].data.foreach_set('color', e.ravel())
+            m = bpy.data.materials.new('ENT_EMIT_' + src); m.use_nodes = True; nt = m.node_tree; nt.nodes.clear()
+            at = nt.nodes.new('ShaderNodeAttribute'); at.attribute_name = 'E'; em = nt.nodes.new('ShaderNodeEmission'); em.inputs['Strength'].default_value = 1.0
+            bk = nt.nodes.new('ShaderNodeBsdfDiffuse'); bk.inputs['Color'].default_value = (0, 0, 0, 1)
+            gm = nt.nodes.new('ShaderNodeNewGeometry'); mx = nt.nodes.new('ShaderNodeMixShader'); oo = nt.nodes.new('ShaderNodeOutputMaterial')
+            nt.links.new(at.outputs['Color'], em.inputs['Color']); nt.links.new(gm.outputs['Backfacing'], mx.inputs[0])
+            nt.links.new(em.outputs[0], mx.inputs[1]); nt.links.new(bk.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], oo.inputs['Surface'])
+            eo.data.materials.append(m); emit[src] = eo
+            print('ent emit', src, 'E lux min/mean/max', [round(float(f(e[:, 1] / 0.85 * math.pi / bc.LM2W)), 1) for f in (np.min, np.mean, np.max)], flush=True)
+        for k, o in emit.items():
+            o.hide_render = (k != src)
+        return emit[src]
     leaves = [o for o in objs if 'door' in o]
     glass = [(n, n.inputs['Alpha'].default_value) for m in bpy.data.materials if m.get('g1glass') for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED']   # G1 のガラスと元の透明度
     def set_doors(op):
@@ -527,6 +575,15 @@ def bake_main(outdir, samples, only):
         for b, a0 in glass:
             b.inputs['Alpha'].default_value = 0.0 if src == 'g1d' else a0
         set_doors(op)
+        if src in ('sky_ent', 'sun_ent') and os.environ.get('BAKE_ENT_EMIT', '1') == '1':   # 0：比べるときに前の焼き方（ガラスのまま）
+            ent_emit(src)
+            # 間接光の上限を外す：上限（1.0）は、光を出す面に照らされた玄関の壁・床から跳ね返ってトイレに届く光を 3 割ほど削っていた。
+            # 光を出す面ではまだらが出ないので外す（ガラスのまま上限を外して焼いた物と平均が 1 割以内で合う。2026-10-29）
+            sc.cycles.sample_clamp_indirect = 0.0
+        else:
+            for o in emit.values():
+                o.hide_render = True
+            sc.cycles.sample_clamp_indirect = clamp0
         for g in A:
             imgs[g].pixels.foreach_set(np.zeros(res[g] ** 2 * 4, dtype=np.float32))
         tg = [o for o in objs if o['atlas'] in A and not o.hide_render and not o.get('shadeobj')]
