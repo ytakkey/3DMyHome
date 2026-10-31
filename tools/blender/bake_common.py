@@ -10,6 +10,7 @@ B = lambda x, y, z: Vector((x, -z, y))
 FL2, H2 = 2.9, 5.3
 OX, OZ, BW_, BD_ = -2.2725, 3.6375, 2.6125, 3.5225
 W, D = 4.885, 7.16
+BRK_SPREAD = float(os.environ.get('BAKE_BRK_SPREAD', '60'))   # ブラケット（O2）の上下の光の広がり（度。全体の角度）
 DL = 440   # RML・RMW・RMN(P1)（LEDフラットランプφ70）の光束。色味違いの型番は色味以外を同じに（F2）
 
 # 照明の組（LS のキー）：器具ごとの [種類, 位置（three.js）, 光束]。ダウンライトは器具の径の円形の面光源（真下向き。書き出した器具の発光板の下面＝天井から6.5mmのすぐ下）、ブラケットは箱の上下の開口の正方形（半分ずつ）
@@ -75,7 +76,7 @@ def setup(samples=128, devices=('HIP', 'CPU')):
     db = int(os.environ.get('BAKE_BOUNCES', '4'))   # 拡散の反射回数：4回（2026-10-21 ユーザー。比べるときは環境変数で変える）
     c.samples = samples; c.use_denoising = False; c.max_bounces = max(8, db + 2); c.diffuse_bounces = db; c.glossy_bounces = 2
     c.transmission_bounces = 4; c.transparent_max_bounces = 8; c.caustics_reflective = False; c.caustics_refractive = False
-    c.sample_clamp_indirect = float(os.environ.get('BAKE_CLAMP', '1.0'))   # 間接光の1回の値の上限（比べるときは環境変数で変える）
+    c.sample_clamp_indirect = float(os.environ.get('BAKE_CLAMP', '0'))   # 間接光の1回の値の上限：0＝上限なし（2026-10-31。1.0 は太陽の照り返しを日なたの外で最大 1/10 まで削っていた。外してもざらつきは増えない。比べるときは環境変数で変える）
     sc.render.use_persistent_data = True
     # 材質：すべて拡散だけ（反射率＝色）。光る面（MeshBasicMaterial から来た発光）は光らせない。半透明（アクリル板など）は透過のまま
     def mean_rgb(sock, depth=0):
@@ -180,6 +181,8 @@ def add_lamps(sc):
                     [((math.pi, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] + 0.0375, p[2])), ((0, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] - 0.0375, p[2]))]
             for rot, shape, size, l, pos in parts:
                 ld = bpy.data.lights.new('L_' + g, type='AREA'); ld.shape = shape; ld.size = size; ld.energy = l * LM2W
+                if kind == 'brk':   # 上下の開口から上下へ絞って出す（本番の上下のスポットと同じく、壁に V 字の光の筋が天井まで届く。全方向に出すと箱のまわりが丸くぼやけていた。2026-10-31）
+                    ld.spread = math.radians(BRK_SPREAD)
                 lo = bpy.data.objects.new('lamp_' + g, ld); lo.location = B(*pos); lo.rotation_euler = rot
                 sc.collection.objects.link(lo); lamps.setdefault(g, []).append(lo)
     return lamps
