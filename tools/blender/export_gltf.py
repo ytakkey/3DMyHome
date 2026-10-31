@@ -49,6 +49,11 @@ for o in bpy.data.objects:
         g, d = min(((g, (c - q).length) for g, q in lamps), key=lambda t: t[1])
         found.setdefault(m.name, {}).setdefault(g if d < 0.3 else '-', 0)
         found[m.name][g if d < 0.3 else '-'] += 1
+# 玄関ドアの窓（本番 wash.js の entGl）に印：ページでは本番と同じく焼いた明るさを使わず、昼夜で色だけ変える。
+# 焼くと、すぐ内側の光を出す面（bake_layers の ent_emit。裏は黒）の陰になり、ガラスがまだらに暗く焼けていた（2026-10-31）
+for m in bpy.data.materials:
+    if m.node_tree and any(n.type == 'EMISSION' and max(abs(a - b) for a, b in zip(n.inputs['Color'].default_value[:3], (0.738, 0.768, 0.784))) < 0.01 for n in m.node_tree.nodes):
+        m['entglass'] = 1; found.pop(m.name, None); print('emit entglass', m.name, flush=True)
 for mn, cnt in found.items():
     g = max(cnt, key=cnt.get)
     if g != '-':

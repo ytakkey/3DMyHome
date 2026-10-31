@@ -42,7 +42,7 @@ PK_DOOR, PK_THIN = 0.036, 0.055                          # 引き戸：扉の厚
 
 # ===== 色（材質）。仕上げの柄は焼き込みの段階で付ける。ここでは確認の画像のための色 =====
 COL = {
- 'exterior': 0x8c8c8c, 'frame': 0xfbfbf9, 'casing': 0xfbfbf9, 'door': 0xf6f5f2, 'handle': 0x2a2a2a, 'handle_g': 0x8f8b85, 'handle_k': 0x1a1a1a,
+ 'exterior': 0x8c8c8c, 'frame': 0xfbfbf9, 'casing': 0xfbfbf9, 'door': 0xf6f5f2, 'handle': 0x8f8b85, 'handle_g': 0x8f8b85, 'handle_k': 0x8f8b85,   # 取っ手はすべてグレー（2026-10-31 ユーザー。本番も同じ）
  'frost': 0xdde1e4, 'back': 0xdedcd7, 'sash': 0xfbfbf9, 'reveal_win': 0xf0ede7, 'glass': 0xcfdfec, 'baseboard': 0xfbfbf9,
  'steel': 0x1c1c1c, 'tread': 0xc48c56, 'oak_wall': 0xb4885a, 'woven': 0xc9c2b6, 'wood_ceil': 0xb4885a,
  'floor_oak': 0xb08a5e, 'walnut_top': 0x3f2b1f, 'floor_stone': 0x8c867f, 'floor_walnut': 0x6b4a35,
@@ -270,6 +270,8 @@ def door_swing(name, wl, a, b, h, T, hingeA):
     lw = b1 - a1 - 0.01
     n0 = a1 + 0.0225 if hingeA else b1 - 0.0225    # 開いた扉の中心（吊元の枠から22.5mm）
     wl.box(name + '_leafO', n0 - 0.0175, n0 + 0.0175, 0, h - 0.01, 0.025, 0.025 + lw, 'door', 'doors_open')
+    for k in (-1, 1):   # 開いた扉のレバー（両面、戸先寄り。本番の addSwingOpen と同じ。無かったので開けると取っ手が消えていた。2026-10-31）
+        wl.box(name + '_levO%d' % k, n0 + k * 0.0325 - 0.015, n0 + k * 0.0325 + 0.015, 0.99, 1.01, 0.025 + lw - 0.16, 0.025 + lw - 0.04, 'handle_g', 'doors_open')
 
 def door_hinged_closed(name, wl, a, b, h, n, fold=False):
     """試作の範囲の外の部屋への開き戸・折れ戸（閉じたまま）：開口は扉の裏までのへこみ"""
@@ -721,7 +723,10 @@ def separate_coplanar():
             m = me.materials[p.material_index] if p.material_index < len(me.materials) else None
             decal = bool(m and m.get('decal'))
             n = (nm @ p.normal).normalized(); c = mw @ p.center
-            for loc, pn, i, d in bvh.find_nearest_range(c, 0.0008):
+            # 面の中心だけでなく、角へ 7 割寄った点でも探す（角だけ重なった部品＝ヘッダーボックスの枠の上と縦・ブラケットの箱の板を、中心では拾えなかった。2026-10-31）
+            pts = [c] + [c + ((mw @ me.vertices[v].co) - c) * 0.7 for v in p.vertices]
+            hits = [h for q in pts for h in bvh.find_nearest_range(q, 0.0008)]
+            for loc, pn, i, d in hits:
                 oj, fj = owner[i]
                 if oj == oi or pn.normalized().dot(n) < 0.999:
                     continue
@@ -839,7 +844,9 @@ def trim_leaves():
             nv = Vector((0, 0, 0)); nv[ax] = s; co = Vector((0, 0, 0)); co[ax] = p[ax]
             bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=mi @ co, plane_no=(m3 @ nv).normalized(), clear_outer=True)
             cut.append('%s%.0fmm' % ('xyz'[ax], d * 1000))
-        if cut:
+        if cut:   # 切り口をふさぐ（ふさがないと扉の端が開いた箱になり、閉じた SG311 の戸袋側の端から廊下の壁が透けて見えていた。2026-10-31）
+            bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
             bm.to_mesh(o.data); out.append('%s %s' % (o.name, '/'.join(cut)))
         bm.free()
     print('leaves trimmed', len(out), '; '.join(out), flush=True)

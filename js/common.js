@@ -237,7 +237,7 @@ function addFoldDoor(g,a,b,h,n=2,knob){const w=b-a,pw=(w-0.01)/n;
 casing(g,a,b,h);
 for(let i=0;i<n;i++){const c=a+0.005+pw*(i+0.5);lbox(g,pw/2-0.004,h-0.007,0.03,c-pw/4,(h-0.007)/2,-0.03,0xf6f5f2);lbox(g,pw/2-0.004,h-0.007,0.03,c+pw/4,(h-0.007)/2,-0.03,0xf6f5f2);}
 (n===1?[knob||-1]:[-1,1]).forEach(i=>{const k=new THREE.Mesh(new THREE.CylinderGeometry(0.017,0.017,0.02,20),L(0x8f8b85));k.rotation.x=Math.PI/2;k.position.set(n===1?(a+b)/2+i*0.06:(a+b)/2+i*(pw/2+0.04),1.0,-0.005);g.add(k);});}
-// ハイドア（天井までの高さ、中央に縦長の型板ガラス、黒い角型の引手）
+// ハイドア（天井までの高さ、中央に縦長の型板ガラス、グレーの角型の引手）
 const frostMat=P({color:0xdde1e4,emissive:0x202326,specular:0x333333,shininess:40});
 // uw指定のとき：開いた状態（b側の吊元で部屋側へ90°開く。扉の中心は吊元の枠の中心から42.5mm内側）
 function highFrame(g,a,b,h){const w=b-a;lbox(g,0.035,h-0.015,0.07,a,(h-0.015)/2,-0.015,FIT);lbox(g,0.035,h-0.015,0.07,b,(h-0.015)/2,-0.015,FIT);lbox(g,w+0.035,0.045,0.07,(a+b)/2,h+0.0075,-0.015,FIT);}   // ハイドアの枠：縦枠は上枠の下まで（開閉で変わらないので、開いた形・閉じた形の外に1組だけ作る）
@@ -245,11 +245,11 @@ function addHighDoor(g,a,b,h,uw){const w=b-a,DW=0xf4f3f0;
 const gw=w*0.22,pw=(w-0.01-gw)/2,ph=h-0.01;
 if(uw){const n0=b-0.0425,z0=0.025,lf=(du,dy,ds,sc,y,c)=>lbox(g,du,dy,ds,n0,y,z0+sc,c);
  lf(0.035,ph,pw,pw/2,ph/2,DW);lf(0.035,ph,pw,pw+gw+pw/2,ph/2,DW);lf(0.012,ph-0.08,gw,pw+gw/2,ph/2,frostMat);lf(0.035,0.04,gw,pw+gw/2,0.02,DW);lf(0.035,0.04,gw,pw+gw/2,ph-0.02,DW);
- [-1,1].forEach(k=>lbox(g,0.012,0.035,0.035,n0+k*0.0235,1.0,z0+w-0.065,0x1a1a1a));return;}
+ [-1,1].forEach(k=>lbox(g,0.012,0.035,0.035,n0+k*0.0235,1.0,z0+w-0.065,0x8f8b85));return;}
 lbox(g,pw,ph,0.035,a+0.005+pw/2,ph/2,-0.03,DW);lbox(g,pw,ph,0.035,b-0.005-pw/2,ph/2,-0.03,DW);
 lbox(g,gw,ph-0.08,0.012,(a+b)/2,ph/2,-0.03,frostMat);
 lbox(g,gw,0.04,0.035,(a+b)/2,0.02,-0.03,DW);lbox(g,gw,0.04,0.035,(a+b)/2,ph-0.02,-0.03,DW);
-lbox(g,0.035,0.035,0.012,a+0.06,1.0,-0.008,0x1a1a1a);}
+lbox(g,0.035,0.035,0.012,a+0.06,1.0,-0.008,0x8f8b85);}
 // 開き戸（開いた状態）：b側の吊元で部屋側（+z）へ90°開く。レバーハンドルは両面
 function addSwingOpen(g,a,b,h){const w=b-a,lw=w-0.01,n0=b-0.0225;   // n0：開いた扉の中心（吊元の額縁の中心から22.5mm内側）。額縁は開閉で変わらないので呼ぶ側で1組だけ作る
 lbox(g,0.035,h-0.01,lw,n0,(h-0.01)/2,0.025+lw/2,0xf6f5f2);
@@ -275,10 +275,10 @@ if(gO){const zh=z-0.0175,pv=new THREE.Group();pv.position.set(l1,0,zh);pv.rotati
 // 床暖房のヘッダーボックス（壁に埋め込み、白。上・中・下に横長のガラリ、左寄りに小さなつまみ）
 function addHB(g,a,b,h){const w=b-a,um=(a+b)/2,HW=0xf5f4f1;
 lbox(g,w,h,0.006,um,h/2,-0.063,0xcfcdc8);lbox(g,0.008,h,0.06,a+0.004,h/2,-0.03,FIT);lbox(g,0.008,h,0.06,b-0.004,h/2,-0.03,FIT);lbox(g,w-0.016,0.008,0.06,um,h-0.004,-0.03,FIT);   // 奥の面（見込みの奥の端に接する）・見込み（上は左右の間）
-lbox(g,0.025,h,0.03,a+0.0125,h/2,0.015,HW);lbox(g,0.025,h,0.03,b-0.0125,h/2,0.015,HW);lbox(g,w,0.025,0.03,um,h-0.0125,0.015,HW);   // 枠
+lbox(g,0.025,h,0.03,a+0.0125,h/2,0.015,HW);lbox(g,0.025,h,0.03,b-0.0125,h/2,0.015,HW);lbox(g,w-0.05,0.025,0.03,um,h-0.0125,0.015,HW);   // 枠（上は左右の間に突き付け。角で重ねると焼き込みで角が暗い縞になった）
 const dw=w-0.054;lbox(g,dw,h-0.03,0.02,um,(h-0.03)/2+0.002,0.018,HW);   // 扉
 const lv=(y0,y1)=>{const lw=dw*0.74,n=Math.round((y1-y0)/0.016);lbox(g,lw,y1-y0,0.002,um,(y0+y1)/2,0.029,0xa9a7a2);for(let i=0;i<n;i++)lbox(g,lw-0.012,0.008,0.005,um,y0+(i+0.5)*(y1-y0)/n,0.0305,HW);
- lbox(g,lw+0.012,0.006,0.004,um,y1,0.03,HW);lbox(g,lw+0.012,0.006,0.004,um,y0,0.03,HW);lbox(g,0.006,y1-y0,0.004,um-lw/2,(y0+y1)/2,0.03,HW);lbox(g,0.006,y1-y0,0.004,um+lw/2,(y0+y1)/2,0.03,HW);};
+ lbox(g,lw+0.012,0.006,0.004,um,y1,0.03,HW);lbox(g,lw+0.012,0.006,0.004,um,y0,0.03,HW);lbox(g,0.006,y1-y0-0.006,0.004,um-lw/2,(y0+y1)/2,0.03,HW);lbox(g,0.006,y1-y0-0.006,0.004,um+lw/2,(y0+y1)/2,0.03,HW);};   // 縦の縁は上下の縁の間（突き付け）
 lv(1.04,1.15);lv(0.69,0.78);lv(0.08,0.34);   // ガラリ（上・中・下）
 {const k=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.018,20),L(0xe9e9e7));k.rotation.x=Math.PI/2;k.position.set(a+0.05,0.73,0.037);g.add(k);}}   // つまみ
 // 開き戸（閉じた状態）：b側の吊元。レバーハンドルは両面で戸先（a側）寄り
@@ -296,16 +296,16 @@ function addToggleDoor(g,o,m,sc){const gO=new THREE.Group(),gC=new THREE.Group()
   const bk=new THREE.Mesh(uvPlane(w,h,Math.min(mo,pe),0,sc,sc),m);bk.position.set(pc,h/2,-DP);g.add(bk);   // 戸袋：へこんだ壁（クロス貼り）
   lbox(g,w-0.008,0.06,0.012,pc-R*0.004,0.03,-DP+0.006,FIT);lbox(g,0.008,h,DP,pe-R*0.004,h/2,-DP/2,FIT);lbox(g,w-0.008,0.008,DP,pc-R*0.004,h-0.004,-DP/2,FIT);   // 戸袋：幅木・奥の端と上の見込み（幅木と上の見込みは奥の端の手前まで）
   {const zb=zc-TD/2,Tz=T-0.002;lbox(g,0.008,h,Tz+zb,mo+R*0.004,h/2,(zb-Tz)/2,FIT);}   // 開口の戸袋側の見込み：反対側の枠から扉の裏まで（すき間なし。扉は見込みの前を走る）。戸袋の口をふさぎ、閉じたとき扉の裏から反対側の部屋へ光が回らない
-  const door=(gp,u0)=>{lbox(gp,wd,h-0.007,TD,u0+R*wd/2,(h-0.007)/2,zc,0xf6f5f2);const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 扉と引手（表と裏、戸先寄り）。u0：戸先の位置
+  const door=(gp,u0)=>{lbox(gp,wd,h-0.007,TD,u0+R*wd/2,(h-0.007)/2,zc,0xf6f5f2);const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x8f8b85);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x8f8b85);};   // 扉と引手（表と裏、戸先寄り）。u0：戸先の位置
   const u0=R>0?a+0.003:b-0.003;door(gC,u0);door(gO,u0+R*w);}   // 閉：開口を覆う、開：戸袋のへこみの前へ引いた位置
  else if(o.door==='outset'){   // アウトセットの引き戸：扉は壁の面の外（部屋側）を上のレールに吊られて走る。開口は壁の厚さいっぱいの見込みで囲む。R<0はa側へ引く
   const R=o.dir<0?-1:1,T=o.T,TD=PK.door,ov=0.02,wd=w+2*ov,zc=TD/2-0.001,hd=h+0.010;   // ov：扉が開口に重なる幅、zc：扉の中心（扉の裏を壁の面に1mm入れる＝閉じたとき壁との間にすき間がない）、hd：扉の高さ（床から開口の上端の12mm上まで。下は床に1mm入れる＝床とのすき間なし。ユーザーの指示）
   lbox(g,0.008,h,T-0.002,a+0.004,h/2,-(T-0.002)/2,FIT);lbox(g,0.008,h,T-0.002,b-0.004,h/2,-(T-0.002)/2,FIT);lbox(g,w-0.016,0.008,T-0.002,(a+b)/2,h-0.004,-(T-0.002)/2,FIT);   // 開口の見込み（左右・上。壁の厚さいっぱい。上は左右の間）
   {const c0=Math.min(a-ov,a-ov+R*w),c1=Math.max(b+ov,b+ov+R*w);lbox(g,c1-c0+0.03,0.05,0.05,(c0+c1)/2,h+0.037,0.025,FIT);}   // 上のレール（カバー付き。扉の動く範囲いっぱい）
   const door=(gp,u0)=>{const uc=u0+R*wd/2;lbox(gp,wd,hd+0.003,TD,uc,(hd+0.001)/2,zc,0xf6f5f2);if(!o.noWin){const w2=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,TD+0.003,24),frostMat);w2.rotation.x=Math.PI/2;w2.position.set(u0+R*0.1,hd-0.126,zc);gp.add(w2);}   // 扉と小窓（戸先寄りの上に小さな丸い穴。中の明かりが分かる程度。大きさは仮。noWin で小窓なし）
-   const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x2a2a2a);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x2a2a2a);};   // 引手（表と裏、戸先寄り）。u0：戸先の位置
+   const hx=u0+R*0.07;lbox(gp,0.025,0.16,0.01,hx,1.0,zc+TD/2,0x8f8b85);lbox(gp,0.025,0.16,0.01,hx,1.0,zc-TD/2,0x8f8b85);};   // 引手（表と裏、戸先寄り）。u0：戸先の位置
   const u0=R>0?a-ov:b+ov;door(gC,u0);door(gO,u0+R*w);}   // 閉：開口を覆う、開：引いた位置
- else if(o.door==='high'){highFrame(g,a,b,h);addHighDoor(gO,a,b,h,o.uw);addHighDoor(gC,a,b,h,0);lbox(gC,0.035,0.035,0.012,a+0.06,1.0,-0.0535,0x1a1a1a);}   // 閉じたとき：裏側の引手
+ else if(o.door==='high'){highFrame(g,a,b,h);addHighDoor(gO,a,b,h,o.uw);addHighDoor(gC,a,b,h,0);lbox(gC,0.035,0.035,0.012,a+0.06,1.0,-0.0535,0x8f8b85);}   // 閉じたとき：裏側の引手
  else if(o.door==='swing'){casing(g,a,b,h);const M=gp=>{if(!o.hingeA)return gp;const q=new THREE.Group();q.position.x=a+b;q.scale.x=-1;gp.add(q);return q;};addSwingOpen(M(gO),a,b,h);addSwingClosed(M(gC),a,b,h);}   // hingeA：吊元がa側（左右を反転して作る。動く部品なので反転してよい）
  else if(o.door==='bath')addBathDoor(g,a,b,h,gC,gO,o.T);   // 浴室のドア（枠は動かない部品、扉だけ切り替える）
  if(o.fixed){g.remove(gO);return;}   // fixed：開閉しないドア（閉じた形だけ。動かない部品としてまとめる）
@@ -371,7 +371,7 @@ function acUnit(x,y,z,ry){const g=new THREE.Group();g.position.set(x,y,z);g.rota
  const W=0.798,H=0.295,D=0.37,FD=D*0.92,R0=0.06,BH=0.07;
  lbox(g,W,H-BH-R0,FD,0,BH+(H-BH-R0)/2,FD/2,acWhite);
  lbox(g,W,R0,FD-R0,0,H-R0/2,(FD-R0)/2,acWhite);
- const cyl=new THREE.Mesh(new THREE.CylinderGeometry(R0,R0,W,24),acWhite);cyl.rotation.z=Math.PI/2;cyl.position.set(0,H-R0,FD-R0);g.add(cyl);
+ const cyl=new THREE.Mesh(new THREE.CylinderGeometry(R0,R0,W,6,1,false,0,Math.PI/2),acWhite);cyl.rotation.z=Math.PI/2;cyl.position.set(0,H-R0,FD-R0);g.add(cyl);   // 前上の丸い角（1/4 の円柱。丸ごとの円柱は箱と上の板に埋まり、側面のふたが箱の側面と同じ平面に重なって焼き込みで切れ目のような模様になった）
  lbox(g,W,BH,FD*0.86,0,BH/2,FD*0.43,acGrey);
  const flap=lbox(g,W-0.07,0.012,0.11,0,0.03,FD*0.86-0.03,acFlap);flap.rotation.x=-0.18;
  lbox(g,W-0.12,0.003,0.12,0,H+0.0015,0.10,acGrey);

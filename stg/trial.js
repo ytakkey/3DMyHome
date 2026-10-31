@@ -99,6 +99,7 @@ function patchMat(m,vl,vo,cg,sd){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh
  else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
  m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
+const entGlassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,side:THREE.DoubleSide});   // 玄関ドアの窓（本番 wash.js の entGl：昼 0xdfe3e5・夜 0x101318）
 
 // ===== PNG を自前で読む（ブラウザの画像の読み込みは、透明度で色の値を丸める端末がある＝RGBM が崩れる。16bit もそのまま読む）=====
 async function decodePNG(buf){const dv=new DataView(buf);let p=8,w=0,h=0,depth=8,ct=6;const parts=[];
@@ -116,7 +117,8 @@ async function decodePNG(buf){const dv=new DataView(buf);let p=8,w=0,h=0,depth=8
 // ===== 層の画像：取得（ファイルのまま持つ）→ GPU の画像（使い終わっても上限までは置いておく）=====
 let IDX=null,netBytes=0,tick=0;
 const byteCache=new Map(),texCache=new Map();   // ファイル名 → {p:Promise<ArrayBuffer>,n,used} ／ {tex,n,used}
-function fetchBytes(f){let c=byteCache.get(f);if(!c){c={p:fetch(LMDIR+f).then(x=>{if(!x.ok)throw new Error(f);return x.arrayBuffer();}).then(b=>{c.n=b.byteLength;netBytes+=b.byteLength;return b;}),n:0};byteCache.set(f,c);}c.used=++tick;return c.p;}
+async function fetchRetry(f,tries=4){for(let i=0;;i++){try{const x=await fetch(LMDIR+f);if(!x.ok)throw new Error(f+' '+x.status);return await x.arrayBuffer();}catch(e){if(i>=tries-1)throw e;await new Promise(z=>setTimeout(z,500*2**i));}}}   // 通信が途切れたときは間をあけて数回やり直す
+function fetchBytes(f){let c=byteCache.get(f);if(!c){c={p:fetchRetry(f).then(b=>{c.n=b.byteLength;netBytes+=b.byteLength;return b;},e=>{if(byteCache.get(f)===c)byteCache.delete(f);throw e;}),n:0};byteCache.set(f,c);}c.used=++tick;return c.p;}   // 失敗したらキャッシュから外す（次に要るとき取り直す）
 async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c.tex;}
  const buf=await fetchBytes(e.file);let w,h,data,type=THREE.UnsignedByteType,n;
  if(IDX.enc==='logj'){const bmp=await createImageBitmap(new Blob([buf],{type:'image/jpeg'}),{colorSpaceConversion:'none',premultiplyAlpha:'none'});w=bmp.width;h=bmp.height;
@@ -129,7 +131,7 @@ async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c
  tex.onUpdate=()=>{tex.image.data=null;};   // GPU へ送ったら CPU の画素は捨てる
  texCache.set(e.file,{tex,n,used:++tick});return tex;}
 const vtxCache=new Map();   // 頂点の明るさのファイル → 読んだ画素（RGBM、小さいので取っておく）
-async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodePNG).then(im=>im.data);vtxCache.set(e.file,c);}return c;}
+async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodePNG).then(im=>im.data);c.catch(()=>{if(vtxCache.get(e.file)===c)vtxCache.delete(e.file);});vtxCache.set(e.file,c);}return c;}
 function evict(keep){
  let t=[...texCache.values()].reduce((s,c)=>s+c.n,0);
  for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;c.tex.dispose();texCache.delete(f);t-=c.n;}
@@ -185,6 +187,7 @@ function setupModel(root){const mc=new Map();
  root.traverse(o=>{if(o.userData&&o.userData.door){const d=dk(o.userData.door);(DOORN[d]=DOORN[d]||{open:[],closed:[]})[o.userData.state].push(o);}
   if(!o.isMesh)return;const u=info(o),m=o.material;
   if(!u){o.material=glassMat;return;}
+  if(m.userData&&m.userData.entglass){o.material=entGlassMat;return;}   // 玄関ドアの窓：本番の entGl と同じく焼いた明るさを使わない
   const vl=!!u.vlit,sd=!!u.shadeobj,key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
    const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
@@ -208,7 +211,7 @@ function applyShown(){const s=shown;
  for(const d in DOORN){DOORN[d].open.forEach(o=>o.visible=s.DS[d]);DOORN[d].closed.forEach(o=>o.visible=!s.DS[d]);}
  LAMPM.forEach(l=>l.o.material=s.LS[l.k]?l.on:l.off);
  r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);UNI.uE.value=s.night?EXPO.night:EXPO.day;UNI.uShP.value=s.shade;UNI.uG.value=s.night?GAM.night:GAM.day;
- glassMat.color.copy(sRGB(s.night?0x141c28:0xcfdfec));scene.background=sRGB(s.night?0x0b1018:0xcfdfec);}
+ glassMat.color.copy(sRGB(s.night?0x141c28:0xcfdfec));entGlassMat.color.copy(sRGB(s.night?0x101318:0xdfe3e5));scene.background=sRGB(s.night?0x0b1018:0xcfdfec);}
 
 // ===== 移動範囲（本番の ui.js と同じ。範囲は本番から書き出した move.json）=====
 let MOVE,MB,MO;
