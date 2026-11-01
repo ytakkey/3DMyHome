@@ -253,6 +253,8 @@ def door_outset(name, wl, a, b, h, T, R):
         wl.box(name + '_leaf', u0, u0 + R * (w + 2 * ov), 0, h + 0.012, 0, PK_DOOR, 'door', cname)
         hx = u0 + R * 0.07
         wl.box(name + '_hdlF', hx - 0.0125, hx + 0.0125, 0.92, 1.08, PK_DOOR, PK_DOOR + 0.01, 'handle', cname)
+        if cname == 'doors_closed':   # 裏（壁の側）の引手：閉じると開口から見える（本番は両面。無かったので、廊下から閉じたトイレの扉を見ると取っ手が無かった。2026-11-01）。開くと壁に沿うので付けない
+            wl.box(name + '_hdlB', hx - 0.0125, hx + 0.0125, 0.92, 1.08, -0.01, 0, 'handle', cname)
     u0 = a1 - ov if R > 0 else b1 + ov
     leaf('doors_closed', u0)
     leaf('doors_open', u0 + R * w)

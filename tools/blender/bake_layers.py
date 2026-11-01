@@ -125,7 +125,11 @@ def prep(out):
             if d and mn != 'frame':   # 開口の見込み（壁に直角な面と上の面）も扉のアトラスへ。本番の材質を写すと 'frame' でなくなり、向こうの部屋のアトラスに入って閉じたとき真っ黒だった（2026-10-27）
                 wn = abs(n.y) if d in DOORZ else abs(n.x)   # 壁の向きの成分
                 fc = f.calc_center_median()
-                if wn > 0.1 or n.z > 0.1 or (d == 'SG33s' and fc.x > 0.47):   # 書斎の箱は開いた扉のため奥まであるので、壁の厚さの中だけ
+                # 開口の中の床（面がまるごと扉の箱の中）は扉のアトラスへ：部屋のアトラスは、その部屋に効かないドアを閉じた形で焼くので、
+                # 閉じた扉より向こうに出た床が黒く焼け、開けたときに床の境目の暗い帯になった（LDK の床が SG11H の閉じた扉より廊下側へ4cm出ていた。2026-11-01）
+                x0, x1, y0, y1, z0, z1 = DOORBOX[d]
+                floor_in = n.z > 0.1 and all(x0 <= v.co.x <= x1 and z0 <= -v.co.y <= z1 for v in f.verts)
+                if wn > 0.1 or (n.z > 0.1 and not floor_in) or (d == 'SG33s' and fc.x > 0.47):   # 書斎の箱は開いた扉のため奥まであるので、壁の厚さの中だけ
                     d = None
             g = 'door_' + d if d else room_of(x, y, z)
         group.setdefault(g, []).append(f.index)
@@ -363,6 +367,9 @@ def vsmooth(o, v, it=2):
         s = np.zeros_like(v); np.add.at(s, e[:, 0], v[e[:, 1]]); np.add.at(s, e[:, 1], v[e[:, 0]])
         v = np.where(deg[:, None] > 0, 0.5 * v + 0.5 * s / np.maximum(deg, 1)[:, None], v)
     return v
+# 光源ごとのサンプル数の倍率（ざらつきの残る層だけ増やす。2026-11-01）：玄関の窓の光は回り込む光しか届かない部屋がまだらになる（2026-10-29 に 16384 で焼いた）。
+# 吹抜けのスポット A2 は、細い光が壁に当たった強い照り返しの点が、間接光の上限を外すと増え、ノイズ除去で壁に水がこぼれたようなしみになった（ざらつき 0.10→0.17）
+SRC_SAMPLES = {'sky_ent': 2, 'sun_ent': 2, 'a2': 8}
 def bake_main(outdir, samples, only):
     os.makedirs(outdir, exist_ok=True)
     json.dump(COMBOS, open(os.path.join(outdir, 'combos.json'), 'w'))   # 検証ページが層の名前を作るのに使う（lm_images.py が index.json へ）
@@ -571,6 +578,7 @@ def bake_main(outdir, samples, only):
         os.makedirs(ld, exist_ok=True)
         t0 = time.time()
         bc.set_source('g1' if src == 'g1d' else src, lamps, sky)
+        sc.cycles.samples = samples * SRC_SAMPLES.get(src, 1)
         pf = PASS.get(src, {'DIRECT', 'INDIRECT'})
         for b, a0 in glass:
             b.inputs['Alpha'].default_value = 0.0 if src == 'g1d' else a0
