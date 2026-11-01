@@ -23,7 +23,7 @@ def stats(p):
     nz = float(np.abs(y - k)[inside].mean() / max(mean, 1e-9)) if inside.any() else 0.0
     return mean, nz
 
-lays = sorted(x for x in os.listdir(os.path.join(W, dirs[1])) if os.path.isdir(os.path.join(W, dirs[1], x)) and not x.startswith('_'))
+lays = sorted(x for x in os.listdir(os.path.join(W, dirs[1])) if os.path.isdir(os.path.join(W, dirs[1], x)) and not x.startswith('_') and (len(sys.argv) < 3 or x.startswith(tuple(sys.argv[2].split(',')))))   # 3つ目の引数：層の頭で絞る
 out = {}
 for L in lays:
     for f in sorted(os.listdir(os.path.join(W, dirs[1], L))):
