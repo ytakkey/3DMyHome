@@ -89,15 +89,49 @@ if(shd.z>0.5){float sL=max(0.02,shd.y*uShP);
  if(uShP<=0.0)transformed=vec3(0.0);}
  else transformed.y-=sL-0.02;}`;
 const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
-function patchMat(m,vl,vo,cg,sd){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+// ===== ラメ（テレビの面とトイレのアクセント面の IC-5025。CLAUDE.md 1章「つや・照り」）=====
+// 本番 common.js の ic5025 と同じ作り方で、色・照り（specularMap）・粒の向き（normalMap）の画像を作る（glTF には照りと向きが入らない）
+const ic5025=(()=>{const N=512,R=Math.random,c8=v=>v<0?0:v>255?255:v|0,mk=()=>{const c=document.createElement('canvas');c.width=c.height=N;return c;},cC=mk(),cS=mk(),cN=mk(),gC=cC.getContext('2d'),gS=cS.getContext('2d'),gN=cN.getContext('2d'),iC=gC.createImageData(N,N),iS=gS.createImageData(N,N),iN=gN.createImageData(N,N),dC=iC.data,dS=iS.data,dN=iN.data;
+ const hs=(x,y)=>{let h=Math.imul(x|0,374761393)+Math.imul(y|0,668265263)|0;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296;};
+ const vn=(x,y,n)=>{const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),X0=((xi%n)+n)%n,X1=(X0+1)%n,Y0=((yi%n)+n)%n,Y1=(Y0+1)%n,a=hs(X0,Y0),b=hs(X1,Y0),c=hs(X0,Y1),d=hs(X1,Y1);return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy;};
+ const sd=R()*1000|0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){const p=(y*N+x)*4,m=(vn(x/128+sd,y/128,4)-0.5)*6+(vn(x/32+sd,y/32+7,16)-0.5)*3,gr=(vn(x/1.6+sd,y/1.6,320)-0.5)*34;
+  let v=gr+(R()+R()-1)*6;if(R()<0.025)v+=(R()<0.5?-1:1)*(10+R()*8);if(R()<0.0006)v-=26;
+  const k=v+m;dC[p]=c8(94+k);dC[p+1]=c8(93+k);dC[p+2]=c8(92+k);dC[p+3]=255;dS[p]=dS[p+1]=dS[p+2]=10;dS[p+3]=255;dN[p]=128;dN[p+1]=128;dN[p+2]=255;dN[p+3]=255;}
+ for(let i=0;i<600;i++){const x0=R()*N|0,y0=R()*N|0,sz=R()<0.35?2:1,th=R()*Math.PI*2,ph=R()*0.6,nx=Math.sin(ph)*Math.cos(th),ny=Math.sin(ph)*Math.sin(th),nz=Math.cos(ph),sp=70+R()*80,br=5+R()*9;
+  for(let dy=0;dy<sz;dy++)for(let dx=0;dx<sz;dx++){const p=(((y0+dy)%N)*N+(x0+dx)%N)*4;dC[p]=c8(dC[p]+br);dC[p+1]=c8(dC[p+1]+br);dC[p+2]=c8(dC[p+2]+br+1);dS[p]=dS[p+1]=dS[p+2]=sp|0;dN[p]=c8(128+nx*127);dN[p+1]=c8(128+ny*127);dN[p+2]=c8(128+nz*127);}}
+ gC.putImageData(iC,0,0);gS.putImageData(iS,0,0);gN.putImageData(iN,0,0);return{c:cC,s:cS,n:cN};})();
+// 照りの光：焼いた明るさ（その点に届いた光の合計）を、届きうる光源の向きに分ける。光源ごとの割合は 光束×配光×cos/距離² で見積もる（壁の向こうの光源は入れない：
+// テレビの面は LDK の照明と昼の南の窓、トイレの面は G1 と、SG500 が開いているときの玄関ホールの B2・B3・昼の玄関）。位置・配光は bake_common.LAMPS と同じ
+// [組, 区域（0＝LDK・1＝トイレ）, 位置, 光束, 種類（0＝点・-1＝真下の拡散・正＝向きのある光の半角（ラジアン））, 向き]
+const LAMEL=[...[2.63,3.53,4.30].map(x=>['a1',0,[x,2.39,1.0],440,-1]),...[5.075,6.575].map(z=>['a4',0,[1.79,2.39,z],440,-1]),
+ ...[2.75,3.53].map(x=>['a3',0,[x,2.29,2.22],326,0.35,[0,-1,0]]),...[5.075,6.575].map(z=>['a6',0,[0.895,2.39,z],320,0.68,[-0.64,-1.89,0]]),
+ ...[5.075,6.575].flatMap(z=>[['a2',0,[2.357,2.488,z+0.07],620,0.76,[0,1,0]],['a2',0,[2.357,2.412,z-0.07],620,0.76,[0,-1,0]]]),
+ ['a2',0,[4.12,2.488,7.078],620,0.76,[0,1,0]],['a2',0,[3.98,2.412,7.078],620,0.76,[0,-1,0]],
+ ...[1.065,1.415,1.765].map(x=>['a5',0,[x,1.4975,2.12],350,0]),['day',0,[2.2,1.6,9.0],1e6,0],
+ ['g1',1,[-2.1225,1.632,5.9525],312,0],...[5.558,6.12].map(z=>['eh',1,[-0.675,2.39,z],440,-1]),['b3',1,[-0.91,1.94,4.727],350,0],['day',1,[-0.9,1.5,4.6],1e5,0]];
+const LAMEU={uCam:{value:cam.position},uLK:{value:+Q.get('lk')||1},uLaN:{value:null},uLaS:{value:null},uLP:{value:LAMEL.map(l=>new THREE.Vector4(...l[2],0))},uLD:{value:LAMEL.map(l=>new THREE.Vector4(...(l[5]?new THREE.Vector3(...l[5]).normalize().toArray():[0,-1,0]),l[4]))},uLZ:{value:LAMEL.map(l=>l[1])}};
+function lameLights(s){LAMEL.forEach((l,i)=>{const on=l[0]==='day'?!s.night:!!s.LS[l[0]==='b3'?'eh':l[0]];LAMEU.uLP.value[i].w=on&&(l[1]===0||l[0]==='g1'||s.DS.sg500)?l[3]:0;});}
+const LAMEGL=`uniform vec3 uCam;uniform float uLK;uniform sampler2D uLaN;uniform sampler2D uLaS;uniform vec4 uLP[${LAMEL.length}];uniform vec4 uLD[${LAMEL.length}];uniform float uLZ[${LAMEL.length}];varying vec3 vWP;
+vec3 lameSpec(vec3 E){vec3 N=normalize(cross(dFdx(vWP),dFdy(vWP)));vec3 V=normalize(uCam-vWP);if(dot(N,V)<0.0)N=-N;
+ vec3 T=normalize(cross(vec3(0.0,1.0,0.0),N)),B=cross(N,T),tn=texture2D(uLaN,vUv).xyz*2.0-1.0,G=normalize(T*tn.x+B*tn.y+N*tn.z);
+ float zone=vWP.x<0.0?1.0:0.0,sw=0.0,sa=0.0;
+ for(int i=0;i<${LAMEL.length};i++){vec4 P=uLP[i];vec4 D=uLD[i];if(P.w<=0.0||abs(uLZ[i]-zone)>0.5)continue;
+  vec3 d=P.xyz-vWP;float r2=dot(d,d);vec3 L=d*inversesqrt(r2);float cw=max(dot(N,L),0.0);if(cw<=0.0)continue;
+  float ang=D.w>0.0?exp(-0.693*pow(acos(clamp(dot(-L,D.xyz),-1.0,1.0))/D.w,2.0)):(D.w<0.0?max(dot(-L,D.xyz),0.0):1.0);
+  float a=P.w*ang*cw/r2;sw+=a;sa+=a*pow(max(dot(G,normalize(L+V)),0.0),70.0)*max(dot(G,L),0.0)/cw;}
+ return E*texture2D(uLaS,vUv).r*9.0*uLK*sa/max(sw,1e-9);}`;   // 本番の Phong（照り＝照度×specularMap×0.25×(70/2+1)×cos^70。光の量は焼いた明るさの割合）。見る位置は uCam で渡す（MeshBasicMaterial には cameraPosition が渡らず原点のままで、テレビの面では光源が裏にあることになり光らなかった）
+function patchMat(m,vl,vo,cg,sd,lame){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ if(lame){Object.assign(sh.uniforms,LAMEU);sh.vertexShader='varying vec3 vWP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  if(sd){sh.uniforms.uShP=UNI.uShP;sh.vertexShader='attribute vec3 shd;attribute vec4 stop;uniform float uShP;\n'+sh.vertexShader.replace('#include <begin_vertex>',SHV);}
  if(cg){sh.uniforms.uCau={value:compRT('c:'+cg).texture};sh.uniforms.uCauT={value:cauTex};sh.uniforms.uCauP={value:new THREE.Vector3(...CAU.p)};sh.uniforms.uCauK={value:new THREE.Vector4(...CAU.k)};   // cg：G1 のまっすぐ届く光のアトラス
   sh.vertexShader='varying vec3 vWC;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWC=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+(cg?CAUGL:'')+CMP+sh.fragmentShader;
  if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
  if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
- else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');};   // r128 の MeshBasicMaterial のライトマップの行
- m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'');return m;}
+ else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');   // r128 の MeshBasicMaterial のライトマップの行
+ if(lame)sh.fragmentShader=sh.fragmentShader.replace('#include <uv_pars_fragment>','#include <uv_pars_fragment>\n'+LAMEGL).replace('vec3 outgoingLight = reflectedLight.indirectDiffuse;','vec3 lameE=reflectedLight.indirectDiffuse;\nreflectedLight.indirectDiffuse*=diffuseColor.rgb;vec3 outgoingLight=reflectedLight.indirectDiffuse+lameSpec(lameE);').replace('reflectedLight.indirectDiffuse *= diffuseColor.rgb;','');};   // 照りは材質の色を掛けない（白い照り）
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'')+(lame?'L':'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 const entGlassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,side:THREE.DoubleSide});   // 玄関ドアの窓（本番 wash.js の entGl：昼 0xdfe3e5・夜 0x101318）
 
@@ -188,7 +222,7 @@ function setupModel(root){const mc=new Map();
   if(!o.isMesh)return;const u=info(o),m=o.material;
   if(!u){o.material=glassMat;return;}
   if(m.userData&&m.userData.entglass){o.material=entGlassMat;return;}   // 玄関ドアの窓：本番の entGl と同じく焼いた明るさを使わない
-  const vl=!!u.vlit,sd=!!u.shadeobj,key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
+  const vl=!!u.vlit,sd=!!u.shadeobj,lame=!vl&&!!(m.userData&&m.userData.lame),key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
    const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
    if(g.attributes.color_1)g.deleteAttribute('color_1');if(orig)g.setAttribute('vorig',new THREE.BufferAttribute(orig,3));
@@ -197,7 +231,9 @@ function setupModel(root){const mc=new Map();
    (VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,pos});}
   const vo=vl&&!!o.geometry.attributes.vorig;
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null,sd);if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null,sd,lame);
+   if(lame){const om=m.map,mk=c=>{const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.flipY=false;if(om){t.repeat.copy(om.repeat);t.offset.copy(om.offset);t.center.copy(om.center);t.rotation=om.rotation;}return t;};   // 本番と同じ作り方の柄に替える（照りの粒と色の明るい粒の位置をそろえる）
+    nm.map=mk(ic5025.c);nm.map.encoding=THREE.sRGBEncoding;LAMEU.uLaN.value=mk(ic5025.n);LAMEU.uLaS.value=mk(ic5025.s);}if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
   o.material=nm;
   if(m.userData&&m.userData.lamp)LAMPM.push({o,k:m.userData.lamp,off:nm,on:new THREE.MeshBasicMaterial({color:m.userData.lamp==='a5'?sRGB(0xffb066).multiplyScalar(EXPO.night*(m.transparent?0.5:0.9)):m.color.clone().multiplyScalar(EMIT),side:m.side,transparent:m.transparent,opacity:m.transparent?Math.max(m.opacity,0.9):m.opacity})});
   if(u.door)DOORM.push(o);});
@@ -207,7 +243,7 @@ function setupModel(root){const mc=new Map();
   for(let i=0;i<n;i++){let j=i;if(s.getZ(i)>0.5&&s.getZ(i)<1.5&&s.getX(i)>1e-4)for(let k=0;k<n;k++)if(s.getZ(k)>0.5&&s.getZ(k)<1.5&&s.getX(k)<1e-4&&Math.abs(p.getX(k)-p.getX(i))<1e-3&&Math.abs(p.getZ(k)-p.getZ(i))<1e-3){j=k;break;}   // 同じ縦の線の上の端の点
    st[i*4]=u?u.getX(j):0;st[i*4+1]=u?u.getY(j):0;st[i*4+2]=u2.getX(j);st[i*4+3]=u2.getY(j);}
   g.setAttribute('shd',s);g.deleteAttribute('_shd');g.setAttribute('stop',new THREE.BufferAttribute(st,4));});}
-function applyShown(){const s=shown;
+function applyShown(){const s=shown;lameLights(s);
  for(const d in DOORN){DOORN[d].open.forEach(o=>o.visible=s.DS[d]);DOORN[d].closed.forEach(o=>o.visible=!s.DS[d]);}
  LAMPM.forEach(l=>l.o.material=s.LS[l.k]?l.on:l.off);
  r.toneMappingExposure=1/(s.night?EXPO.night:EXPO.day);UNI.uE.value=s.night?EXPO.night:EXPO.day;UNI.uShP.value=s.shade;UNI.uG.value=s.night?GAM.night:GAM.day;

@@ -59,6 +59,21 @@ for mn, cnt in found.items():
     if g != '-':
         bpy.data.materials[mn]['lamp'] = g
     print('emit', mn, cnt, flush=True)
+# ラメの壁紙（本番 common.js の ic5025Mat：テレビの面とトイレのアクセント面）に印：ページでラメの粒の照りを足す（glTF には本番の照りと粒の向きの画像が入らない）。
+# テレビの面（x＝0.455 の東向きの面）の材質を探す。トイレのアクセント面は本番で同じ材質なので同じ印になる
+lame = {}
+for o in bpy.data.objects:
+    if o.type != 'MESH':
+        continue
+    mw = o.matrix_world; nm3 = mw.to_3x3()
+    for p in o.data.polygons:
+        c = mw @ p.center; n = (nm3 @ p.normal).normalized()
+        m = o.data.materials[p.material_index] if p.material_index < len(o.data.materials) else None
+        if m and abs(c.x - 0.455) < 0.01 and n.x > 0.9 and 0.5 < c.z < 2.0 and 5.0 < -c.y < 6.5:
+            lame[m.name] = lame.get(m.name, 0) + 1
+for mn in lame:
+    bpy.data.materials[mn]['lame'] = 1
+print('emit lame', lame, flush=True)
 # 頂点の色を使う材質（本番で vertexColors の物＝電気ケトル）に印。ページは印のある材質だけ元の頂点の色を掛ける（glTF の読み込みは色の属性があれば全部の材質で頂点の色を使ってしまう）
 for m in bpy.data.materials:
     if m.node_tree and any(n.type in ('VERTEX_COLOR', 'ATTRIBUTE') for n in m.node_tree.nodes):
