@@ -15,6 +15,8 @@ argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODE = argv[0]
 TEXEL = 0.02        # よく見る所のライトマップの1画素（m）
 COARSE = 0.4        # 天井・下向きの面・高い所は、画素を 1/0.4 倍の大きさに（粗く）
+FINE = 2.0          # 壁付けの照明（A2・O2・B3）の付いた壁の島は、画素を 1/2 の大きさ（1cm）に（細かく）。器具のすぐ脇で光をかすめて受ける壁は明るさが1〜2画素で急に変わり、2cm の画素の段で光の縁がガタガタに見えた（2026-11-02）
+WALL_LAMPS = ('a2', 'bbr', 'b3')
 DOORS = ['SG311', 'SG500w', 'SG33s', 'SG300l', 'SG300w', 'BATHD', 'SG33', 'SG11H', 'SG500']   # 開閉できるドア（物の名前の頭で見分ける。同じ頭の長い名前を先に）
 DOOR2F = {'SG311', 'SG500w', 'SG33s'}
 ADJ = {'SG311': ('bed', 'hall'), 'SG500w': ('bed', 'wic'), 'SG33s': ('bed', 'study'), 'SG300l': ('ldk', 'dress'), 'SG300w': ('dress', 'wash'),
@@ -230,18 +232,39 @@ def prep(out):
                 o.data.uv_layers['LM'].data.foreach_set('uv', np.nan_to_num(uv, nan=0.0, posinf=0.0, neginf=0.0))
         print('uvdbg', g, 'after project', uv_area(objs), flush=True)
         # 自動展開の島は実寸に比例した大きさ（面の大きさをそろえる処理は、面積が0に近い島を極端に大きくして詰め込みが壊れたので使わない）
-        area = 0.0
+        area = 0.0; nfine = 0
+        from bpy_extras.mesh_utils import mesh_linked_uv_islands
+        wl = [bc.B(*t[1]) for k in WALL_LAMPS for t in bc.LAMPS[k]]
+        def near_lamp(o, p):   # 壁の面で、壁付けの照明が面の前 15cm 以内・面の範囲（5cm の余裕）の中にある
+            mw = o.matrix_world; n = (mw.to_3x3() @ p.normal).normalized()
+            if abs(n.z) > 0.5:
+                return False
+            c = mw @ p.center; vs = [mw @ o.data.vertices[v].co for v in p.vertices]
+            for q in wl:
+                d = (q - c).dot(n)
+                if 0 < d < 0.15:
+                    r = q - n * d
+                    if all(min(v[i] for v in vs) - 0.05 <= r[i] <= max(v[i] for v in vs) + 0.05 for i in range(3)):
+                        return True
+            return False
         for o in objs:
             me = o.data; uvl = me.uv_layers['LM'].data; mw = o.matrix_world
+            me.uv_layers.active = me.uv_layers['LM']
+            fine = set()
+            for isl in mesh_linked_uv_islands(me):   # 島ごと（島の中で倍率が違うと島が裂ける）
+                if any(near_lamp(o, me.polygons[pi]) for pi in isl):
+                    fine.update(isl)
+            nfine += len(fine)
             for p in me.polygons:
                 n = (mw.to_3x3() @ p.normal).normalized(); c = mw @ p.center
                 fl = 2.9 if (g in ('bed', 'wic', 'study', 'hall') or g[5:] in DOOR2F) else 0.0
                 coarse = n.z < -0.5 or ((c.z - fl) > 2.0 and n.z > 0.5)   # 天井・下向きの面と、高い所の上向きの面だけ粗く（壁は高い所も細かく：ブラケットの光が四角く出ていた。2026-10-25）
-                a = p.area * (COARSE ** 2 if coarse else 1.0)
-                area += a
-                if coarse:
+                k = FINE if p.index in fine else COARSE if coarse else 1.0
+                area += p.area * k * k
+                if k != 1.0:
                     for li in p.loop_indices:
-                        uvl[li].uv = uvl[li].uv * COARSE
+                        uvl[li].uv = uvl[li].uv * k
+        print('uvdbg', g, 'fine faces', nfine, flush=True)
         res = int(math.ceil(math.sqrt(area / TEXEL ** 2 / 0.6) / 64) * 64); res = max(256, min(2048, res))
         for o in objs:
             o.data.uv_layers.active = o.data.uv_layers['LM']   # 島は今の UV（LM）で数える
