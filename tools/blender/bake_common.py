@@ -10,7 +10,8 @@ B = lambda x, y, z: Vector((x, -z, y))
 FL2, H2 = 2.9, 5.3
 OX, OZ, BW_, BD_ = -2.2725, 3.6375, 2.6125, 3.5225
 W, D = 4.885, 7.16
-BRK_SPREAD = float(os.environ.get('BAKE_BRK_SPREAD', '60'))   # ブラケット（O2）の上下の光の広がり（度。全体の角度）
+BRK_SPREAD = float(os.environ.get('BAKE_BRK_SPREAD', '100'))   # ブラケット（O2）の上下の光の広がり（度。全体の角度）。本番（上下のスポット・外側65度・ぼかし0.9）と Blender で撮り比べて決めた（2026-11-02。広がり 60・150、壁へ 7度・壁から 10〜15度の傾きと比べ、天井の大きな柔らかい明るみと壁の淡い V 字が一番近い。60 は天井に縁の切れた四角い光、150 は器具のすぐ脇の壁に明るい丸が出て天井が暗かった）
+BRK_TILT = float(os.environ.get('BAKE_BRK_TILT', '0'))   # ブラケットの上下の光を壁（−x）へ傾ける角度（度）。比べた結果 0
 DL = 440   # RML・RMW・RMN(P1)（LEDフラットランプφ70）の光束。色味違いの型番は色味以外を同じに（F2）
 
 # 照明の組（LS のキー）：器具ごとの [種類, 位置（three.js）, 光束]。ダウンライトは器具の径の円形の面光源（真下向き。書き出した器具の発光板の下面＝天井から6.5mmのすぐ下）、ブラケットは箱の上下の開口の正方形（半分ずつ）
@@ -178,7 +179,7 @@ def add_lamps(sc):
                 continue
             parts =[((0, 0, 0), 'DISK', t[3], lm, (p[0], p[1] - 0.0075, p[2]))] if kind == 'disk' else \
                    [((0, 0, 0), 'DISK', 0.07, lm, (p[0], p[1] - 0.0075, p[2]))] if kind == 'down' else \
-                    [((math.pi, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] + 0.0375, p[2])), ((0, 0, 0), 'SQUARE', 0.055, lm / 2, (p[0], p[1] - 0.0375, p[2]))]
+                    [((math.pi, -math.radians(BRK_TILT), 0), 'DISK', 0.062, lm / 2, (p[0], p[1] + 0.0375, p[2])), ((0, math.radians(BRK_TILT), 0), 'DISK', 0.062, lm / 2, (p[0], p[1] - 0.0375, p[2]))]   # brk：開口と同じ面積の円（四角い面光源を絞ると照らした所も四角く縁が切れ、天井に四角い光が出ていた。2026-11-02）。壁（−x）へ BRK_TILT 傾ける
             for rot, shape, size, l, pos in parts:
                 ld = bpy.data.lights.new('L_' + g, type='AREA'); ld.shape = shape; ld.size = size; ld.energy = l * LM2W
                 if kind == 'brk':   # 上下の開口から上下へ絞って出す（本番の上下のスポットと同じく、壁に V 字の光の筋が天井まで届く。全方向に出すと箱のまわりが丸くぼやけていた。2026-10-31）

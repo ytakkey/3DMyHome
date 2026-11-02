@@ -147,6 +147,16 @@ async function decodePNG(buf){const dv=new DataView(buf);let p=8,w=0,h=0,depth=8
    if(f===1)pr=a;else if(f===2)pr=b;else if(f===3)pr=(a+b)>>1;else{const c=(y&&i>=bpp)?out[o-st+i-bpp]:0,q=a+b-c,pa=Math.abs(q-a),pb=Math.abs(q-b),pc=Math.abs(q-c);pr=(pa<=pb&&pa<=pc)?a:(pb<=pc?b:c);}
    out[o+i]=(raw[s+i]+pr)&255;}}
  return {w,h,depth,ch,data:out};}
+function texData(im){if(im.depth!==16)return {w:im.w,h:im.h,half:false,data:im.data};const s=im.data,n=im.w*im.h,d=new Uint16Array(n*4);for(let i=0,j=0;i<n;i++,j+=6){d[i*4]=s[j]<<8|s[j+1];d[i*4+1]=s[j+2]<<8|s[j+3];d[i*4+2]=s[j+4]<<8|s[j+5];d[i*4+3]=0x3c00;}return {w:im.w,h:im.h,half:true,data:d};}   // 16bit → 半精度の画素
+// PNG の展開は別のスレッド（Worker）で並べて行う（メインで展開すると、全点灯のように層の多い切り替えで画面が数秒固まっていた。2026-11-02）。Worker が使えない・失敗したときはメインで
+const PNGW=(()=>{try{const n=Math.max(1,Math.min(4,(navigator.hardwareConcurrency||2)-1)),P={ws:[],cb:new Map(),id:0,dead:false};
+ const url=URL.createObjectURL(new Blob([decodePNG.toString()+';'+texData.toString()+';onmessage=async e=>{try{const t=texData(await decodePNG(e.data.buf));postMessage({id:e.data.id,t},[t.data.buffer]);}catch(x){postMessage({id:e.data.id,err:String(x)});}};'],{type:'text/javascript'}));
+ for(let i=0;i<n;i++){const w=new Worker(url);w.busy=0;w.onmessage=e=>{const c=P.cb.get(e.data.id);if(!c)return;P.cb.delete(e.data.id);w.busy--;if(e.data.err)c.rej(new Error(e.data.err));else c.res(e.data.t);};
+  w.onerror=()=>{P.dead=true;P.cb.forEach(c=>c.rej(new Error('worker')));P.cb.clear();};P.ws.push(w);}
+ return P;}catch(e){return null;}})();
+function decodeTex(buf){const main=()=>decodePNG(buf).then(texData);if(!PNGW||PNGW.dead)return main();
+ const w=PNGW.ws.reduce((a,b)=>b.busy<a.busy?b:a),id=++PNGW.id;w.busy++;
+ return new Promise((res,rej)=>{PNGW.cb.set(id,{res,rej});w.postMessage({id,buf:buf.slice(0)});}).catch(main);}   // 取得したファイルは取っておくので写しを渡す
 
 // ===== 層の画像：取得（ファイルのまま持つ）→ GPU の画像（使い終わっても上限までは置いておく）=====
 let IDX=null,netBytes=0,tick=0;
@@ -157,15 +167,13 @@ async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c
  const buf=await fetchBytes(e.file);let w,h,data,type=THREE.UnsignedByteType,n;
  if(IDX.enc==='logj'){const bmp=await createImageBitmap(new Blob([buf],{type:'image/jpeg'}),{colorSpaceConversion:'none',premultiplyAlpha:'none'});w=bmp.width;h=bmp.height;
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.drawImage(bmp,0,0);data=new Uint8Array(cx.getImageData(0,0,w,h).data.buffer);bmp.close();n=w*h*4;}
- else{const im=await decodePNG(buf);w=im.w;h=im.h;
-  if(im.depth===16){const s=im.data;data=new Uint16Array(w*h*4);type=THREE.HalfFloatType;for(let i=0,j=0;i<w*h;i++,j+=6){data[i*4]=s[j]<<8|s[j+1];data[i*4+1]=s[j+2]<<8|s[j+3];data[i*4+2]=s[j+4]<<8|s[j+5];data[i*4+3]=0x3c00;}n=w*h*8;}
-  else{data=im.data;n=w*h*4;}}
+ else{const t=await decodeTex(buf);w=t.w;h=t.h;data=t.data;if(t.half){type=THREE.HalfFloatType;n=w*h*8;}else n=w*h*4;}
  c=texCache.get(e.file);if(c)return c.tex;   // 同時に読んだとき
  const tex=new THREE.DataTexture(data,w,h,THREE.RGBAFormat,type);tex.minFilter=tex.magFilter=THREE.NearestFilter;tex.generateMipmaps=false;tex.flipY=false;tex.needsUpdate=true;
  tex.onUpdate=()=>{tex.image.data=null;};   // GPU へ送ったら CPU の画素は捨てる
  texCache.set(e.file,{tex,n,used:++tick});return tex;}
 const vtxCache=new Map();   // 頂点の明るさのファイル → 読んだ画素（RGBM、小さいので取っておく）
-async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodePNG).then(im=>im.data);c.catch(()=>{if(vtxCache.get(e.file)===c)vtxCache.delete(e.file);});vtxCache.set(e.file,c);}return c;}
+async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodeTex).then(t=>t.data);c.catch(()=>{if(vtxCache.get(e.file)===c)vtxCache.delete(e.file);});vtxCache.set(e.file,c);}return c;}
 function evict(keep){
  let t=[...texCache.values()].reduce((s,c)=>s+c.n,0);
  for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;c.tex.dispose();texCache.delete(f);t-=c.n;}
@@ -193,8 +201,8 @@ function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(s
  const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);const c=L.startsWith('g1d@');for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w,c}:{g:c?'c:'+g:g,e:ent[g],w});});return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
 let ver=0,shown=null,stat={};
-async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st);
- const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));if(v!==ver)return false;
+async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st),bt=setTimeout(()=>{if(v===ver)$('busy').hidden=false;},250);   // 時間がかかるときだけ「切り替え中」
+ const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));clearTimeout(bt);if(v!==ver)return false;$('busy').hidden=true;
  const acc={};for(const g in VMESH)acc[g]=new Float32Array(((IDX.vn||{})[g]||0)*3);   // 頂点で焼く物：アトラスごとに点の明るさ（lux）を CPU で足す
  items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max,cf=it.c?vCau(it.v):null;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255*(cf?cf[j]:1);a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
  for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=a[b]||0;c[j*3+1]=a[b+1]||0;c[j*3+2]=a[b+2]||0;}m.col.needsUpdate=true;});
@@ -205,10 +213,12 @@ async function recompose(){const v=++ver,st=cur(),t0=performance.now();const ite
  r.setRenderTarget(rt0);r.autoClear=ac;r.getContext().finish();
  shown=st;applyShown();evict(new Set(items.map(it=>it.e.file)));
  stat.load=Math.round(t1-t0);stat.gpu=Math.round(performance.now()-t1);stat.layers=items.length;draw();showStat();prefetch();return true;}
-// 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜）の層のファイルを先に取っておく（GPU には送らない）
+// 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜・全点灯・全消灯）の層のファイルを先に取っておく（GPU には送らない）
 function prefetch(){const st=cur(),fs=new Set();const add=s=>{try{wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});}catch(e){}};   // 焼いていない組み合わせ（試しに焼いた一部の層だけのとき）は飛ばす
- Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));add({...st,night:!st.night});
- [...fs].reduce((p,f)=>p.then(()=>fetchBytes(f)).catch(()=>{}),Promise.resolve());}
+ const all=v=>Object.fromEntries(Object.keys(LS).map(k=>[k,v]));add({...st,night:!st.night});add({...st,LS:all(true)});add({...st,LS:all(false)});   // 層が百枚以上変わる昼夜・全点灯・全消灯を先に
+ Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));
+ const q=[...fs].filter(f=>!byteCache.has(f)),g=++pfGen,run=async()=>{while(q.length&&g===pfGen)await fetchBytes(q.shift()).catch(()=>{});};for(let i=0;i<4;i++)run();}   // 4本ずつ並べて取る（1本ずつでは、全点灯の百枚余りが30秒たっても3割ほどしか届いていなかった。2026-11-02）。状態が変わったら前の先読みはやめる
+let pfGen=0;
 let pending=null;function changed(){if(!pending)pending=Promise.resolve().then(()=>{pending=null;return recompose();});return pending;}
 
 // ===== 模型：材質は元の色・柄のまま、光はアトラスの1枚（uv2）から =====

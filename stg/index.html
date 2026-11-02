@@ -6,9 +6,10 @@
 <title>3Dマイホーム（焼き込みの検証）</title>
 <!-- 検証ページ（本番とは別。CLAUDE.md 1章）：Blender で焼いた光（stg/lm/）を、試作の模型（stg/house.glb）に貼って歩き回る。操作は本番（js/ui.js）と同じ -->
 <link rel="stylesheet" href="../css/style.css">
-<style>.stat{font:11px/1.45 ui-monospace,monospace;white-space:pre-wrap;margin:6px 0 0;max-width:72vw}#lmSel{font-size:13px;max-width:72vw}</style>
+<style>.stat{font:11px/1.45 ui-monospace,monospace;white-space:pre-wrap;margin:6px 0 0;max-width:72vw}#lmSel{font-size:13px;max-width:72vw}#busy{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9;display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:14px;background:rgba(20,28,40,.78);color:var(--tx);font-size:12px;letter-spacing:.05em;pointer-events:none}#busy[hidden]{display:none}#busy .spin{width:12px;height:12px;box-sizing:border-box;border:2px solid rgba(245,239,230,.22);border-top-color:var(--acc);border-radius:50%;animation:ldspin .9s linear infinite}</style>
 </head>
 <body>
+<div id="busy" role="status" hidden><i class="spin"></i><span>切り替え中…</span></div>   <!-- 層の取得・展開に時間がかかる切り替えの間だけ出す -->
 <div id="loading" role="status"><div class="ld"><i class="spin"></i><span>読み込み中…</span></div><div class="lbar"><b id="ldBar"></b></div></div>   <!-- 読み込み中の表示（読み終わると消える） -->
 <div id="panel">   <!-- メニュー（右下）：アイコンのバーと、その上に1つずつ開くパネル（最小化はなし） -->
   <div id="sheet" class="box" hidden>
