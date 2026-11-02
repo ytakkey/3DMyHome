@@ -712,11 +712,17 @@ def separate_coplanar():
     if not tris:
         return
     bvh = BVHTree.FromPolygons([v for t in tris for v in t], [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tris))], epsilon=0.0)
+    # 面の大きさは、部品の中で同じ平面にある面をすべて足した広さで比べる（三角に割った平面＝洗面台のカウンターの上面は、三角1つが前の縁の上面より小さく、
+    # カウンターの方を下げて縁と同じ高さに並び、黒い線が出た。2026-11-02）
     farea = {}
     for oi, o in enumerate(objs):
-        mw = o.matrix_world; sc = abs(mw.to_3x3().determinant()) ** (2 / 3)
+        mw = o.matrix_world; nm = mw.to_3x3(); sc = abs(nm.determinant()) ** (2 / 3); grp = {}; key = {}
         for p in o.data.polygons:
-            farea[(oi, p.index)] = p.area * sc
+            n = (nm @ p.normal).normalized()
+            k = (round(n.x * 500), round(n.y * 500), round(n.z * 500), round(n.dot(mw @ p.center) / 0.0003))
+            grp[k] = grp.get(k, 0) + p.area * sc; key[p.index] = k
+        for p in o.data.polygons:
+            farea[(oi, p.index)] = grp[key[p.index]]
     moved = 0
     for oi, o in enumerate(objs):
         me = o.data; mw = o.matrix_world; nm = mw.to_3x3(); inv = nm.inverted()

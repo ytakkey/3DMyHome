@@ -96,7 +96,7 @@ buildWall(wallGroup(SX1,0,SZ1,Math.PI),SX1-X0,H1,[{a:SX1-hbX-0.225,b:SX1-hbX+0.2
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));geo.setIndex(idx);geo.computeVertexNormals();g.add(new THREE.Mesh(geo,P({color:0xf7f7f5,specular:0x555555,shininess:50,side:THREE.DoubleSide,vertexColors:true})));
   const sh=new THREE.Shape([[0,0],[XS,0],[XS,-0.53],[0,-0.53]].map(([x,y])=>new THREE.Vector2(x,y))),hl=new THREE.Path(rq(top,0.03,NC).map(([x,z])=>new THREE.Vector2(x,-z)));sh.holes.push(hl);   // カウンターの上面（ボウルの穴あき）
   const cg=new THREE.ShapeGeometry(sh);cg.rotateX(-Math.PI/2);const ct=new THREE.Mesh(cg,cw);ct.position.y=YT;g.add(ct);
-  lbox(g,XS,0.03,0.012,XS/2,YT-0.015,0.524,cw);   // カウンターの前の縁
+  lboxOpen(g,XS,0.03,0.012,XS/2,YT-0.015,0.524,cw,[2]);   // カウンターの前の縁（上の面は作らない：カウンターの上面と同じ高さで重なり、焼くと黒い線になった）
   const dn=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.003,24),cm);dn.position.set(0.46,YD+0.003,0.40);g.add(dn);}   // 排水口
  // 背面パネル（水栓の付く白い壁）と水栓
  lbox(g,DW-0.04,0.31,0.1,DW/2,1.005,0.05,cw);   // 壁から壁まで（両端の側板の間）
