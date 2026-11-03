@@ -14,6 +14,68 @@ keep = lambda o: o.type == 'MESH' and ((o.name.startswith('A_') and o.name != 'A
 for o in list(bpy.data.objects):
     if not keep(o):
         bpy.data.objects.remove(o)
+# 1.5画素より細い小さな UV の島（丸めた角の三角の扇など。1cm² 未満で、画素の中心が乗らず、余白の値を拾う。3画素まで広げると面取りの帯が内側の見えない面の島に寄って黒くなった）は、形でつながった隣の島の UV に寄せる
+# （洗濯機・ソファの丸い角で、細い三角の島が近くの別の面の明るさを拾い、黒い点になっていた。2026-11-03。焼いた画像はそのまま使える）
+def snap_tiny(o, lm):
+    from bpy_extras.mesh_utils import mesh_linked_uv_islands
+    res = o.get('lm_res'); me = o.data
+    if not res:
+        return 0
+    me.uv_layers.active = me.uv_layers['LM']
+    uv = lm.reshape(-1, 2).copy(); sc = abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3)
+    pis = np.zeros(len(me.polygons), np.int32); tiny = set()
+    for k, isl in enumerate(mesh_linked_uv_islands(me)):
+        pis[isl] = k
+        li = [l for p in isl for l in me.polygons[p].loop_indices]
+        q = uv[li].astype(np.float64) * res; d = q - q.mean(0); w_, v_ = np.linalg.eigh(d.T @ d); t_ = d @ v_[:, 0]
+        if t_.max() - t_.min() < 1.5 and sum(me.polygons[p].area for p in isl) * sc < 1e-4:
+            tiny.add(k)
+    if not tiny:
+        return 0
+    lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
+    co = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    _, pk = np.unique(np.round(co / 1e-4).astype(np.int64), axis=0, return_inverse=True)   # つながりは頂点の位置で（three.js から来た形は三角ごとに頂点が別々）
+    lv = pk.ravel()[lv]; co = co[np.unique(pk.ravel(), return_index=True)[1]]
+    vgood = {}   # 頂点 → 寄せ先になる島の [(島, ループ)]
+    vpoly = {}
+    for p in me.polygons:
+        for l in p.loop_indices:
+            vpoly.setdefault(lv[l], []).append(p.index)
+            if pis[p.index] not in tiny:
+                vgood.setdefault(lv[l], []).append((pis[p.index], l))
+    lpoly = np.zeros(len(me.loops), np.int32)
+    for p in me.polygons:
+        lpoly[p.loop_start:p.loop_start + p.loop_total] = p.index
+    n = 0
+    for p in me.polygons:
+        if pis[p.index] not in tiny:
+            continue
+        cand, seen, front = [], {p.index}, [p.index]
+        for _ in range(6):   # つながった面をたどって、一番近い（手数の少ない）大きな島のループ
+            for q in front:
+                for v in lv[me.polygons[q].loop_start:me.polygons[q].loop_start + me.polygons[q].loop_total]:
+                    cand += vgood.get(v, [])
+            if cand:
+                break
+            front = list({r for q in front for v in lv[me.polygons[q].loop_start:me.polygons[q].loop_start + me.polygons[q].loop_total] for r in vpoly[v] if r not in seen})
+            seen.update(front)
+        if not cand:
+            continue
+        best = max(cand, key=lambda kl: p.normal.dot(me.polygons[lpoly[kl[1]]].normal))[0]   # 向きが一番近い面の島
+        tl = np.array([l for k, l in cand if k == best]); tco = co[lv[tl]]
+        for l in p.loop_indices:
+            uv[l] = uv[tl[np.argmin(((tco - co[lv[l]]) ** 2).sum(1))]]
+        n += 1
+    lm[:] = uv.ravel()
+    return n
+ntiny = 0
+for o in bpy.data.objects:
+    if o.name.startswith('A_') and 'LM' in o.data.uv_layers:
+        a = np.zeros(len(o.data.loops) * 2, np.float32); o.data.uv_layers['LM'].data.foreach_get('uv', a)
+        k = snap_tiny(o, a)
+        if k:
+            o.data.uv_layers['LM'].data.foreach_set('uv', a); ntiny += k
+print('gltf snapped tiny-island faces', ntiny, flush=True)
 # UV の並びをそろえる：[UVMap, LM]
 for o in bpy.data.objects:
     me = o.data
