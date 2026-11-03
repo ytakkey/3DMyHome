@@ -5,7 +5,8 @@
 const $=id=>document.getElementById(id);
 const Q=new URLSearchParams(location.search);
 const LMV=Q.get('lm')||'',LMDIR=LMV?'../bake/work/trial_lm/'+LMV+'/':'lm/';
-const TEX_BUDGET=(+Q.get('budget')||128)*2**20,BYTE_BUDGET=64*2**20;   // GPU に置いておく層の画像・取得済みのファイルの上限（超えたら、いまの状態で使わない物から捨てる）
+const PHONE=matchMedia('(pointer:coarse)').matches&&Math.min(screen.width,screen.height)<600;   // スマホ（メモリが少ない。2026-11-03 にスマホでページが開かなくなった）
+const TEX_BUDGET=(+Q.get('budget')||(PHONE?64:128))*2**20,BYTE_BUDGET=(PHONE?24:64)*2**20;   // GPU に置いておく層の画像・取得済みのファイルの上限（超えたら、いまの状態で使わない物から捨てる）。先読みもファイルの上限まで
 const LMK=32;   // まとめた画像には lux/32 を入れる（半精度の最大 65504 を超えないように）。表示で ×32
 const EXPO={day:+Q.get('ed')||2500,night:+Q.get('en')||700};   // 白（反射率1）が 1.0 になる照度（lux）。本番の見え方に近くなるよう選んだ（?ed=・?en= で変えて比べられる）
 const GAM={day:+Q.get('gd')||0.6,night:+Q.get('gn')||0.75};   // 明るさの幅を縮める：照度を 露出×(照度/露出)^GAM にする（明るさだけ。暗い所の黒つぶれ・明るい所の白飛びを抑える。E7。見る場所によらず同じ式＝D1）
@@ -149,7 +150,7 @@ async function decodePNG(buf){const dv=new DataView(buf);let p=8,w=0,h=0,depth=8
  return {w,h,depth,ch,data:out};}
 function texData(im){if(im.depth!==16)return {w:im.w,h:im.h,half:false,data:im.data};const s=im.data,n=im.w*im.h,d=new Uint16Array(n*4);for(let i=0,j=0;i<n;i++,j+=6){d[i*4]=s[j]<<8|s[j+1];d[i*4+1]=s[j+2]<<8|s[j+3];d[i*4+2]=s[j+4]<<8|s[j+5];d[i*4+3]=0x3c00;}return {w:im.w,h:im.h,half:true,data:d};}   // 16bit → 半精度の画素
 // PNG の展開は別のスレッド（Worker）で並べて行う（メインで展開すると、全点灯のように層の多い切り替えで画面が数秒固まっていた。2026-11-02）。Worker が使えない・失敗したときはメインで
-const PNGW=(()=>{try{const n=Math.max(1,Math.min(4,(navigator.hardwareConcurrency||2)-1)),P={ws:[],cb:new Map(),id:0,dead:false};
+const PNGW=(()=>{try{const n=Math.max(1,Math.min(PHONE?2:4,(navigator.hardwareConcurrency||2)-1)),P={ws:[],cb:new Map(),id:0,dead:false};
  const url=URL.createObjectURL(new Blob([decodePNG.toString()+';'+texData.toString()+';onmessage=async e=>{try{const t=texData(await decodePNG(e.data.buf));postMessage({id:e.data.id,t},[t.data.buffer]);}catch(x){postMessage({id:e.data.id,err:String(x)});}};'],{type:'text/javascript'}));
  for(let i=0;i<n;i++){const w=new Worker(url);w.busy=0;w.onmessage=e=>{const c=P.cb.get(e.data.id);if(!c)return;P.cb.delete(e.data.id);w.busy--;if(e.data.err)c.rej(new Error(e.data.err));else c.res(e.data.t);};
   w.onerror=()=>{P.dead=true;P.cb.forEach(c=>c.rej(new Error('worker')));P.cb.clear();};P.ws.push(w);}
@@ -216,8 +217,8 @@ async function recompose(){const v=++ver,st=cur(),t0=performance.now();const ite
 // 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜・全点灯・全消灯）の層のファイルを先に取っておく（GPU には送らない）
 function prefetch(){const st=cur(),fs=new Set();const add=s=>{try{wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});}catch(e){}};   // 焼いていない組み合わせ（試しに焼いた一部の層だけのとき）は飛ばす
  const all=v=>Object.fromEntries(Object.keys(LS).map(k=>[k,v]));add({...st,night:!st.night});add({...st,LS:all(true)});add({...st,LS:all(false)});   // 層が百枚以上変わる昼夜・全点灯・全消灯を先に
- Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));
- const q=[...fs].filter(f=>!byteCache.has(f)),g=++pfGen,run=async()=>{while(q.length&&g===pfGen)await fetchBytes(q.shift()).catch(()=>{});};for(let i=0;i<4;i++)run();}   // 4本ずつ並べて取る（1本ずつでは、全点灯の百枚余りが30秒たっても3割ほどしか届いていなかった。2026-11-02）。状態が変わったら前の先読みはやめる
+ if(!PHONE){Object.keys(DS).forEach(k=>add({...st,DS:{...st.DS,[k]:!st.DS[k]}}));Object.keys(LS).forEach(k=>add({...st,LS:{...st.LS,[k]:!st.LS[k]}}));}   // スマホは昼夜・全点灯・全消灯だけ
+ const q=[...fs].filter(f=>!byteCache.has(f)),g=++pfGen,full=()=>[...byteCache.values()].reduce((s,c)=>s+c.n,0)>=BYTE_BUDGET,run=async()=>{while(q.length&&g===pfGen&&!full())await fetchBytes(q.shift()).catch(()=>{});};for(let i=0;i<(PHONE?2:4);i++)run();}   // 4本ずつ並べて取る（1本ずつでは、全点灯の百枚余りが30秒たっても3割ほどしか届いていなかった。2026-11-02）。状態が変わったら前の先読みはやめる。取得済みのファイルが上限に達したらやめる（上限を超えて約80MB まで取っていた）
 let pfGen=0;
 let pending=null;function changed(){if(!pending)pending=Promise.resolve().then(()=>{pending=null;return recompose();});return pending;}
 
