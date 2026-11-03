@@ -37,6 +37,7 @@ DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50,
            'SG33': (-0.6, -0.425, -0.01, 2.1, 3.6075, 4.4625), 'SG11H': (0.31, 0.485, -0.01, 2.45, 3.6075, 4.4625), 'SG500': (-1.51, -1.335, -0.01, 2.1, 4.5375, 5.3575)}
 DOORZ = {'SG311', 'SG300w', 'BATHD'}   # 東西に走る壁のドア（壁の向きの成分は Blender の y）
 VMAX, VSMALL, VFACE = 2.3, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 2.3m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物。ソファは頂点＝縫い目の黒い線が出ない、ベッド 2.4m はライトマップ＝頂点だと日なたの縁がギザギザ）
+VFLAT = 0.01                            # 30cm より大きい丸みのある物でも、三角1つがこれ以上の面を持つ物はライトマップ（m²）
 VEDGE = 0.04                            # 頂点で焼く物は、辺を 4cm 以下に分ける（大きな面の中の明るさの変化を拾う）
 def vlit(o, bb):
     dim = max(max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3))
@@ -47,8 +48,9 @@ def vlit(o, bb):
     me = o.data; me.calc_loop_triangles(); mw = o.matrix_world   # 大きさによらず、丸みのある物（面が細かい物）は頂点で（ソファの縫い目のような UV の島の境に黒い線が出ていた。2026-10-25）
     if len(me.polygons) < 40:
         return False
-    area = sum(((mw @ me.vertices[t.vertices[1]].co) - (mw @ me.vertices[t.vertices[0]].co)).cross((mw @ me.vertices[t.vertices[2]].co) - (mw @ me.vertices[t.vertices[0]].co)).length / 2 for t in me.loop_triangles)
-    return area / len(me.polygons) < VFACE
+    ar = [((mw @ me.vertices[t.vertices[1]].co) - (mw @ me.vertices[t.vertices[0]].co)).cross((mw @ me.vertices[t.vertices[2]].co) - (mw @ me.vertices[t.vertices[0]].co)).length / 2 for t in me.loop_triangles]
+    # 大きく平らな面（三角1つが 100cm² 以上）を持つ物はライトマップで（頂点は 4cm おきなので、洗濯機の正面にモヤ、ソファの座面の日なたの縁に 4cm の鋸の歯が出た。2026-11-03）
+    return max(ar) < VFLAT and sum(ar) / len(me.polygons) < VFACE
 def subdivide(o, maxlen):
     bm = bmesh.new(); bm.from_mesh(o.data); mw = o.matrix_world
     for _ in range(7):
@@ -414,7 +416,8 @@ def bake_main(outdir, samples, only):
             c = np.array(p.center)
             for v in p.vertices:
                 acc[v] += c; cnt[v] += 1
-        tgt = acc / np.maximum(cnt, 1)[:, None]; d = tgt - co; L = np.linalg.norm(d, axis=1)
+        nv = np.empty(len(me.vertices) * 3); me.vertices.foreach_get('normal', nv); nv = nv.reshape(-1, 3)
+        tgt = acc / np.maximum(cnt, 1)[:, None]; d = tgt - co; d -= nv * (d * nv).sum(1)[:, None]; L = np.linalg.norm(d, axis=1)   # 面に沿う向きだけ（丸めた角では面の中心の平均が形の内側に入り、頂点が中に埋まって黒い点になった：洗濯機の角。2026-11-03）
         ks = np.minimum(0.002 / np.maximum(L, 1e-9), 0.3) * (cnt > 0)
         me.vertices.foreach_set('co', (co + d * ks[:, None]).ravel())
     names = sorted({o['atlas'] for o in objs})
