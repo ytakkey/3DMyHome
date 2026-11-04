@@ -17,25 +17,43 @@ for o in list(bpy.data.objects):
 # 1.5画素より細い小さな UV の島（丸めた角の三角の扇など。1cm² 未満で、画素の中心が乗らず、余白の値を拾う。3画素まで広げると面取りの帯が内側の見えない面の島に寄って黒くなった）は、形でつながった隣の島の UV に寄せる
 # （洗濯機・ソファの丸い角で、細い三角の島が近くの別の面の明るさを拾い、黒い点になっていた。2026-11-03。焼いた画像はそのまま使える）
 def snap_tiny(o, lm):
-    from bpy_extras.mesh_utils import mesh_linked_uv_islands
     res = o.get('lm_res'); me = o.data
     if not res:
         return 0
     me.uv_layers.active = me.uv_layers['LM']
     uv = lm.reshape(-1, 2).copy(); sc = abs(o.matrix_world.to_3x3().determinant()) ** (2 / 3)
-    pis = np.zeros(len(me.polygons), np.int32); tiny = set()
-    for k, isl in enumerate(mesh_linked_uv_islands(me)):
-        pis[isl] = k
+    lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
+    co = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    _, pk = np.unique(np.round(co / 1e-4).astype(np.int64), axis=0, return_inverse=True)   # つながりは頂点の位置で（three.js から来た形は三角ごとに頂点が別々）
+    lv = pk.ravel()[lv]; co = co[np.unique(pk.ravel(), return_index=True)[1]]
+    # 島：同じ位置で同じ UV の角を共有する面のまとまり（頂点の番号で数えると、ばらばらの三角が1枚ずつ島に見える）
+    lpo = np.zeros(len(me.loops), np.int64)
+    for p in me.polygons:
+        lpo[p.loop_start:p.loop_start + p.loop_total] = p.index
+    par = np.arange(len(me.polygons))
+    def root(i):
+        while par[i] != i:
+            par[i] = par[par[i]]; i = par[i]
+        return i
+    first = {}
+    for l, k in enumerate(zip(lv.tolist(), np.round(uv[:, 0] * 1e6).astype(np.int64).tolist(), np.round(uv[:, 1] * 1e6).astype(np.int64).tolist())):
+        if k in first:
+            a, b = root(first[k]), root(lpo[l])
+            if a != b:
+                par[b] = a
+        else:
+            first[k] = lpo[l]
+    pis = np.array([root(i) for i in range(len(me.polygons))]); tiny = set()
+    groups = {}
+    for i, k in enumerate(pis.tolist()):
+        groups.setdefault(k, []).append(i)
+    for k, isl in groups.items():
         li = [l for p in isl for l in me.polygons[p].loop_indices]
         q = uv[li].astype(np.float64) * res; d = q - q.mean(0); w_, v_ = np.linalg.eigh(d.T @ d); t_ = d @ v_[:, 0]
         if t_.max() - t_.min() < 1.5 and sum(me.polygons[p].area for p in isl) * sc < 1e-4:
             tiny.add(k)
     if not tiny:
         return 0
-    lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
-    co = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
-    _, pk = np.unique(np.round(co / 1e-4).astype(np.int64), axis=0, return_inverse=True)   # つながりは頂点の位置で（three.js から来た形は三角ごとに頂点が別々）
-    lv = pk.ravel()[lv]; co = co[np.unique(pk.ravel(), return_index=True)[1]]
     vgood = {}   # 頂点 → 寄せ先になる島の [(島, ループ)]
     vpoly = {}
     for p in me.polygons:
