@@ -122,6 +122,15 @@ vec3 lameSpec(vec3 E){vec3 N=normalize(cross(dFdx(vWP),dFdy(vWP)));vec3 V=normal
   float ang=D.w>0.0?exp(-0.693*pow(acos(clamp(dot(-L,D.xyz),-1.0,1.0))/D.w,2.0)):(D.w<0.0?max(dot(-L,D.xyz),0.0):1.0);
   float a=P.w*ang*cw/r2;sw+=a;sa+=a*pow(max(dot(G,normalize(L+V)),0.0),70.0)*max(dot(G,L),0.0)/cw;}
  return E*texture2D(uLaS,vUv).r*9.0*uLK*sa/max(sw,1e-9);}`;   // 本番の Phong（照り＝照度×specularMap×0.25×(70/2+1)×cos^70。光の量は焼いた明るさの割合）。見る位置は uCam で渡す（MeshBasicMaterial には cameraPosition が渡らず原点のままで、テレビの面では光源が裏にあることになり光らなかった）
+// ライトマップは3次の Bスプラインで補間して読む（直線の補間では、画素の段が日差しの影の縁などでギザギザに見えた。2026-11-04 ユーザー「Bスプラインで」）。
+// 直線の補間4回で 4×4 画素を重みづけする。縁で2画素先まで読むので、島のすき間は4画素（bake_layers.py の pack_islands）。?bs=0 で直線の補間
+const LMBS=Q.get('bs')!=='0';
+const BSGL=`uniform vec2 uLmS;
+vec4 lmBS(sampler2D t,vec2 uv){vec2 st=uv*uLmS-0.5,i=floor(st),f=st-i,f2=f*f,f3=f2*f;
+ vec2 w0=(1.0-3.0*f+3.0*f2-f3)/6.0,w1=(4.0-6.0*f2+3.0*f3)/6.0,w2=(1.0+3.0*f+3.0*f2-3.0*f3)/6.0,w3=f3/6.0,g0=w0+w1,g1=w2+w3;
+ vec2 p0=(i-0.5+w1/g0)/uLmS,p1=(i+1.5+w3/g1)/uLmS;
+ return g0.y*(g0.x*texture2D(t,p0)+g1.x*texture2D(t,vec2(p1.x,p0.y)))+g1.y*(g0.x*texture2D(t,vec2(p0.x,p1.y))+g1.x*texture2D(t,p1));}
+`;
 function patchMat(m,vl,vo,cg,sd,lame){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
  if(lame){Object.assign(sh.uniforms,LAMEU);sh.vertexShader='varying vec3 vWP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  if(sd){sh.uniforms.uShP=UNI.uShP;sh.vertexShader='attribute vec3 shd;attribute vec4 stop;uniform float uShP;\n'+sh.vertexShader.replace('#include <begin_vertex>',SHV);}
@@ -130,7 +139,8 @@ function patchMat(m,vl,vo,cg,sd,lame){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.
  sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+(cg?CAUGL:'')+CMP+sh.fragmentShader;
  if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
  if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
- else sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');   // r128 の MeshBasicMaterial のライトマップの行
+ else if(LMBS&&m.lightMap){const im=m.lightMap.image;sh.uniforms.uLmS={value:new THREE.Vector2(im.width,im.height)};sh.fragmentShader=BSGL+sh.fragmentShader.replace('vec4 lightMapTexel= texture2D( lightMap, vUv2 );','vec4 lightMapTexel=lmBS(lightMap,vUv2);');}
+ if(!vl)sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');   // r128 の MeshBasicMaterial のライトマップの行
  if(lame)sh.fragmentShader=sh.fragmentShader.replace('#include <uv_pars_fragment>','#include <uv_pars_fragment>\n'+LAMEGL).replace('vec3 outgoingLight = reflectedLight.indirectDiffuse;','vec3 lameE=reflectedLight.indirectDiffuse;\nreflectedLight.indirectDiffuse*=diffuseColor.rgb;vec3 outgoingLight=reflectedLight.indirectDiffuse+lameSpec(lameE);').replace('reflectedLight.indirectDiffuse *= diffuseColor.rgb;','');};   // 照りは材質の色を掛けない（白い照り）
  m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'')+(lame?'L':'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）

@@ -12,7 +12,7 @@ function survey(){const S={};meshes().forEach(o=>{const fr=frames(o.userData.src
 const save=(path,body)=>fetch('/save?path=bake/work/export/'+path,{method:'POST',body});
 // 建物（書き出さない）の場所。common.js は家具（シェード 219〜221・ヘッダーボックス addHB 276〜283・エアコン acUnit 370〜379）以外すべて建物
 const BLD={bedroom:[11,12,13,14],   // 西の壁のアクセント面・腰壁・天板・幅木
- wash:[118,148,158],   // 廊下の北の壁の段をふさぐ面・框・土間収納の垂れ壁
+ wash:[117,147,157],   // 廊下の北の壁の段をふさぐ面・框・土間収納の垂れ壁
  ldk:[11,15,17,20,21,22,23,24,25,26,27,28,31,32,35,36,37,38,39,43,44,45,46,47,48,49,50,51,   // 床・壁・天井・建具・仕切り壁と幅木・押入・下がり天井・2階廊下
   61,63,64,66,67,75,76,312]};   // 階段の踏板・裏の鉄板・14段目の段鼻・タレ壁・ササラ桁と受け金物、カップボード横のうす壁
 const isBld=k=>{const [f,l]=k.split(':'),n=+l;if(f==='common')return !((n>=219&&n<=221)||(n>=276&&n<=283)||(n>=370&&n<=379));return (BLD[f]||[]).includes(n);};

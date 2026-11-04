@@ -44,9 +44,8 @@ buildWall(wallGroup(LW,0,DZ1,Math.PI),LW-X0,H1,[{a:LW-sgB,b:LW-sgA,y1:0,y2:2.0,d
   const gt=tex(cv((x,W,H)=>{const c=W/2,k=c/0.248,G=0.15*k;x.clearRect(0,0,W,H);const disk=(r,f)=>{x.fillStyle=f;x.beginPath();x.arc(c,c,r,0,Math.PI*2);x.fill();};disk(c,'#707070');disk(0.244*k,'#f6f6f4');disk(0.175*k,'#d9d9d8');   // ドアの面：外周の細いすき間（幅4mm）・白い枠・ガラスまわりの薄いグレーの縁（幅25mm）・ガラス（濃い色の地に、うっすら映り込み。中のドラムは描かない）
    let gr=x.createRadialGradient(c,c,0,c,c,G);gr.addColorStop(0,'#3a3b3e');gr.addColorStop(1,'#1c1d1f');disk(G,gr);gr=x.createRadialGradient(c-0.35*G,c-0.45*G,0,c-0.35*G,c-0.45*G,0.6*G);gr.addColorStop(0,'rgba(255,255,255,0.16)');gr.addColorStop(1,'rgba(255,255,255,0)');disk(G,gr);},512,512));gt.wrapS=gt.wrapT=THREE.ClampToEdgeWrapping;
   const gd=new THREE.Mesh(new THREE.CircleGeometry(0.248,96),decalMat(P({map:gt,specular:0x555555,shininess:60})));gd.position.z=0.0012;dr.add(gd);}   // ドアは本体の面とそろうので、厚みのある形にせず、すき間・枠・縁・ガラスを1枚の画像で面に貼る（細い輪や4mmの側面は、離れると途切れて点線のように見えるため）
- // 側面：横リブ（浅い帯）と運搬用の取っ手（両側）
- [-1,1].forEach(sd=>{const x=sd*(BW/2+0.0015);for(let y=0.13;y+0.042<PY0-0.01;y+=0.07)lbox(g,0.003,0.042,WD-0.05,x,y+0.021,0,wht);
-  [[0.93,1],[0.31,1],[0.93,-1],[0.31,-1]].forEach(([y,k])=>{const z=k*(WD/2-0.09);lbox(g,0.004,0.03,0.075,sd*(BW/2+0.002),y,z,0xa9a9a7);lbox(g,0.0045,0.018,0.06,sd*(BW/2+0.0025),y,z,decalMat(P({color:0x7c7c7a})));});});
+ // 側面：横リブ（浅い帯）。運搬用の取っ手は付けない（2026-11-04 ユーザー「四隅の取っ手みたいなパーツも消して」）
+ [-1,1].forEach(sd=>{const x=sd*(BW/2+0.0015);for(let y=0.13;y+0.042<PY0-0.01;y+=0.07)lbox(g,0.003,0.042,WD-0.05,x,y+0.021,0,wht);});
  // 上面：洗剤ケースのフタなどの継ぎ目（デフォルメ）
  {const zz0=zb+0.04,zz1=zb+0.3,w=0.48,d=zz1-zz0+0.01,m=linePlane(g,w,d,(x,k)=>{x.strokeStyle=LNC;x.lineWidth=0.002*k;[[-0.235,-0.04],[0.02,0.235]].forEach(([a,b])=>x.strokeRect((a+w/2)*k,0.005*k,(b-a)*k,(zz1-zz0)*k));});m.rotation.x=-Math.PI/2;m.position.set(0,WH+0.0005,(zz0+zz1)/2);}}   // 板の上が奥（zz0 側）
 // 物干しバー×2（天井吊りのU字形、黒のマット塗装）：芯々1515・天井から下端まで500・パイプφ22.2・曲げ半径50・座金φ75×3.2。長手方向（東西）に、北の壁から芯350と900、西の壁から西の脚の芯まで50（仮）

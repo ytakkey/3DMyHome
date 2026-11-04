@@ -13,9 +13,9 @@ import bake_common as bc
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODE = argv[0]
-TEXEL = 0.02        # よく見る所のライトマップの1画素（m）
-COARSE = 0.4        # 天井・下向きの面・高い所は、画素を 1/0.4 倍の大きさに（粗く）
-FINE = 2.0          # 壁付けの照明（A2・O2・B3）の付いた壁の島は、画素を 1/2 の大きさ（1cm）に（細かく）。器具のすぐ脇で光をかすめて受ける壁は明るさが1〜2画素で急に変わり、2cm の画素の段で光の縁がガタガタに見えた（2026-11-02）
+TEXEL = 0.01        # よく見る所のライトマップの1画素（m）。2cm では窓からの日差しの影の縁が画素の段でギザギザだった（2026-11-04 ユーザー「基本を1cmに」）
+COARSE = 0.2        # 天井・下向きの面・高い所は、画素を 1/0.2 倍の大きさ（5cm のまま）に（粗く）
+FINE = 1.0          # 壁付けの照明（A2・O2・B3）の付いた壁の島は 1cm（基本を 1cm にしたので倍率は1。前は基本 2cm の 1/2）。器具のすぐ脇で光をかすめて受ける壁は明るさが1〜2画素で急に変わり、2cm の画素の段で光の縁がガタガタに見えた（2026-11-02）
 WALL_LAMPS = ('a2', 'bbr', 'b3')
 DOORS = ['SG311', 'SG500w', 'SG33s', 'SG300l', 'SG300w', 'BATHD', 'SG33', 'SG11H', 'SG500']   # 開閉できるドア（物の名前の頭で見分ける。同じ頭の長い名前を先に）
 DOOR2F = {'SG311', 'SG500w', 'SG33s'}
@@ -36,21 +36,15 @@ DOORBOX = {'SG311': (-1.25, 0.40, 2.85, 5.0, 3.48, 3.68), 'SG500w': (0.30, 0.50,
            'SG300l': (-0.145, 0.03, -0.01, 2.1, 1.4175, 3.0975), 'SG300w': (-2.219, -0.557, -0.01, 2.1, 3.0375, 3.2125), 'BATHD': (-1.435, -0.55, -0.01, 2.1, 1.62, 1.85),
            'SG33': (-0.6, -0.425, -0.01, 2.1, 3.6075, 4.4625), 'SG11H': (0.31, 0.485, -0.01, 2.45, 3.6075, 4.4625), 'SG500': (-1.51, -1.335, -0.01, 2.1, 4.5375, 5.3575)}
 DOORZ = {'SG311', 'SG300w', 'BATHD'}   # 東西に走る壁のドア（壁の向きの成分は Blender の y）
-VMAX, VSMALL, VFACE = 2.3, 0.3, 0.004   # 頂点で焼く物：一番長い辺が 30cm 以下、または 2.3m 以下で面が40枚以上・面の平均が 40cm² 未満（丸みのある物。ソファは頂点＝縫い目の黒い線が出ない、ベッド 2.4m はライトマップ＝頂点だと日なたの縁がギザギザ）
-VFLAT = 0.01                            # 30cm より大きい丸みのある物でも、三角1つがこれ以上の面を持つ物はライトマップ（m²）
+VSMALL, VTHIN = 0.3, 0.05               # 頂点で焼く物：一番長い辺が 30cm 以下の小物と、面が40枚以上で2番目に長い辺が 5cm 未満の細い物（パイプ・ホース・バー）
 VEDGE = 0.04                            # 頂点で焼く物は、辺を 4cm 以下に分ける（大きな面の中の明るさの変化を拾う）
+# 丸みのある物（ソファ・洗濯機・ドック・エアコンなど）はライトマップ（2026-11-04）。前は頂点で焼いていたが、頂点は 4cm おきでモヤ・日なたの縁の鋸の歯・
+# 床ぎわのギザギザが出た。ライトマップで出ていた縫い目の黒い線は、三角ごとに頂点が別々で島が細切れになっていたのが元で、展開を頂点をつないだ写しで行うようにして解消
 def vlit(o, bb):
-    dim = max(max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3))
-    if dim <= VSMALL:
+    ds = sorted(max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3))
+    if ds[2] <= VSMALL:
         return True
-    if dim > VMAX:
-        return False
-    me = o.data; me.calc_loop_triangles(); mw = o.matrix_world   # 大きさによらず、丸みのある物（面が細かい物）は頂点で（ソファの縫い目のような UV の島の境に黒い線が出ていた。2026-10-25）
-    if len(me.polygons) < 40:
-        return False
-    ar = [((mw @ me.vertices[t.vertices[1]].co) - (mw @ me.vertices[t.vertices[0]].co)).cross((mw @ me.vertices[t.vertices[2]].co) - (mw @ me.vertices[t.vertices[0]].co)).length / 2 for t in me.loop_triangles]
-    # 大きく平らな面（三角1つが 100cm² 以上）を持つ物はライトマップで（頂点は 4cm おきなので、洗濯機の正面にモヤ、ソファの座面の日なたの縁に 4cm の鋸の歯が出た。2026-11-03）
-    return max(ar) < VFLAT and sum(ar) / len(me.polygons) < VFACE
+    return ds[1] < VTHIN and len(o.data.polygons) >= 40
 def subdivide(o, maxlen):
     bm = bmesh.new(); bm.from_mesh(o.data); mw = o.matrix_world
     for _ in range(7):
@@ -217,12 +211,32 @@ def prep(out):
             bm = bmesh.new(); bm.from_mesh(o.data)
             bmesh.ops.dissolve_degenerate(bm, dist=1e-6, edges=bm.edges[:])
             bm.to_mesh(o.data); bm.free()
+        # UV の処理（展開・粗く/細かく・細い島の拡大・詰め込み）は、同じ位置の頂点をつないだ写しで行い、最後に元の形へ戻す（three.js から来た形は三角ごとに頂点が別々で、
+        # Blender は頂点のつながらない三角を別々の島として扱う。四角い面の2枚の三角・丸い角の三角が1枚ずつ別の島に詰められ、洗濯機の側面に斜めの線、角に黒い点が出ていた。
+        # 2026-11-04。元の形はつながないので、表示の法線は変わらない）。つなぐと同じ頂点の組になって消える面（背中合わせの2枚の面の片方）は、自分の頂点で足し戻す
         bpy.ops.object.select_all(action='DESELECT')
-        for o in objs:
+        orig = objs; objs = []; nlost = 0
+        for o in orig:
             if 'LM' not in o.data.uv_layers:
                 o.data.uv_layers.new(name='LM')
             o.data.uv_layers.active = o.data.uv_layers['LM']
-            o.select_set(True)
+            bm = bmesh.new(); bm.from_mesh(o.data); oi = bm.faces.layers.int.new('oi')
+            fco = {}
+            for f in bm.faces:
+                f[oi] = f.index; fco[f.index] = [v.co.copy() for v in f.verts]
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+            have = {f[oi] for f in bm.faces}
+            for k, cs in fco.items():
+                if k in have or len(cs) < 3 or ((cs[1] - cs[0]).cross(cs[2] - cs[0])).length < 1e-9:
+                    continue
+                try:
+                    f = bm.faces.new([bm.verts.new(c) for c in cs]); f[oi] = k; nlost += 1
+                except ValueError:
+                    pass
+            tm = bpy.data.meshes.new(o.name + '_weld'); bm.to_mesh(tm); bm.free()
+            t = bpy.data.objects.new(o.name + '_weld', tm); t.matrix_world = o.matrix_world; bpy.context.scene.collection.objects.link(t)
+            t['src'] = o.name; tm.uv_layers.active = tm.uv_layers['LM']; t.select_set(True); objs.append(t)
+        print('uvdbg', g, 'welded copies, faces re-added', nlost, flush=True)
         bpy.context.view_layer.objects.active = objs[0]
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
@@ -280,15 +294,15 @@ def prep(out):
         need = area / TEXEL ** 2   # 狙った細かさで要る画素の数
         from bpy_extras.mesh_utils import mesh_linked_uv_islands
         for rnd in range(4):
-            for k in range(8):   # 詰めるたびに元の UV に戻す。0〜1 に収まらない・狙った細かさの 6 割に届かないときは画像を大きくする（小さな島が多いと余白が場所を取る）。凹んだ形での詰め込みに失敗したら外形の箱で
+            for k in range(8):   # 詰めるたびに元の UV に戻す。0〜1 に収まらない・狙った細かさの 9 割に届かないときは画像を大きくする（6割では書斎が約1.2cm だった。2026-11-04）（小さな島が多いと余白が場所を取る）。凹んだ形での詰め込みに失敗したら外形の箱で
                 for o in objs:
                     o.data.uv_layers['LM'].data.foreach_set('uv', saved[o.name])
                 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.uv.select_all(action='SELECT')
-                bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=2 / res, shape_method='CONCAVE' if k < 4 else 'AABB')
+                bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=4 / res, shape_method='CONCAVE' if k < 4 else 'AABB')
                 bpy.ops.object.mode_set(mode='OBJECT')
                 used = uv_area(objs); um = uvmax()
                 print('uvdbg', g, 'pack', res, round(used, 3), round(um, 3), 'texel ratio %.2f' % (used * res * res / need), flush=True)
-                if um <= 1.0 and used > 0 and (used * res * res / need > 0.6 or res >= 2048):
+                if um <= 1.0 and used > 0 and (used * res * res / need > 0.9 or res >= 2048):
                     break
                 res = min(2048, int(res * 1.3 / 64 + 1) * 64)
             assert 0 < uvmax() <= 1.0, g
@@ -312,6 +326,26 @@ def prep(out):
             print('uvdbg', g, 'thin islands after pack', nthin, flush=True)
             if not nthin:
                 break
+        nmiss = 0
+        for t in objs:   # 写しの面（元の面の番号 oi）の角ごとに、一番近い角の UV を元の面へ（0.1mm より短い辺は写しでは1つの角になり、角の数が減る）
+            o = bpy.data.objects[t['src']]; me, tm = o.data, t.data
+            tuv = np.zeros(len(tm.loops) * 2, np.float32); tm.uv_layers['LM'].data.foreach_get('uv', tuv); tuv = tuv.reshape(-1, 2)
+            fo = np.zeros(len(tm.polygons), np.int32); tm.attributes['oi'].data.foreach_get('value', fo)
+            tco = np.zeros(len(tm.vertices) * 3, np.float32); tm.vertices.foreach_get('co', tco); tco = tco.reshape(-1, 3)
+            co = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+            tlv = np.zeros(len(tm.loops), np.int32); tm.loops.foreach_get('vertex_index', tlv)
+            lv = np.zeros(len(me.loops), np.int32); me.loops.foreach_get('vertex_index', lv)
+            uv = np.zeros((len(me.loops), 2), np.float32); got = np.zeros(len(me.polygons), bool)
+            for tp in tm.polygons:
+                p = me.polygons[fo[tp.index]]
+                tl = np.arange(tp.loop_start, tp.loop_start + tp.loop_total); ol = np.arange(p.loop_start, p.loop_start + p.loop_total)
+                d = ((co[lv[ol]][:, None, :] - tco[tlv[tl]][None, :, :]) ** 2).sum(2)
+                uv[ol] = tuv[tl[d.argmin(1)]]; got[p.index] = True
+            nmiss += int((~got).sum())   # 面積0の面だけ（UV は 0 のまま）
+            me.uv_layers['LM'].data.foreach_set('uv', uv.ravel())
+            bpy.data.objects.remove(t); bpy.data.meshes.remove(tm)
+        objs = orig
+        print('uvdbg', g, 'uv back to originals, faces without uv', nmiss, flush=True)
         for o in objs:
             o['lm_res'] = res
             o.data.uv_layers.active = o.data.uv_layers[0]   # 表示の柄の UV は元のまま（LM は2つ目以降）
