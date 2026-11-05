@@ -197,11 +197,11 @@ function addDaylight(g,um,ym,w,hh,shadeable){g.updateMatrixWorld(true);const c=g
  const half=Math.min(1.2,Math.atan(Math.max(w,hh)/2/3.2)*1.8),I=0.45*Math.sqrt(w*hh);
  const sp=new THREE.SpotLight(0xfff8f0,0,12,half,0.85,1.0);sp.position.copy(pos);sp.target.position.copy(tgt);s.add(sp);s.add(sp.target);
  winLights.push({light:sp,I,area:w*hh,shadeable,t:1});}
-// シェードの閉まり具合から、各窓の光の通り具合と部屋全体の明るさ（0〜1）を計算。ハニカムシェードは閉めても5割の光を通す
+// シェードの閉まり具合から、各窓の光の通り具合と部屋全体の明るさ（0〜1）を計算。ハニカムシェードは全部閉めて4割の光を通す（2026-11-05 ユーザー）
 // 補助光（空の明るさ・太陽の代わり・照り返しの代わり）：全部屋で同じ光源の組（色・向き・強さ）を使う。照りは出さない（userData.fill。照りは照明と窓の光だけ）
 function fillLights(sc){const hemi=new THREE.HemisphereLight(0xffffff,0xe2dbd0,0.58),sun=new THREE.DirectionalLight(0xfff4e0,0.45),up=new THREE.DirectionalLight(0xfffaf2,0.16);sun.position.set(0,6,10);up.position.set(2.4,-3,3.5);sun.userData.fill=up.userData.fill=true;sc.add(hemi);sc.add(sun);sc.add(up);return{hemi,sun,up};}   // 向きは家全体の座標（光源の向き＝位置→原点）
 function fillEnv(F,night,k){if(night){F.hemi.intensity=0.1;F.sun.intensity=0;F.up.color.set(0xffe2c2);F.up.intensity=0.12;}else{F.hemi.intensity=0.24+0.34*k;F.sun.intensity=0.15*k;F.up.color.set(0xfffaf2);F.up.intensity=0.08+0.10*k;}}   // 昼の k：窓の明るさの割合（シェードで変わる）
-function dayRatio(list,p){let a=0,b=0;list.forEach(w=>{w.t=w.shadeable?(1-p)+p*0.5:1;a+=w.area*w.t;b+=w.area;});return b?a/b:1;}
+function dayRatio(list,p){let a=0,b=0;list.forEach(w=>{w.t=w.shadeable?(1-p)+p*0.4:1;a+=w.area*w.t;b+=w.area;});return b?a/b:1;}
 // 壁：ローカル座標（u=壁に沿って、y=上、+z=室内側）。窓・ドアは穴として抜く
 function wallGroup(x,y,z,ry){const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=ry;s.add(g);return g;}
 function addWindow(g,a,b,y1,y2,panes,noShade,split){const w=b-a,hh=y2-y1,um=(a+b)/2,ym=(y1+y2)/2,RV=0xf0ede7;

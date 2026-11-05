@@ -39,7 +39,7 @@ float cauF(){vec3 d=normalize(vWC-uCauP);float p=texture2D(uCauT,vec2(atan(d.z,d
 `;
 const MOON=1/1000,MOONC=[0.6,0.7,1.0];   // 夜の月明かり：空の層を弱めて青く（仮）
 const EMIT=3000;   // 点灯している照明器具の発光面の明るさ（lux 相当。仮）
-const SHADE_T=p=>1-0.5*p;   // シェードを閉めた割合 p で、その窓から入る光の割合（閉めても5割通す）
+const SHADE_T=p=>1-0.6*p;   // シェードを閉めた割合 p で、その窓から入る光の割合（全部閉めて4割通す。2026-11-05 ユーザー。本番の dayRatio と同じ）
 // 焼いた層の組み合わせ（光源→関係するドア。bake_layers.py の COMBOS を lm/index.json の combos で受け取る）。層の名前＝光源@ドアの開閉（関係するドアだけ）
 let COMBOS={};
 const D3=['SG311','SG500w','SG33s'],OLDC={bdl:D3,bbr:D3,sky_bed:D3,sun_bed:D3,j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311']};   // combos の無い一覧（寝室の試作のとき）
