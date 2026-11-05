@@ -19,10 +19,12 @@ buildWall(wallGroup(LW,0,DZ1,Math.PI),LW-X0,H1,[{a:LW-sgB,b:LW-sgA,y1:0,y2:2.0,d
 {const g=new THREE.Group(),WW=0.604,WD=0.732,WH=1.038,BH=0.089,BW=0.598;g.position.set(X0+0.03+WD/2,0,DZ1-0.03-WW/2);g.rotation.y=Math.PI/2;s.add(g);   // 子の座標：+Z＝正面（東）、+X＝正面に向かって右（北）。BW：リブを除いた本体の幅
  const wht=P({color:0xf3f3f1,specular:0x333333,shininess:36}),zb=-WD/2,zf=WD/2,LN=0xcfcfcd,PY0=WH-0.049,PSK=0.092,PA=Math.atan2(PSK,WH-PY0);   // zb：背面、zf：正面。操作パネルは前上の角を斜めに落とした面（側面図から：高さ49・奥行92、約62°倒れる）。PY0：斜めの面の下端、PSK：上端で奥へ下がる量、PA：傾き
  {const bv=0.004,hx=BW/2-bv,hz=WD/2-bv,r=0.012,w=hx-r,d=hz-r,sh=new THREE.Shape();sh.moveTo(-w,-hz);sh.lineTo(w,-hz);sh.absarc(w,-d,r,-Math.PI/2,0);sh.lineTo(hx,d);sh.absarc(w,d,r,0,Math.PI/2);sh.lineTo(-w,hz);sh.absarc(-w,d,r,Math.PI/2,Math.PI);sh.lineTo(-hx,-d);sh.absarc(-w,-d,r,Math.PI,Math.PI*1.5);   // 本体（角を少し丸めた箱）
-  const part=(y0,y1,sk)=>{const geo=new THREE.ExtrudeGeometry(sh,{depth:y1-y0-2*bv,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:2,curveSegments:6});geo.rotateX(-Math.PI/2);geo.translate(0,y0+bv,0);   // sk：上ほど正面を奥へ下げる量（操作パネルの斜め）
-   if(sk){const p=geo.attributes.position;for(let i=0;i<p.count;i++){const t=Math.min(1,Math.max(0,(p.getY(i)-y0)/(y1-y0)));p.setZ(i,Math.min(p.getZ(i),zf-sk*t));}geo.computeVertexNormals();}
-   g.add(new THREE.Mesh(geo,wht));};
-  part(BH,PY0,0);part(PY0,WH,PSK);}   // 本体と、上の部分（前の角を斜めに落として操作パネルの面にする。境目は面取りの溝になる）
+  // 本体と上の部分は1つの形（2つの箱に分けると境目が一周 V 字の溝になり、焼くと黒い線だった。デフォルメなので溝は付けない。2026-11-05 ユーザー）。
+  // 押し出しを2段にして、中の段の輪を操作パネルの下端 PY0 へ動かし、そこから上だけ正面を奥へ下げて斜めの面にする
+  const y0=BH,y1=WH,geo=new THREE.ExtrudeGeometry(sh,{depth:y1-y0-2*bv,steps:2,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:2,curveSegments:6});geo.rotateX(-Math.PI/2);geo.translate(0,y0+bv,0);
+  const p=geo.attributes.position,ym=(y0+y1)/2;
+  for(let i=0;i<p.count;i++){if(Math.abs(p.getY(i)-ym)<1e-6)p.setY(i,PY0);const t=Math.min(1,Math.max(0,(p.getY(i)-PY0)/(y1-PY0)));p.setZ(i,Math.min(p.getZ(i),zf-PSK*t));}
+  geo.computeVertexNormals();g.add(new THREE.Mesh(geo,wht));}
  // 台（濃いグレー）と脚
  lbox(g,0.584,BH-0.02,WD-0.02,0,0.02+(BH-0.02)/2,-0.005,0x3a3c3f);
  [[-0.25,1],[0.25,1],[-0.25,-1],[0.25,-1]].forEach(([x,k])=>{const f=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.026,0.02,20),L(0x2c2d2f));f.position.set(x,0.01,k*(WD/2-0.06));g.add(f);});

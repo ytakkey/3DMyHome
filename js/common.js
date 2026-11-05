@@ -39,7 +39,7 @@ const L=c=>MC[c]||(MC[c]=P({color:c}));
 const decalMat=m=>{m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-4;return m;};   // 貼り物（面の上に薄く重ねる表示・印刷・リングなど）の材質：描画で必ず下の面より手前に出す（ちらつかない）。共有の材質には使わず、貼り物専用に作る
 let s=null,shades=null,winLights=null;
 // 開閉できるドア（両側の部屋が再現されているもの）。DS：開閉状態（true＝開、ページを開いたときは脱衣室と洗面所のSG300・浴室のドアだけ開）、DOORS：開いた形と閉じた形の部品
-const DS={sg300l:false,sg300w:true,sg33:false,sg11h:false,sg311:false,sg500:false,bath:true,sg500w:false,sg33s:false},DOORS={};   // bath：浴室のドア（脱衣室との間）、sg300l：脱衣室とLDK、sg300w：脱衣室と洗面所、sg33：洗面所と廊下、sg11h：廊下とLDK、sg311：寝室と2階廊下、sg500：玄関ホールとトイレ、sg500w：寝室とウォークイン、sg33s：寝室と書斎
+const DS={sg300l:false,sg300w:true,sg33:false,sg11h:false,sg311:false,sg500:true,bath:true,sg500w:false,sg33s:false},DOORS={};   // bath：浴室のドア（脱衣室との間）、sg300l：脱衣室とLDK、sg300w：脱衣室と洗面所、sg33：洗面所と廊下、sg11h：廊下とLDK、sg311：寝室と2階廊下、sg500：玄関ホールとトイレ、sg500w：寝室とウォークイン、sg33s：寝室と書斎
 const ifOpen=(k,b)=>(b.door=k,b),ifShut=(k,b)=>(b.shut=k,b),ifOpenObs=(k,b)=>(b.opn=k,b);   // 移動範囲の箱：開いているときだけ通れる開口／閉じているときだけ通れない所／開いているときだけ通れない所（開いた扉）
 // 開いた形（gO）と閉じた形（gC）を登録。部品はまとめる対象から外し、枠・戸袋・壁（skipの素材）以外を扉の本体（タップで開閉）にする
 function regDoor(k,gO,gC,skip){[gO,gC].forEach(x=>x.traverse(c=>{if(!c.isMesh)return;c.userData.dyn=true;c.userData.dk=k;if(!skip.includes(c.material))c.userData.door=k;}));DOORS[k]={gO,gC};}   // 部品を追加する先（作成中の部屋）と、その部屋のシェード一覧・窓の自然光一覧
