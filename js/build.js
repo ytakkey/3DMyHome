@@ -7,7 +7,7 @@ function draw(){if(!ready)return;cam.rotation.set(pitch,yaw,0);r.render(scene,ca
 function mark(el,on){el.classList.toggle('on',on);el.setAttribute(el.getAttribute('role')==='switch'?'aria-checked':(el.getAttribute('role')==='tab'?'aria-selected':'aria-pressed'),on);}
 let ready=false;
 const scene=new THREE.Scene();
-const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:false,bath:false,l1:false,k1:false};   // 照明の点灯状態（初期はすべて消灯）
+const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:true,bath:true,l1:true,k1:false};   // 照明の点灯状態（初期はトイレ・浴室・WIC だけ点灯。2026-11-05 ユーザー）
 const bedS=buildBedroom(scene),stS=buildStudy(scene);
 const ldkS=buildLDK(scene);
 const washS=buildWash(scene,ldkS.mats),bathS=buildBath(scene,ldkS.mats);

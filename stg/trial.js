@@ -47,8 +47,8 @@ const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void'
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
 const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],
  ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];   // 照明のボタン（並びは本番の js/ui.js の LG と同じ）
-const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:false,k1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:false,bath:false};
-const DS={sg311:false,sg500w:false,sg33s:false,sg300l:false,sg300w:false,bath:false,sg33:false,sg11h:false,sg500:false};   // ドアの開閉（キーは本番の DS と同じ）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
+const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:true,k1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:true,bath:true};   // 初期はトイレ・浴室・WIC だけ点灯（本番と同じ。2026-11-05 ユーザー）
+const DS={sg311:false,sg500w:false,sg33s:false,sg300l:false,sg300w:true,bath:false,sg33:false,sg11h:false,sg500:true};   // ドアの開閉（キーは本番の DS と同じ）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
 if(Q.get('doors')==='open')for(const k in DS)DS[k]=true;
 const dk=d=>d==='BATHD'?'bath':d.toLowerCase();   // 焼き込みのドアの名前 → DS のキー
 let night=false,shadeP=0,yaw=0,pitch=0,ready=false;
