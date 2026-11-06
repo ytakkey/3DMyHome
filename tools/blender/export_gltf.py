@@ -110,6 +110,8 @@ for o in bpy.data.objects:
     me.uv_layers.active = me.uv_layers[0]
     if 'BAKE' in me.color_attributes:   # 焼き込み用の色（書き出さない。頂点の番号 _VID は glTF の _VID になる）
         me.color_attributes.remove(me.color_attributes['BAKE'])
+    if 'plate' in me.attributes:   # 焼くときの板の印（書き出さない）
+        me.attributes.remove(me.attributes['plate'])
 # 照明器具の発光面：材質ごとに、面の中心に一番近い照明（30cm 以内）
 lamps = [(g, bc.B(*t[1])) for g, ls in bc.LAMPS.items() for t in ls]
 bulbs = [(g, bc.B(*t[1]), t[3]) for g, ls in bc.LAMPS.items() for t in ls if t[0] == 'bulb']   # 電球のガラス（光る材質ではない）も、点灯で光らせる

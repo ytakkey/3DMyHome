@@ -17,7 +17,7 @@ for x in [x for x in a if x.split('=')[0].startswith(('BAKE_', 'LM_')) and '=' i
 def blender(blend, script, *args):
     r = subprocess.run([BL, '-b', blend, '-P', os.path.join(T, script), '--', *args], capture_output=True, text=True, encoding='utf-8', errors='replace')
     for line in (r.stdout + r.stderr).splitlines():
-        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases', 'emit', 'V_ faces', 'gltf', 'lmimg', 'vlit', 'entdoor', 'outward', 'prod materials', 'BUILDING', 'shades', 'bathglass', 'leaves trimmed')):
+        if 'Error' in line or 'Traceback' in line or line.startswith(('uvdbg', 'repack', 'nan uv', 'baked', 'atlases', 'emit', 'V_ faces', 'gltf', 'lmimg', 'vlit', 'entdoor', 'outward', 'prod materials', 'BUILDING', 'shades', 'bathglass', 'leaves trimmed', 'plates', 'plate faces', 'COVER')):
             print(line)
 if a[0] == 'view':
     state, layers = a[1], a[2]
@@ -87,6 +87,8 @@ elif a[0] == 'leak':   # 光漏れの場所を探す（窓をすべてふさぎ�
 elif a[0] == 'pyh':   # 調べる用：pyh <スクリプト> [引数...]（house.blend を開いて動かし、出力をすべて出す）
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.abspath(a[1]), '--', *a[2:]], capture_output=True, text=True, encoding='utf-8', errors='replace')
     print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
+elif a[0] == 'cover':   # 覆われて見えない画素（棚板の端が当たった壁など）を調べる：bake_uv.blend → bake/work/lm/_labels/<アトラス>_cover.npy（lm_images.py が見える画素の明るさで埋める）
+    blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'cover_mask.py', os.path.join(LAY, '_labels'))
 elif a[0] == 'gltf':   # 検証ページ（stg/）用の模型：bake_uv.blend → stg/house.glb
     blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(ROOT, 'stg', 'house.glb'))
 elif a[0] == 'lmimg' and any(x.startswith('smooth=') for x in a):   # smooth=<回数>[,<幅>]：ならす処理を変えて比べる（lm_images.py の LM_SMOOTH_IT・LM_SMOOTH_RANGE）

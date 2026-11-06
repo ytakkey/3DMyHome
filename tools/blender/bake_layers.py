@@ -97,6 +97,65 @@ def door_of(x, y, z):
             return k
     return None
 
+PLATE_T, PLATE_GAP = 0.025, 0.004   # 板：一番薄い向きが 2.5cm 以下で、ほかの2つの向きは 1.5cm 以上（テレビボードの前板の上下の帯は高さ 23mm・両端の縦の帯は幅 19.6mm）。裏の面の 3×3 の点のうち 7 点以上で、4mm 以内にほかの面がある
+def mark_plates(cands):
+    """家具の扉・鏡・前板のように、ほかの面にぴったり付いた薄い板の面に印（面の属性 plate）。焼くときだけ、板はほかの面から見て透明にする
+    （影を落とさず、跳ね返りの光もさえぎらない。bake_main）。板の裏に隠れた面（本体の前の面・扉の表の面）が真っ黒に焼け、扉と扉のすき間・
+    鏡の縁・前板の上から、家具の縁や継ぎ目の黒い線に見えていた（テレビボード・洗面台の鏡・シューズボックス。家具はデフォルメなので、
+    すき間は本番と同じく本体の明るさで見せる。2026-11-05 ユーザー）。板の影は、ぴったり付いた面の上にしか落ちないので、ほかの所の光は変わらない。
+    光る材質・透ける材質の板は除く"""
+    from mathutils.bvhtree import BVHTree
+    vs, ps, own, pkey, parea = [], [], [], [], {}
+    for o in bpy.data.objects:
+        if o.type != 'MESH' or o.name.endswith('_glass') or o.get('shade') or not o.users_collection or o.users_collection[0].name.startswith('doors'):
+            continue
+        mw = o.matrix_world; m3 = mw.to_3x3(); sc = abs(m3.determinant()) ** (2 / 3); b = len(vs)
+        vs += [mw @ v.co for v in o.data.vertices]; ps += [[b + i for i in p.vertices] for p in o.data.polygons]; own += [o.name] * len(o.data.polygons)
+        for p in o.data.polygons:   # 同じ部品の同じ平面の面をまとめた広さ（三角に割った面も1枚の面として比べる）
+            nn = (m3 @ p.normal).normalized(); k = (o.name, round(nn.x * 500), round(nn.y * 500), round(nn.z * 500), round(nn.dot(mw @ p.center) / 0.0003))
+            pkey.append(k); parea[k] = parea.get(k, 0.0) + p.area * sc
+    bvh = BVHTree.FromPolygons(vs, ps, epsilon=0.0)
+    def touch(q, d, me):   # 点 q から向き d へ 0〜4mm の所にある、ほかの部品の面の平面（すき間0で接する面も拾う。光線は接する本体の中から出てしまうので使わない）
+        for loc, nrm, i, dist in bvh.find_nearest_range(q, PLATE_GAP):
+            if own[i] == me:
+                continue
+            off = loc - q; a = off.dot(d)
+            if -1e-4 <= a <= PLATE_GAP and (off - d * a).length < 1e-4:
+                return pkey[i]
+        return None
+    def special(m):
+        if not m or not m.node_tree:
+            return False
+        for n in m.node_tree.nodes:
+            if n.type == 'EMISSION' or (n.type == 'BSDF_PRINCIPLED' and (n.inputs['Alpha'].is_linked or n.inputs['Alpha'].default_value < 0.999 or (n.inputs.get('Transmission Weight') and n.inputs['Transmission Weight'].default_value > 0))):
+                return True
+        return False
+    n = 0
+    for o in cands:
+        if any(special(m) for m in o.data.materials):
+            continue
+        mw = o.matrix_world; m3 = mw.to_3x3()
+        lo = Vector([min(c[i] for c in o.bound_box) for i in range(3)]); hi = Vector([max(c[i] for c in o.bound_box) for i in range(3)])
+        ax = [m3.col[i] for i in range(3)]; dim = [(hi[i] - lo[i]) * ax[i].length for i in range(3)]
+        k = min(range(3), key=lambda i: dim[i]); o1, o2 = [i for i in range(3) if i != k]
+        if not (0.001 <= dim[k] <= PLATE_T and dim[o1] >= 0.015 and dim[o2] >= 0.015):
+            continue
+        cl = (lo + hi) / 2; t = ax[k].normalized()
+        for s in (1, -1):
+            hit, planes = 0, set()
+            for a in (-0.35, 0, 0.35):
+                for b in (-0.35, 0, 0.35):
+                    q = cl.copy(); q[o1] += a * (hi[o1] - lo[o1]); q[o2] += b * (hi[o2] - lo[o2]); q[k] = hi[k] if s > 0 else lo[k]
+                    pk = touch(mw @ q, t * s, o.name)
+                    if pk:
+                        hit += 1; planes.add(pk)
+            # 付いている相手の面が板より広いときだけ（扉→本体・鏡→扉・前板→本体）。相手が板と同じか小さい（モニターの枠の前の画面の板）なら、板の方が影を落とす本体
+            if hit >= 7 and sum(parea[pk] for pk in planes) >= 0.95 * dim[o1] * dim[o2]:
+                a = o.data.attributes.get('plate') or o.data.attributes.new('plate', 'INT', 'FACE')
+                a.data.foreach_set('value', np.ones(len(o.data.polygons), np.int32)); n += 1
+                break
+    print('plates', n, 'of', len(cands), flush=True)
+
 # ===================== 準備 =====================
 def prep(out):
     for cn in ('cut_void', 'keep', 'cut_open'):
@@ -145,7 +204,7 @@ def prep(out):
     bpy.data.objects.remove(bld)
     # ほかの部品（建具・幅木・窓・階段・家具）を物体の中心で振り分ける。扉は開いた形・閉じた形ごと
     # 小さい物・曲面の物は、ライトマップ（1画素2cm）では画素が足りず隣の部品の値がにじむので、頂点ごとの明るさで焼く（2026-10-21 ユーザー了承）：V_<アトラス>
-    leaves, vparts, sparts = {}, {}, {}
+    leaves, vparts, sparts, pcand = {}, {}, {}, []
     g1p = bc.B(*bc.LAMPS['g1'][0][1])   # G1（トイレのペンダント）のガラスと電球の材質に印：揺らいだ光の模様は表示で付けるので、まっすぐ届く光はガラスを外して焼く（g1d）
     for o in bpy.data.collections['furniture'].objects:
         if o.type == 'MESH' and (sum((o.matrix_world @ Vector(c) for c in o.bound_box), Vector()) / 8 - g1p).length < 0.1:
@@ -168,10 +227,13 @@ def prep(out):
             if o.get('shade'):   # シェードの生地と下端のバー（検証ページで動かすので別の物体 S_<アトラス> に）
                 sparts.setdefault(g, []).append(o)
                 continue
+            if cn == 'furniture':
+                pcand.append(o)
             if vlit(o, bb):
                 vparts.setdefault(g, []).append(o)
                 continue
             parts.setdefault(g, []).append(o)
+    mark_plates(pcand)
     def join(objs, name):
         bpy.ops.object.select_all(action='DESELECT')
         for o in objs:
@@ -472,7 +534,39 @@ def bake_main(outdir, samples, only):
             if not any(n.type == 'TEX_IMAGE' for n in mc.node_tree.nodes):
                 n = mc.node_tree.nodes.new('ShaderNodeTexImage'); n.image = imgs[g]; mc.node_tree.nodes.active = n
             o.data.materials[i] = mc
-    def shb(g, fab):   # シェードを焼く材質：白い拡散（生地は裏から透ける光も同じ強さで。閉めても5割通す生地の色×光）
+    # 板（prep の mark_plates で印を付けた面）：焼く面としては元の材質、ほかの面から来た光線（影・跳ね返り）には透明（Light Path の Is Camera Ray は焼く面で1）。
+    # 焼いた blend は保存しないので、書き出す模型の材質は変わらない
+    npl = 0
+    for o in objs + vobjs:   # 頂点で焼く物の板（テレビボードの前板の両端の縦の帯など）も
+        a = o.data.attributes.get('plate')
+        if not a:
+            continue
+        pv = np.zeros(len(o.data.polygons), np.int32); a.data.foreach_get('value', pv)
+        mi = np.zeros(len(o.data.polygons), np.int32); o.data.polygons.foreach_get('material_index', mi)
+        slot = {}
+        for i in sorted(set(mi[pv == 1].tolist())):
+            m = o.data.materials[i]
+            if m is None:
+                continue
+            nm = m.name + '#plate'
+            mp = bpy.data.materials.get(nm)
+            if not mp:
+                mp = m.copy(); mp.name = nm; nt = mp.node_tree
+                out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output)
+                if out.inputs['Surface'].links:
+                    src = out.inputs['Surface'].links[0].from_socket
+                    lp = nt.nodes.new('ShaderNodeLightPath'); tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
+                    nt.links.new(lp.outputs['Is Camera Ray'], mx.inputs[0]); nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(src, mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs['Surface'])
+                lm = next((n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image and n.image.name.startswith('LM_')), None)
+                if lm:
+                    nt.nodes.active = lm
+            o.data.materials.append(mp); slot[i] = len(o.data.materials) - 1
+        for k in np.nonzero(pv == 1)[0]:
+            if int(mi[k]) in slot:
+                mi[k] = slot[int(mi[k])]; npl += 1
+        o.data.polygons.foreach_set('material_index', mi)
+    print('plate faces', npl, flush=True)
+    def shb(g, fab):   # シェードを焼く材質：白い拡散（生地は裏から透ける光も同じ強さで。生地の色×光。通す割合はページの SHADE_T）
         nm = 'SHB_%s_%d' % (g, fab)
         m = bpy.data.materials.get(nm)
         if m:

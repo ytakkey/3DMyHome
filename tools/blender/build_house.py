@@ -733,10 +733,15 @@ def separate_coplanar():
             n = (nm @ p.normal).normalized(); c = mw @ p.center
             # 面の中心だけでなく、角へ 7 割寄った点でも探す（角だけ重なった部品＝ヘッダーボックスの枠の上と縦・ブラケットの箱の板を、中心では拾えなかった。2026-10-31）
             pts = [c] + [c + ((mw @ me.vertices[v].co) - c) * 0.7 for v in p.vertices]
-            hits = [h for q in pts for h in bvh.find_nearest_range(q, 0.0008)]
-            for loc, pn, i, d in hits:
+            for (loc, pn, i, d), q in ((h, q) for q in pts for h in bvh.find_nearest_range(q, 0.0008)):
                 oj, fj = owner[i]
                 if oj == oi or pn.normalized().dot(n) < 0.999:
+                    continue
+                # 本当に重なっている所だけ：点を相手の平面へまっすぐ下ろした所が相手の面の中（横のずれ 0.01mm 未満）。辺で接するだけの隣の面
+                # （テレビボードの前板の上の帯の上面と天板）は、角へ寄った点が相手の辺から 0.8mm 以内に入って拾われ、帯の上面が 1.5mm 沈み、
+                # そのすき間から帯の裏に隠れて黒く焼けた本体の前の面が見えて、縁の黒い線になっていた（2026-11-05）
+                off = q - loc
+                if (off - n * off.dot(n)).length > 1e-5:
                     continue
                 if decal:
                     step = 0.0015
