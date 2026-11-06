@@ -12,6 +12,13 @@ argv = sys.argv[sys.argv.index('--') + 1:]
 LD, OUT, ENC, K = argv[0], argv[1], argv[2], int(argv[3])
 SIT, SRNG = int(os.environ.get('LM_SMOOTH_IT', '50')), float(os.environ.get('LM_SMOOTH_RANGE', '0.45'))   # ならす回数・明るさの差の幅（対数 2 の底）
 SDIM = float(os.environ.get('LM_SMOOTH_DIM', '3'))   # 暗い所ほど幅を広げる倍率（その層・アトラスの明るい所の 1/4 より暗い所から広げ始め、1/1024 で 1＋SDIM 倍）
+# 回数（SIT・FIT）は 2cm の画素で決めた。1cm の画素では同じ回数だと実寸のならす幅が半分になり、WIC の壁などにモヤが出た（2026-11-05 ユーザー）。
+# 回数を4倍にすると変換が約12時間になるので、4回のうち3回は2画素先と混ぜ（1回で4回分の広がり）、回数は 1.25倍にして、実寸の幅を 2cm のときと同じにする
+PXS = float(os.environ.get('LM_PX_SCALE', '2'))   # 2cm の画素の何倍細かいか
+def steps(it):
+    if PXS <= 1:
+        return [1] * it
+    return [1 if i % 4 == 3 else 2 for i in range(int(round(it * PXS * PXS / 3.25)))]
 
 def vgsmooth(a, e, it=SIT, rng=SRNG):
     """頂点で焼く物：辺でつながった頂点どうし、明るさが近いものをならす（頂点の焼き込みのノイズ＝ベッドなどの広い面のまだらを消す。影の縁は残す）"""
@@ -26,34 +33,104 @@ def vgsmooth(a, e, it=SIT, rng=SRNG):
         a = np.stack([(a[:, c] + np.bincount(e0, a[e1, c] * w, n) + np.bincount(e1, a[e0, c] * w, n)) / ws for c in range(3)], 1)
     return a
 
-def ismooth(a, L, it=SIT, rng=SRNG):
+LUM = np.array([0.2126, 0.7152, 0.0722])
+def ismooth(As, Ls, LK=(), it=SIT, rng=SRNG):
     """ライトマップの島の中だけ、隣の画素と明るさが近いものどうしで少しずつならす（3×3 を it 回。光が回り込むだけの暗い所に残る、ノイズ除去のまだら＝黒いモヤを消す）。
-    明るさの比が大きい所（影の縁・照明のすぐ近く）は、明るさの差の重み（対数で rng）でほとんど混ぜない。島の外（埋めた画素）はそのまま"""
-    h, w = L.shape; inside = L >= 0
-    # 光が回り込むだけの暗い所（窓の無い部屋の昼など）はノイズが大きく、明るさの近い所だけならすと、ノイズ除去のまだら（モヤ）が残る
-    # → 暗い所ほど幅を広げる（そのアトラスの明るい所＝島の中の上位1%の明るさを基準に。明るい所の影の縁は今のまま。2026-10-28）
-    y0 = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
-    ref = np.percentile(y0[inside], 99) if inside.any() else 0.0
-    R = rng * (1 + SDIM * np.clip((ref - y0 - 2) / 8, 0, 1))
-    for _ in range(it):
-        y = np.log2(np.maximum(a @ np.array([0.2126, 0.7152, 0.0722]), 1e-9))
-        acc = a.copy(); wsum = np.ones((h, w))
-        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
-            ws = 0.5 if dx and dy else 1.0
-            ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
-            src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
-            rr = np.maximum(R[src], R[dst])
-            wt = ws * np.exp(-((y[src] - y[dst]) ** 2) / (2 * rr * rr)) * ((L[src] == L[dst]) & inside[dst])
-            acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
-        a = np.where(inside[..., None], acc / wsum[..., None], a)
+    明るさの比が大きい所（影の縁・照明のすぐ近く）は、明るさの差の重み（対数で rng）でほとんど混ぜない。島の外（埋めた画素）はそのまま。
+    As・Ls：アトラス→画像・島の番号。LK：同じ平面で隣り合う別の島の縁の画素の組（cover_mask.py の links。(アトラス1, アトラス2)→(行1, 列1, 行2, 列2)）。
+    組の画素どうしも混ぜて、島の境目をまたいでならす（島ごとに閉じてならすと、細い島が平らになって隣の島との境目に段差が出た：階段の上の端のタレ壁。2026-11-05）"""
+    R, inside = {}, {}
+    for g, a in As.items():
+        L = Ls[g]; inside[g] = L >= 0
+        # 光が回り込むだけの暗い所（窓の無い部屋の昼など）はノイズが大きく、明るさの近い所だけならすと、ノイズ除去のまだら（モヤ）が残る
+        # → 暗い所ほど幅を広げる（そのアトラスの明るい所＝島の中の上位1%の明るさを基準に。明るい所の影の縁は今のまま。2026-10-28）
+        y0 = np.log2(np.maximum(a @ LUM, 1e-9))
+        ref = np.percentile(y0[inside[g]], 99) if inside[g].any() else 0.0
+        R[g] = rng * (1 + SDIM * np.clip((ref - y0 - 2) / 8, 0, 1))
+    def link(acc, wsum, ya, wf):   # 組の画素どうしを混ぜる（両方向）
+        for (g1, g2), (y1, x1, y2, x2) in LK.items() if LK else ():
+            if g1 not in As or g2 not in As:
+                continue
+            a1, a2 = As[g1][y1, x1], As[g2][y2, x2]
+            w = wf(g1, y1, x1, g2, y2, x2, ya)
+            np.add.at(acc[g1], (y1, x1), a2 * w[:, None]); np.add.at(wsum[g1], (y1, x1), w)
+            np.add.at(acc[g2], (y2, x2), a1 * w[:, None]); np.add.at(wsum[g2], (y2, x2), w)
+    def wl(g1, y1, x1, g2, y2, x2, ya):
+        rr = np.maximum(R[g1][y1, x1], R[g2][y2, x2])
+        return np.exp(-((ya[g1][y1, x1] - ya[g2][y2, x2]) ** 2) / (2 * rr * rr))
+    for k in steps(it):
+        ya = {g: np.log2(np.maximum(a @ LUM, 1e-9)) for g, a in As.items()}; acc, wsum = {}, {}
+        for g, a in As.items():
+            L, y, h, w = Ls[g], ya[g], *Ls[g].shape
+            acc[g] = a.copy(); wsum[g] = np.ones((h, w))
+            for dy, dx in ((-k, 0), (k, 0), (0, -k), (0, k), (-k, -k), (-k, k), (k, -k), (k, k)):
+                ws = 0.5 if dx and dy else 1.0
+                ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+                src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+                rr = np.maximum(R[g][src], R[g][dst])
+                wt = ws * np.exp(-((y[src] - y[dst]) ** 2) / (2 * rr * rr)) * ((L[src] == L[dst]) & inside[g][dst])
+                acc[g][dst] += a[src] * wt[..., None]; wsum[g][dst] += wt
+        link(acc, wsum, ya, wl)
+        As = {g: np.where(inside[g][..., None], acc[g] / wsum[g][..., None], As[g]) for g in As}
     for _ in range(2):   # 最後に明るさの差を問わず軽くぼかす（画素の段々＝日なたの縁のギザギザを和らげる。E4）
-        acc = a.copy(); wsum = np.ones((h, w))
+        acc, wsum = {}, {}
+        for g, a in As.items():
+            L, h, w = Ls[g], *Ls[g].shape
+            acc[g] = a.copy(); wsum[g] = np.ones((h, w))
+            for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+                src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+                wt = 0.5 * ((L[src] == L[dst]) & inside[g][dst])
+                acc[g][dst] += a[src] * wt[..., None]; wsum[g][dst] += wt
+        link(acc, wsum, None, lambda g1, y1, x1, g2, y2, x2, ya: np.full(len(y1), 0.5))
+        As = {g: np.where(inside[g][..., None], acc[g] / wsum[g][..., None], As[g]) for g in As}
+    return As
+def cfill(a, L, C):
+    """ほかの部品にぴったり覆われて見えない画素（cover_mask.py。棚板の端が当たった壁など）を、同じ島の見える画素の明るさで外側から順に埋める。
+    覆われた所は真っ黒に焼け、ならし・表示の Bスプラインで見える所へにじんで、WIC の壁の角に黒いしみが出ていた（2026-11-05 ユーザー）"""
+    h, w = L.shape
+    # 覆われた画素に接する、周りの見える画素の 1/10 より暗い画素も覆われた側に入れる（覆う物の縁のすぐ外は、画素の中心が覆う物の陰で黒く焼けるが、
+    # 覆う物の面からはずれて印が付かない。それを見える画素として埋めると黒が広がり、WIC の南の角の棚の上にしみが出た。2026-11-06）
+    y = a.max(2); C = C.copy()
+    for _ in range(3):
+        k = np.where((L >= 0) & ~C, y, 0); ref = k.copy()
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                ref = np.maximum(ref, np.roll(np.roll(k, dy, 0), dx, 1))
+        near = C.copy()
         for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            near |= np.roll(np.roll(C, dy, 0), dx, 1)
+        add = near & ~C & (L >= 0) & (y < ref * 0.1)
+        if not add.any():
+            break
+        C |= add
+    todo = C & (L >= 0); known = (L >= 0) & ~C
+    for _ in range(64):   # 64画素より奥（大きな家具の下の床の真ん中）は見えず、にじむ所でもないのでそのまま
+        if not todo.any():
+            break
+        acc = np.zeros_like(a); cnt = np.zeros((h, w))
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
             ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
             src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
-            wt = 0.5 * ((L[src] == L[dst]) & inside[dst])
-            acc[dst] += a[src] * wt[..., None]; wsum[dst] += wt
-        a = np.where(inside[..., None], acc / wsum[..., None], a)
+            wt = known[src] & (L[src] == L[dst]) & todo[dst]
+            acc[dst] += a[src] * wt[..., None]; cnt[dst] += wt
+        got = cnt > 0
+        a[got] = acc[got] / cnt[got][:, None]; known |= got; todo &= ~got
+    return a
+def efill(a, L, n=2):
+    """島の外の画素のうち、島から n 画素以内を、ならした後の島の明るさで外側へ順に埋める（表示の Bスプラインは縁から2画素先まで読む）。
+    画素の中心が面に乗らない縁の画素（島の外）は焼いたままの暗い値で残り、タレ壁と上の壁の境目に暗い線が出ていた（2026-11-06。上の壁の下の端の
+    高さ 1cm の帯の画素）"""
+    h, w = L.shape; known = L >= 0
+    for _ in range(n):
+        acc = np.zeros_like(a); cnt = np.zeros((h, w))
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)):
+            ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
+            src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
+            wt = known[src] & ~known[dst]
+            acc[dst] += a[src] * wt[..., None]; cnt[dst] += wt
+        got = cnt > 0
+        a[got] = acc[got] / cnt[got][:, None]; known |= got
     return a
 FIT = int(os.environ.get('LM_FAR_IT', '300'))   # 光源の部屋からドア2枚以上先の層の、島の中のぼかしの回数（3×3。2cm の画素で幅 約30cm）
 
@@ -69,9 +146,9 @@ def iblur(a, L, it=FIT, sparse_only=False):
         inside = inside & keep[np.maximum(L, 0)]
         if not inside.any():
             return a
-    for _ in range(it):
+    for k in steps(it):
         acc = a.copy(); wsum = np.ones((h, w))
-        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        for dy, dx in ((-k, 0), (k, 0), (0, -k), (0, k)):
             ys0, ys1 = max(0, dy), h + min(0, dy); xs0, xs1 = max(0, dx), w + min(0, dx)
             src = (slice(ys0, ys1), slice(xs0, xs1)); dst = (slice(ys0 - dy, ys1 - dy), slice(xs0 - dx, xs1 - dx))
             wt = (L[src] == L[dst]) & inside[dst]
@@ -109,7 +186,11 @@ def far(layer, g):
                 dist[s] = dist[r] + 1; q.append(s)
     g = g[2:] if g.startswith('V_') else g
     rooms = ROOMS['adj'].get(g[5:], ()) if g.startswith('door_') else (g,)
-    return any(dist.get(one.get(r, r), 0) >= 2 for r in rooms)
+    # 窓の光（sky_・sun_）は、窓の無い部屋（その部屋の sky_ の層が無い）へはドア1枚先でも跳ね返った光だけが届く。焼くとまだらになり、
+    # 明るさの近い所だけのならしでは WIC の南の角の棚の上に黒いしみが残った（2026-11-07）→ ドア2枚先と同じに大きくぼかす
+    lit = {one.get(h, h) for k, h in ROOMS['home'].items() if k.startswith('sky_')}
+    need = 1 if layer.split('@')[0].startswith(('sky_', 'sun_')) else 2
+    return any(dist.get(one.get(r, r), 0) >= (need if one.get(r, r) not in lit else 2) for r in rooms)
 os.makedirs(OUT, exist_ok=True)
 
 def png(path, a, depth):
@@ -143,13 +224,21 @@ def jpeg(path, a):
     im.save(filepath=path, quality=90)
     bpy.data.images.remove(im)
 
+# 島の境目をまたぐ画素の組（cover_mask.py）：(アトラス1, アトラス2) → (行1, 列1, 行2, 列2)
+LKALL = {}
+if os.path.exists(os.path.join(LD, '_labels', 'links.npz')):
+    z = np.load(os.path.join(LD, '_labels', 'links.npz')); nm = [str(x) for x in z['names']]
+    for a1, y1, x1, a2, y2, x2 in z['links']:
+        LKALL.setdefault((nm[a1], nm[a2]), []).append((y1, x1, y2, x2))
+    LKALL = {k: tuple(np.array(v, np.int64).T) for k, v in LKALL.items()}
+    print('lmimg links', sum(len(v[0]) for v in LKALL.values()), flush=True)
 index = {'enc': ENC, 'scale': K, 'layers': {}, 'res': {}}
 total = 0
 for L in sorted(os.listdir(LD)):
     d = os.path.join(LD, L)
     if not os.path.isfile(os.path.join(d, 'done')):
         continue
-    ent = {}
+    ent, A = {}, {}
     for f in sorted(os.listdir(d)):
         if not f.endswith('.npy'):
             continue
@@ -173,11 +262,21 @@ for L in sorted(os.listdir(LD)):
         if not np.isfinite(a).all():
             print('lmimg nonfinite', L, g, int((~np.isfinite(a)).sum()), flush=True)
             a = np.nan_to_num(a, nan=0.0, posinf=65504.0)
-        a = np.maximum(a, 0)
+        A[g] = np.maximum(a, 0)
+    # ライトマップ：層のアトラスをまとめてならす（島の境目の組は、アトラスをまたぐものもある）
+    As, Ls = {}, {}
+    for g, a in A.items():
         lf = os.path.join(LD, '_labels', g + '.npy')
         if SIT > 0 and os.path.exists(lf):
-            a = ismooth(a.astype(np.float64), np.load(lf))
-            a = (iblur(a, np.load(lf), sparse_only=g.startswith('door_')) if FIT > 0 and far(L, g) else a).astype(np.float32)
+            Ls[g] = np.load(lf); As[g] = a.astype(np.float64); cf = os.path.join(LD, '_labels', g + '_cover.npy')
+            if os.path.exists(cf):
+                As[g] = cfill(As[g], Ls[g], np.load(cf))
+    if As:
+        As = ismooth(As, Ls, LKALL)
+    for g in sorted(A):
+        a = A[g]
+        if g in As:
+            a = efill(iblur(As[g], Ls[g], sparse_only=g.startswith('door_')) if FIT > 0 and far(L, g) else As[g], Ls[g]).astype(np.float32)
         if K > 1:
             r = a.shape[0] // K
             a = a[:r * K, :r * K].reshape(r, K, r, K, 3).mean((1, 3))
