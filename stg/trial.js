@@ -110,9 +110,13 @@ const LAMEL=[...[2.63,3.53,4.30].map(x=>['a1',0,[x,2.39,1.0],440,-1]),...[5.075,
  ...[5.075,6.575].flatMap(z=>[['a2',0,[2.357,2.488,z+0.07],620,0.76,[0,1,0]],['a2',0,[2.357,2.412,z-0.07],620,0.76,[0,-1,0]]]),
  ['a2',0,[4.12,2.488,7.078],620,0.76,[0,1,0]],['a2',0,[3.98,2.412,7.078],620,0.76,[0,-1,0]],
  ...[1.065,1.415,1.765].map(x=>['a5',0,[x,1.4975,2.12],350,0]),['day',0,[2.2,1.6,9.0],1e6,0],
- ['g1',1,[-2.1225,1.632,5.9525],312,0],...[5.558,6.12].map(z=>['eh',1,[-0.675,2.39,z],440,-1]),['b3',1,[-0.91,1.94,4.727],350,0],['day',1,[-0.9,1.5,4.6],1e5,0]];
+ ['g1',1,[-2.1225,1.632,5.9525],312,0],...[5.558,6.12].map(z=>['eh',1,[-0.675,2.39,z],440,-1]),['b3',1,[-0.91,1.94,4.727],350,0],['day',1,[-0.9,1.5,4.6],1e5,0],
+ // つや（glossSpec）だけが使う区域：4＝LDK（区域0）に足す階段の上の H1（ラメのテレビの面は今のまま）、2＝2階の吹抜けの手すり（J1・H1・吹抜けの A2・昼の吹抜けの窓）、3＝玄関ホール（B2・B3・昼の玄関。トイレの面と違い SG500 によらない）
+ ...[4.35,5.51].flatMap(z=>[['h1',4,[4.43,5.3,z],440,-1],['h1',2,[4.43,5.3,z],440,-1]]),...[0.99,3.32].map(x=>['j1',2,[x,5.3,3.12],440,-1]),
+ ...[5.075,6.575].flatMap(z=>[['a2',2,[2.357,2.488,z+0.07],620,0.76,[0,1,0]]]),['a2',2,[4.12,2.488,7.078],620,0.76,[0,1,0]],['day',2,[3.4,4.6,9.0],1e6,0],
+ ...[5.558,6.12].map(z=>['eh',3,[-0.675,2.39,z],440,-1]),['b3',3,[-0.91,1.94,4.727],350,0],['day',3,[-0.9,1.5,4.6],1e5,0]];
 const LAMEU={uCam:{value:cam.position},uLK:{value:+Q.get('lk')||1},uLaN:{value:null},uLaS:{value:null},uLP:{value:LAMEL.map(l=>new THREE.Vector4(...l[2],0))},uLD:{value:LAMEL.map(l=>new THREE.Vector4(...(l[5]?new THREE.Vector3(...l[5]).normalize().toArray():[0,-1,0]),l[4]))},uLZ:{value:LAMEL.map(l=>l[1])}};
-function lameLights(s){LAMEL.forEach((l,i)=>{const on=l[0]==='day'?!s.night:!!s.LS[l[0]==='b3'?'eh':l[0]];LAMEU.uLP.value[i].w=on&&(l[1]===0||l[0]==='g1'||s.DS.sg500)?l[3]:0;});}
+function lameLights(s){LAMEL.forEach((l,i)=>{const on=l[0]==='day'?!s.night:!!s.LS[l[0]==='b3'?'eh':l[0]];LAMEU.uLP.value[i].w=on&&(l[1]!==1||l[0]==='g1'||s.DS.sg500)?l[3]:0;});}
 const LAMEGL=`uniform vec3 uCam;uniform float uLK;uniform sampler2D uLaN;uniform sampler2D uLaS;uniform vec4 uLP[${LAMEL.length}];uniform vec4 uLD[${LAMEL.length}];uniform float uLZ[${LAMEL.length}];varying vec3 vWP;
 vec3 lameSpec(vec3 E){vec3 N=normalize(cross(dFdx(vWP),dFdy(vWP)));vec3 V=normalize(uCam-vWP);if(dot(N,V)<0.0)N=-N;
  vec3 T=normalize(cross(vec3(0.0,1.0,0.0),N)),B=cross(N,T),tn=texture2D(uLaN,vUv).xyz*2.0-1.0,G=normalize(T*tn.x+B*tn.y+N*tn.z);
@@ -122,6 +126,17 @@ vec3 lameSpec(vec3 E){vec3 N=normalize(cross(dFdx(vWP),dFdy(vWP)));vec3 V=normal
   float ang=D.w>0.0?exp(-0.693*pow(acos(clamp(dot(-L,D.xyz),-1.0,1.0))/D.w,2.0)):(D.w<0.0?max(dot(-L,D.xyz),0.0):1.0);
   float a=P.w*ang*cw/r2;sw+=a;sa+=a*pow(max(dot(G,normalize(L+V)),0.0),70.0)*max(dot(G,L),0.0)/cw;}
  return E*texture2D(uLaS,vUv).r*9.0*uLK*sa/max(sw,1e-9);}`;   // 本番の Phong（照り＝照度×specularMap×0.25×(70/2+1)×cos^70。光の量は焼いた明るさの割合）。見る位置は uCam で渡す（MeshBasicMaterial には cameraPosition が渡らず原点のままで、テレビの面では光源が裏にあることになり光らなかった）
+// つや（テレビの画面・階段と2階の手すりのアクリル・真鍮の照明器具。1章のユーザーの指定。キッチンとカップボードの天板は付けない＝2026-11-07）：ラメと同じく、焼いた明るさを
+// 届きうる光源に分け、本番の Phong と同じ式（照度×specular×0.25×(shininess/2+1)×cos^shininess）で照りを足す。specular・shininess は書き出しの extras の gloss（本番の値）
+const GLOSSGL=`uniform vec3 uCam;uniform vec4 uLP[${LAMEL.length}];uniform vec4 uLD[${LAMEL.length}];uniform float uLZ[${LAMEL.length}];uniform vec4 uGS;uniform float uGD;varying vec3 vWP;varying vec3 vWN;
+vec3 glossSpec(vec3 E){vec3 N=length(vWN)>0.5?normalize(vWN):normalize(cross(dFdx(vWP),dFdy(vWP)));vec3 V=normalize(uCam-vWP);if(dot(N,V)<0.0)N=-N;
+ float zone=vWP.x<0.0?3.0:(vWP.y>2.9?2.0:0.0),sw=0.0,sa=0.0;
+ for(int i=0;i<${LAMEL.length};i++){vec4 P=uLP[i];vec4 D=uLD[i];float z=uLZ[i];if(P.w<=0.0||!(abs(z-zone)<0.5||(zone<0.5&&abs(z-4.0)<0.5)))continue;
+  vec3 d=P.xyz-vWP;float r2=dot(d,d);vec3 L=d*inversesqrt(r2);float cw=max(dot(N,L),0.0);if(cw<=0.0)continue;
+  float ang=D.w>0.0?exp(-0.693*pow(acos(clamp(dot(-L,D.xyz),-1.0,1.0))/D.w,2.0)):(D.w<0.0?max(dot(-L,D.xyz),0.0):1.0);
+  float k=P.w>=1e5?uGD:1.0;   // 窓（昼）の照りの倍率：テレビの画面・手すりは 0（窓を点の光として照りを付けると画面に白く飛んだ丸い照りが出た。本番も昼はほとんど映らない）、真鍮は 1（本番も昼に金色に光る）
+  float a=P.w*ang*cw/r2;sw+=a;sa+=k*a*pow(max(dot(N,normalize(L+V)),0.0),uGS.w);}
+ return E*uGS.rgb*0.25*(uGS.w*0.5+1.0)*sa/max(sw,1e-9);}`;
 // ライトマップは3次の Bスプラインで補間して読む（直線の補間では、画素の段が日差しの影の縁などでギザギザに見えた。2026-11-04 ユーザー「Bスプラインで」）。
 // 直線の補間4回で 4×4 画素を重みづけする。縁で2画素先まで読むので、島のすき間は4画素（bake_layers.py の pack_islands）。?bs=0 で直線の補間
 const LMBS=Q.get('bs')!=='0';
@@ -131,18 +146,23 @@ vec4 lmBS(sampler2D t,vec2 uv){vec2 st=uv*uLmS-0.5,i=floor(st),f=st-i,f2=f*f,f3=
  vec2 p0=(i-0.5+w1/g0)/uLmS,p1=(i+1.5+w3/g1)/uLmS;
  return g0.y*(g0.x*texture2D(t,p0)+g1.x*texture2D(t,vec2(p1.x,p0.y)))+g1.y*(g0.x*texture2D(t,vec2(p0.x,p1.y))+g1.x*texture2D(t,p1));}
 `;
-function patchMat(m,vl,vo,cg,sd,lame){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+function patchMat(m,vl,vo,cg,sd,lame,gl){m.onBeforeCompile=sh=>{sh.uniforms.uE=UNI.uE;sh.uniforms.uG=UNI.uG;
+ if(gl){Object.assign(sh.uniforms,{uCam:LAMEU.uCam,uLP:LAMEU.uLP,uLD:LAMEU.uLD,uLZ:LAMEU.uLZ,uGS:{value:new THREE.Vector4(...gl.slice(0,4))},uGD:{value:gl.length>4?gl[4]:1}});   // つや：見る位置・光源は照りと同じ uniform
+  sh.vertexShader='varying vec3 vWP;varying vec3 vWN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;vWN=mat3(modelMatrix)*normal;');}   // 法線は丸い真鍮をなめらかに光らせるため（無い物は面の向き）
  if(lame){Object.assign(sh.uniforms,LAMEU);sh.vertexShader='varying vec3 vWP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  if(sd){sh.uniforms.uShP=UNI.uShP;sh.vertexShader='attribute vec3 shd;attribute vec4 stop;uniform float uShP;\n'+sh.vertexShader.replace('#include <begin_vertex>',SHV);}
  if(cg){sh.uniforms.uCau={value:compRT('c:'+cg).texture};sh.uniforms.uCauT={value:cauTex};sh.uniforms.uCauP={value:new THREE.Vector3(...CAU.p)};sh.uniforms.uCauK={value:new THREE.Vector4(...CAU.k)};   // cg：G1 のまっすぐ届く光のアトラス
   sh.vertexShader='varying vec3 vWC;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWC=(modelMatrix*vec4(transformed,1.0)).xyz;');}
  sh.fragmentShader='uniform float uE;uniform float uG;'+(vo?'varying vec3 vOrig;':'')+(cg?CAUGL:'')+CMP+sh.fragmentShader;
  if(vo)sh.vertexShader='attribute vec3 vorig;varying vec3 vOrig;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvOrig=vorig;');   // 元の頂点の色は縮めた後に掛ける（先に掛けると暗い色が持ち上がる：電気ケトルが白くなっていた）
- if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
+ if(vl)sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>',(gl?'vec3 glE=cmpL(vColor);':'')+'diffuseColor.rgb*=cmpL(vColor)'+(vo?'*vOrig':'')+';');
+ if(gl){sh.fragmentShader=sh.fragmentShader.replace('#include <uv_pars_fragment>','#include <uv_pars_fragment>\n'+GLOSSGL);
+  if(!vl)sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse *= diffuseColor.rgb;','vec3 glE=reflectedLight.indirectDiffuse;\nreflectedLight.indirectDiffuse *= diffuseColor.rgb;');
+  sh.fragmentShader=sh.fragmentShader.replace('vec3 outgoingLight = reflectedLight.indirectDiffuse;','vec3 outgoingLight = reflectedLight.indirectDiffuse+glossSpec(glE);');}   // 照りは材質の色を掛けない（Phong の specular の色だけ）
  else if(LMBS&&m.lightMap){const im=m.lightMap.image;sh.uniforms.uLmS={value:new THREE.Vector2(im.width,im.height)};sh.fragmentShader=BSGL+sh.fragmentShader.replace('vec4 lightMapTexel= texture2D( lightMap, vUv2 );','vec4 lightMapTexel=lmBS(lightMap,vUv2);');}
  if(!vl)sh.fragmentShader=sh.fragmentShader.replace('reflectedLight.indirectDiffuse += lightMapTexelToLinear( lightMapTexel ).rgb * lightMapIntensity;','reflectedLight.indirectDiffuse+=cmpL((lightMapTexelToLinear(lightMapTexel).rgb'+(cg?'+texture2D(uCau,vUv2).rgb*cauF()':'')+')*lightMapIntensity);');   // r128 の MeshBasicMaterial のライトマップの行
  if(lame)sh.fragmentShader=sh.fragmentShader.replace('#include <uv_pars_fragment>','#include <uv_pars_fragment>\n'+LAMEGL).replace('vec3 outgoingLight = reflectedLight.indirectDiffuse;','vec3 lameE=reflectedLight.indirectDiffuse;\nreflectedLight.indirectDiffuse*=diffuseColor.rgb;vec3 outgoingLight=reflectedLight.indirectDiffuse+lameSpec(lameE);').replace('reflectedLight.indirectDiffuse *= diffuseColor.rgb;','');};   // 照りは材質の色を掛けない（白い照り）
- m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'')+(lame?'L':'');return m;}
+ m.customProgramCacheKey=()=>'cmp'+(vl?1:0)+(vo?1:0)+(sd?1:0)+(cg||'')+(lame?'L':'')+(gl?'G'+gl.join(','):'');return m;}
 const glassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false});   // 窓のガラス（本番と同じく、昼夜で色だけ変える）
 const entGlassMat=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,side:THREE.DoubleSide});   // 玄関ドアの窓（本番 wash.js の entGl：昼 0xdfe3e5・夜 0x101318）
 
@@ -243,7 +263,8 @@ function setupModel(root){const mc=new Map();
   if(!o.isMesh)return;const u=info(o),m=o.material;
   if(!u){o.material=glassMat;return;}
   if(m.userData&&m.userData.entglass){o.material=entGlassMat;return;}   // 玄関ドアの窓：本番の entGl と同じく焼いた明るさを使わない
-  const vl=!!u.vlit,sd=!!u.shadeobj,lame=!vl&&!!(m.userData&&m.userData.lame),key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
+  const vl=!!u.vlit,sd=!!u.shadeobj,lame=!vl&&!!(m.userData&&m.userData.lame),gl=!lame&&m.userData&&m.userData.gloss||null,key=m.uuid+'|'+u.atlas+'|'+vl+'|'+sd;let nm=mc.get(key);if(sd)SHM.push(o);
+  if(gl&&!o.geometry.attributes.normal)o.geometry.computeVertexNormals();   // 書き出しに法線は無い（つやの照りの向きに使う）
   if(vl){const g=o.geometry,vid=g.attributes._vid,n=vid.count,id=new Int32Array(n);for(let j=0;j<n;j++)id[j]=Math.round(vid.getX(j));
    const ca=g.attributes.color_1||g.attributes.color,cs=ca&&ca.normalized?({Uint8Array:255,Uint16Array:65535}[ca.array.constructor.name]||1):1,lin=v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4),orig=m.userData&&m.userData.vcol&&ca?Float32Array.from({length:n*3},(_,j)=>lin(ca.array[Math.floor(j/3)*ca.itemSize+j%3]/cs)):null;   // 元の頂点の色（縮めた明るさに掛ける）。まとめた物では最後の色（COLOR_1）が元の色。色の数値は画面の色なので線形へ（材質の色と同じ扱い）
    if(g.attributes.color_1)g.deleteAttribute('color_1');if(orig)g.setAttribute('vorig',new THREE.BufferAttribute(orig,3));
@@ -252,7 +273,7 @@ function setupModel(root){const mc=new Map();
    (VMESH[u.atlas]=VMESH[u.atlas]||[]).push({col,vid:id,pos});}
   const vo=vl&&!!o.geometry.attributes.vorig;
   if(!nm){nm=new THREE.MeshBasicMaterial({color:m.color.clone(),map:m.map||null,vertexColors:vl||!!(m.userData&&m.userData.vcol),side:m.side,transparent:m.transparent,opacity:m.opacity,alphaTest:m.alphaTest,depthWrite:m.depthWrite,
-    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null,sd,lame);
+    lightMap:vl?null:compRT(u.atlas).texture,lightMapIntensity:LMK});patchMat(nm,vl,vo,!vl&&CAUG.includes(u.atlas)?u.atlas:null,sd,lame,gl);
    if(lame){const om=m.map,mk=c=>{const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.flipY=false;if(om){t.repeat.copy(om.repeat);t.offset.copy(om.offset);t.center.copy(om.center);t.rotation=om.rotation;}return t;};   // 本番と同じ作り方の柄に替える（照りの粒と色の明るい粒の位置をそろえる）
     nm.map=mk(ic5025.c);nm.map.encoding=THREE.sRGBEncoding;LAMEU.uLaN.value=mk(ic5025.n);LAMEU.uLaS.value=mk(ic5025.s);}if(nm.map)nm.map.anisotropy=r.capabilities.getMaxAnisotropy();mc.set(key,nm);}   // 異方性フィルタは本番と同じ（無いと斜めに見た柄が筋状につぶれる：テレビボードの前板）
   o.material=nm;

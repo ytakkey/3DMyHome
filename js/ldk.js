@@ -397,7 +397,7 @@ box(0.04,0.962,1.672,TVX+0.055,0.61+0.481,TVC,0x121212);
 {const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.94),P({color:0x07070a,specular:0x555555,shininess:90}));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0775,1.091,TVC);s.add(sc);}
 // テレビ前のウォールウォッシャダウンライト A6：パナソニック SLD1310VLB1 ×2（拡散タイプのウォールウォッシャ。LEDが壁向きに傾いていて壁面を照らす・温白色3500K・320lm・埋込穴φ75）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm
 const a6Mat=new THREE.MeshBasicMaterial({color:0xd9d8d4});
-const a6=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.006,32),L(0xffffff));ring.position.set(x,H1-0.003,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.008,32),a6Mat);disc.position.set(x,H1-0.0045,z);s.add(disc);lbox(s,0.004,0.012,0.07,x+0.03,H1-0.01,z,0x9a9a9a);const sp=new THREE.SpotLight(0xffd9b4,0,5,THREE.MathUtils.degToRad(55),0.8,1.1);sp.position.set(x,H1-0.02,z);sp.target.position.set(TVX-0.2,0.5,z);s.add(sp);s.add(sp.target);return sp;});
+const a6=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.006,32),L(0xffffff));ring.position.set(x,H1-0.003,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.008,32),a6Mat);disc.position.set(x,H1-0.0045,z);s.add(disc);const sp=new THREE.SpotLight(0xffd9b4,0,5,THREE.MathUtils.degToRad(55),0.8,1.1);sp.position.set(x,H1-0.02,z);sp.target.position.set(TVX-0.2,0.5,z);s.add(sp);s.add(sp.target);return sp;});
 
 // ソファ：ニトリ 3人掛け電動リクライニングソファ KK6133 LGY（W1830×D890×H945、写真より少し暗めのライトグレー）
 // テレビの正面に配置（テレビとの距離は座った目線から約2.3m。位置はユーザーの指定）
@@ -411,10 +411,10 @@ const sofa=new THREE.Group();sofa.position.set(SOFA_BACK-SOFA_D/2,0,TVC);sofa.ro
  // 脚（黒、肘掛けの下に4つ）
  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,k])=>{const f=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.024,0.05,12),L(0x151515));f.position.set(i*(hx-0.07),0.025,k*(hz-0.08));g.add(f);});
  // 肘掛け：本体と、上端の外側に張り出した丸いロール
- [-1,1].forEach(i=>{rbox(g,AW,0.5,SOFA_D-0.02,0.035,i*(hx-AW/2),0.05+0.25,0,fabric);
+ [-1,1].forEach(i=>{rbox(g,AW,0.57,SOFA_D-0.03,0.035,i*(hx-AW/2),0.05+0.285,0,fabric);   // 本体の上端はロールの中まで（ロールの下と本体の上の丸い角の間に溝ができ、明るい線に見えた。2026-11-07 ユーザー。1つの家具の本体は溝を作らない）
   rbox(g,AW+0.05,0.12,SOFA_D-0.03,0.055,i*(hx-AW/2+0.012),0.6,0,fabric);});
  // 背もたれの外側
- rbox(g,IW+0.02,0.62,0.12,0.045,0,0.53,-hz+0.06,fabric);   // 背もたれの外側（薄め）
+ rbox(g,IW+0.02,0.62,0.12,0.045,0,0.53,-hz+0.06,fabric);rbox(g,IW+0.01,0.23,0.735,0.01,0,0.175,0.0325,fabricDk);   // 背もたれの外側（薄め）、座の下の台（左右の土台の間・土台と背もたれの間・肘掛けとの間のすき間をふさぐ。すき間から床が透けて見えた。2026-11-07 ユーザー）
  [-1,1].forEach(i=>{const cx=i*half/2;
   rbox(g,half-0.012,0.25,SOFA_D-0.16,0.03,cx,0.185,0.07,fabricDk);        // 座面の土台と前のフットレスト（電動リクライニング部）
   rbox(g,half-0.014,0.17,0.66,0.07,cx,0.395,hz-0.34,fabric);             // 座クッション
