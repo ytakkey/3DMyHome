@@ -156,6 +156,47 @@ for o in bpy.data.objects:
 for mn in lame:
     bpy.data.materials[mn]['lame'] = 1
 print('emit lame', lame, flush=True)
+# つや・照り（1章：ユーザーの指定した所だけ。キッチンとカップボードの天板は付けない＝2026-11-07 ユーザー）に印：本番の Phong の specular・shininess を
+# extras の gloss に [r, g, b, shininess] で書く（glTF には照りが入らない）。ページで照明の向きから照りを足す（stg/trial.js の glossSpec）
+#  テレビの画面（ldk.js：0x07070a・0x555555・90。同じ色の IH のガラストップと分けるため、テレビの面の前の東向きの面だけ）・階段と2階の手すりのアクリル（common.js の acrylMat：0xe8f2f8・0xffffff・90）・
+#  真鍮の照明器具（ダイニングのペンダント ldk.js の brass：0x8a7650・0x6b5a3a・40、玄関ホールのブラケット wash.js の BR：0x5b4d41・0x5a4a3a・34）
+def lin(v):
+    v /= 255.0
+    return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+def colof(m):
+    if m and m.node_tree:
+        for n in m.node_tree.nodes:
+            if n.type == 'BSDF_PRINCIPLED':
+                return tuple(n.inputs['Base Color'].default_value[:3]), n.inputs['Alpha'].default_value
+    return None, 1.0
+def same(c, hx):
+    t = [(hx >> s) & 255 for s in (16, 8, 0)]
+    return c is not None and (max(abs(a - lin(b)) for a, b in zip(c, t)) < 0.0015 or max(abs(a - b / 255) for a, b in zip(c, t)) < 0.0015)   # テレビの枠（0x121212）は画面（0x07070a）と線形で 0.004 しか違わない
+def hexv(hx):
+    return [((hx >> s) & 255) / 255 for s in (16, 8, 0)]
+gloss = {}
+for o in bpy.data.objects:
+    if o.type != 'MESH':
+        continue
+    mw = o.matrix_world; nm3 = mw.to_3x3()
+    for p in o.data.polygons:
+        m = o.data.materials[p.material_index] if p.material_index < len(o.data.materials) else None
+        c, al = colof(m)
+        if c is None:
+            continue
+        if same(c, 0x07070a):
+            w = mw @ p.center; n = (nm3 @ p.normal).normalized()
+            if abs(w.x - 0.5325) < 0.01 and n.x > 0.9:
+                gloss[m.name] = hexv(0x555555) + [90, 0]   # 5つ目：昼の窓の光の照りの倍率（テレビの画面・手すりは 0。trial.js の glossSpec）
+        elif same(c, 0xe8f2f8) and al < 0.5:
+            gloss[m.name] = hexv(0xffffff) + [90, 0]
+        elif same(c, 0x8a7650):
+            gloss[m.name] = hexv(0x6b5a3a) + [40, 1]
+        elif same(c, 0x5b4d41):
+            gloss[m.name] = hexv(0x5a4a3a) + [34, 1]
+for mn, v in gloss.items():
+    bpy.data.materials[mn]['gloss'] = v
+print('emit gloss', {k: v[3] for k, v in gloss.items()}, flush=True)
 # 頂点の色を使う材質（本番で vertexColors の物＝電気ケトル）に印。ページは印のある材質だけ元の頂点の色を掛ける（glTF の読み込みは色の属性があれば全部の材質で頂点の色を使ってしまう）
 for m in bpy.data.materials:
     if m.node_tree and any(n.type in ('VERTEX_COLOR', 'ATTRIBUTE') for n in m.node_tree.nodes):

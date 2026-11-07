@@ -336,7 +336,11 @@ def prep(out):
             for p in me.polygons:
                 n = (mw.to_3x3() @ p.normal).normalized(); c = mw @ p.center
                 fl = 2.9 if (g in ('bed', 'wic', 'study', 'hall') or g[5:] in DOOR2F) else 0.0
-                coarse = n.z < -0.5 or ((c.z - fl) > 2.0 and n.z > 0.5)   # 天井・下向きの面と、高い所の上向きの面だけ粗く（壁は高い所も細かく：ブラケットの光が四角く出ていた。2026-10-25）
+                coarse = (n.z < -0.97 and not g.startswith('door_') and not (o.get('round') and p.area * abs(mw.determinant()) ** (2 / 3) < 0.01)) or ((c.z - fl) > 2.0 and n.z > 0.5)
+                # ドアの枠の上の下向きの面（幅 15cm）は扉の両側にまたがるので細かいまま：5cm の画素が閉じた扉をまたいで、LDK の光が玄関ホール側に斜めの線で出た（2026-11-08 SG11H）   # 天井・真下向きの面と、高い所の上向きの面だけ粗く（壁は高い所も細かく：ブラケットの光が四角く出ていた。2026-10-25）。
+                # 斜め下向き（丸めた下の角）は細かいまま：5cm の画素では角の帯に画素が乗らず、ソファの座クッションの前の角の下・掛け布団の縁が黒い線になった（2026-11-07 ユーザー。家全体で約2m²）
+                # 角を丸めた箱（round：tools/export/export.js が rbox の部品に付ける）の真下向きの小さい面（100cm² 未満＝丸めた角のそばの細い帯）も細かいまま：
+                # 掛け布団の裏は 3.5cm の帯だけが見え、5cm の画素では黒い帯になった。ベッドのフレームとマットレスの平らな底（0.5m² の面。合わせて 9m²）は見えないので粗いまま（2026-11-08）
                 k = FINE if p.index in fine else COARSE if coarse else 1.0
                 area += p.area * k * k
                 if k != 1.0:

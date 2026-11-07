@@ -231,6 +231,22 @@ if os.path.exists(os.path.join(LD, '_labels', 'links.npz')):
     for a1, y1, x1, a2, y2, x2 in z['links']:
         LKALL.setdefault((nm[a1], nm[a2]), []).append((y1, x1, y2, x2))
     LKALL = {k: tuple(np.array(v, np.int64).T) for k, v in LKALL.items()}
+    # 覆われた画素（cover_mask.py）を含む組は外す：覆われた所は見える画素から埋めた作り物の値で、壁の厚みを貫いて部屋の向こう側の明るさを運ぶ
+    # （SG11H の枠の裏の面は壁の中で覆われ、LDK 側の端の明るさで埋まり、同じ平面の玄関ホール側の額縁の横の面へ組で混ざって、扉を閉めても LDK の照明で光った。2026-11-07）
+    CV = {}
+    def cov(g):
+        if g not in CV:
+            f = os.path.join(LD, '_labels', g + '_cover.npy')
+            CV[g] = np.load(f) if os.path.exists(f) else None
+        return CV[g]
+    for (g1, g2), (y1, x1, y2, x2) in list(LKALL.items()):
+        c1, c2 = cov(g1), cov(g2)
+        ok = np.ones(len(y1), bool)
+        if c1 is not None:
+            ok &= ~c1[y1, x1]
+        if c2 is not None:
+            ok &= ~c2[y2, x2]
+        LKALL[(g1, g2)] = (y1[ok], x1[ok], y2[ok], x2[ok])
     print('lmimg links', sum(len(v[0]) for v in LKALL.values()), flush=True)
 index = {'enc': ENC, 'scale': K, 'layers': {}, 'res': {}}
 total = 0
