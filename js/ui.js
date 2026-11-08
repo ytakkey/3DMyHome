@@ -28,8 +28,10 @@ function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(
 function setView(lb){VIEWS.find(v=>v[0]===lb)[1]();$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 // 照明のパネル：上に全点灯・全消灯、その下に、いまいる部屋の照明だけ（「すべての部屋」で全部屋の一覧。キーは LS の名前）
 const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],
- ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];
-{const box=$('indList');LG.forEach(([rn,items])=>{const r=document.createElement('div');r.className='irow';r.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;r.appendChild(t);
+ ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]],
+ ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]]];
+const LHEAD={'リビング':'1階','寝室':'2階'};   // 「すべての部屋」の一覧は階の見出しで分ける（視点の一覧と同じ。2026-11-08 ユーザー）
+{const box=$('indList');LG.forEach(([rn,items])=>{if(LHEAD[rn]){const h=document.createElement('div');h.className='ifl';h.textContent=LHEAD[rn];box.appendChild(h);}const r=document.createElement('div');r.className='irow';r.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;r.appendChild(t);
  const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;
   b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();applyEnvAll();};c.appendChild(b);});r.appendChild(c);box.appendChild(r);});}
 function syncLights(){const ks=Object.keys(LS),n=ks.filter(k=>LS[k]).length;mark($('tAllOn'),n===ks.length);mark($('tAllOff'),n===0);$('bLight').classList.toggle('lit',n>0);$('indList').querySelectorAll('button[data-k]').forEach(b=>mark(b,LS[b.dataset.k]));}   // 全点灯・全消灯は、すべてそろった時だけ選択表示。バーの照明のアイコンは、点灯している照明があれば点を付ける
@@ -45,7 +47,7 @@ function curRoom(){const p=cam.position,{W,D,FL2,VX,VZ,PZ1}=HOUSE.ldk,{X0:WX,LW,
  if(in2(0,W,0,D))return p.z<VZ?'キッチン':'リビング';
  return null;}
 let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
-function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});}   // 1部屋のときは部屋名の列を出さない（上に部屋名を出す）
+function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});$('indList').querySelectorAll('.ifl').forEach(h=>h.hidden=!!rm);}   // 1部屋のときは部屋名の列を出さない（上に部屋名を出す）
 $('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};   // 切替のボタン：1部屋のとき「すべての部屋」、全部屋のとき「（いまの部屋）だけ」
 // パネル（視点・照明・シェード）：同時に1つだけ開く。同じアイコンをもう一度押すか、画面をタップすると閉じる
 let openK=null;
