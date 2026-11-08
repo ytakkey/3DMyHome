@@ -69,9 +69,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .ind .ifl:first-child{padding-top:0}
 .irow{display:flex;align-items:flex-start;gap:6px;padding:5px 0}
 .irow+.irow{border-top:1px solid var(--line)}
-.irow .rn{flex:0 0 58px;padding-left:2px;padding-top:7px;font-size:12px;color:var(--tx);white-space:nowrap}
-.ind .chips{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-.ind .tg{padding:0 6px;min-width:0}
+.irow .rn{flex:0 0 50px;padding-left:2px;padding-top:7px;font-size:12px;color:var(--tx);white-space:nowrap}
+.ind .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}   /* 3列（2026-11-09 ユーザー） */
+.ind .tg{padding:0 3px;min-width:0;font-size:11px}
 /* 読み込み中の表示（全面。回る印は描画の処理中も動くようにCSSのアニメーションで） */
 #loading{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#141c28;color:var(--tx);transition:opacity .3s}
 #loading.done{opacity:0;pointer-events:none}
