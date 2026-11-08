@@ -27,9 +27,10 @@ const VIEWS=[['リビング',()=>ldkS.viewLiv()],['キッチン',()=>ldkS.viewKi
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}   // 動いたら、バーの視点の名前を消す
 function setView(lb){VIEWS.find(v=>v[0]===lb)[1]();$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 // 照明のパネル：上に全点灯・全消灯、その下に、いまいる部屋の照明だけ（「すべての部屋」で全部屋の一覧。キーは LS の名前）
-const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],
- ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]],
- ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]]];
+// 名前のそろえ方（2026-11-09 ユーザー「統一感あってわかりやすく」）：器具の種類で呼ぶ（ダウン・スポット・ウォール・ペンダント・ブラケット）。部屋の中の別の場所を照らすものは場所で呼ぶ（階段・廊下・収納など）。並びは種類（この順）→場所
+const LG=[['リビング',[['ダウン','a4'],['スポット','a2'],['ウォール','a6'],['階段','h1']]],['キッチン',[['ダウン','a1'],['スポット','a3'],['ペンダント','a5']]],
+ ['洗面脱衣',[['洗面所','d1'],['脱衣室','e1']]],['浴室',[['ダウン','bath']]],['玄関',[['ホール','eh'],['廊下','ec'],['収納','ek']]],['トイレ',[['ペンダント','g1']]],
+ ['寝室',[['ダウン','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウン','l1']]],['書斎',[['ダウン','k1']]]];
 const LHEAD={'リビング':'1階','寝室':'2階'};   // 「すべての部屋」の一覧は階の見出しで分ける（視点の一覧と同じ。2026-11-08 ユーザー）
 {const box=$('indList');LG.forEach(([rn,items])=>{if(LHEAD[rn]){const h=document.createElement('div');h.className='ifl';h.textContent=LHEAD[rn];box.appendChild(h);}const r=document.createElement('div');r.className='irow';r.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;r.appendChild(t);
  const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;
