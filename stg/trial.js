@@ -311,7 +311,8 @@ let VIEWS=[];
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}
 function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 function buildUI(){
- const vr=$('viewRow');vr.innerHTML='';['リビング','キッチン','寝室','WIC','書斎','2F廊下','洗面脱衣','浴室','玄関','トイレ'].forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});
+ const vr=$('viewRow');vr.innerHTML='';[['1階',['リビング','キッチン','洗面脱衣','浴室','玄関','トイレ']],['2階',['寝室','WIC','書斎','2F廊下']]].forEach(([fl,lbs])=>{const h=document.createElement('div');h.className='vfl';h.textContent=fl;vr.appendChild(h);   // 視点の一覧は階ごとに分ける（2026-11-08 ユーザー。本番の ui.js と同じ）
+  lbs.forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});});
  const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';rw.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 比較用の画像（bake/work/）は手元のサーバーでだけ選べる
@@ -412,7 +413,7 @@ window.T={async set(s){if('night' in s)night=s.night;if('shade' in s)shadeP=s.sh
  const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;COMBOS=idx.combos||OLDC;CAUG=[...new Set(Object.entries(idx.layers).filter(([L])=>L.startsWith('g1d@')).flatMap(([,e])=>Object.keys(e).filter(g=>e[g]&&!g.startsWith('V_'))))];MOVE=mv;updMove();buildUI();bar.style.width='10%';
  const g=await new Promise((res,rej)=>new THREE.GLTFLoader().load('house.glb',res,e=>{if(e.total)bar.style.width=(10+e.loaded/e.total*50)+'%';},rej));
  setupModel(g.scene);bar.style.width='70%';
- ready=true;syncLights();shadeLabel(0);setView('寝室');
+ ready=true;syncLights();shadeLabel(0);setView('リビング');   // 最初の視点は本番と同じリビング（2026-11-08 ユーザー）
  await recompose();bar.style.width='100%';
  ldBox.classList.add('done');setTimeout(()=>ldBox.remove(),400);
 })().catch(fail);
