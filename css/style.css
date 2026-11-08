@@ -26,26 +26,28 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 #sheet{width:min(300px,calc(100vw - 20px));box-sizing:border-box;padding:10px;max-height:calc(100vh - 90px);overflow-y:auto}
 .pg{display:flex;flex-direction:column;gap:8px}
 .pt{font-size:11.5px;color:var(--mut);padding-left:2px}
-.vgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
-.vgrid .vfl{grid-column:1/-1;padding:4px 0 0 2px;font-size:11px;color:var(--mut)}   /* 階の見出し（1階・2階） */
-.vgrid .vfl:first-child{padding-top:0}
-.vgrid button{min-height:34px;padding:0 2px;border:1px solid var(--line);border-radius:7px;background:var(--btn);font-size:12px}
-.vgrid button:active{background:rgba(255,255,255,.16)}
-.vgrid button.on{border-color:rgba(255,217,168,.7);background:var(--accbg)}
+/* 視点と照明の一覧は同じ部品（2026-11-09 ユーザー「デザインが分かれてて違和感」）：階の見出し .flh（暖色＋線）、ボタン .tg（同じ大きさ・字。選んだ視点・点いている照明はボタンそのものを暖色に光らせる） */
+.flh{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:11.5px;font-weight:600;color:var(--acc)}
+.flh::after{content:"";flex:1;height:1px;background:rgba(255,217,168,.3)}
+.flh:first-child{padding-top:0}
+.vgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.vgrid .tg{margin-bottom:2px}
 .ic.txt{height:26px;display:flex;align-items:center;gap:4px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:transparent;font-size:11.5px;white-space:nowrap}
-.seg{display:flex;flex:1;gap:2px;padding:2px;border-radius:9px;background:rgba(0,0,0,.28)}
-.seg button{flex:1;min-height:30px;padding:0 2px;border:none;border-radius:7px;background:transparent;color:var(--mut);font-size:12px;font-weight:500}
-.seg button.on{background:var(--accbg);color:var(--tx);box-shadow:inset 0 0 0 1px rgba(255,217,168,.55)}
-.allsw{flex:none;position:sticky;bottom:0;margin-top:2px;background:#1f1a16;box-shadow:0 6px 0 6px #1f1a16}   /* 全点灯・全消灯：押しやすいようパネルの一番下（バーのすぐ上）。一覧が長くて送るときも下に残す（2026-11-09 ユーザー） */
-.allsw button{min-height:38px;font-size:12.5px}
 .row{display:flex;align-items:center;gap:6px}
 .chips{display:flex;flex:1;flex-wrap:wrap;gap:4px;min-width:0}
-.tg{flex:1 1 auto;min-height:30px;padding:0 6px;border:1px solid var(--line);border-radius:7px;background:var(--btn);display:flex;align-items:center;justify-content:center;gap:5px;font-size:11.5px;white-space:nowrap}
+.tg{min-width:0;min-height:32px;padding:0 3px;border:1px solid var(--line);border-radius:7px;background:var(--btn);display:flex;align-items:center;justify-content:center;font-size:11.5px;white-space:nowrap;color:rgba(245,239,230,.78);transition:background .15s,box-shadow .15s,color .15s}
 .tg:active{background:rgba(255,255,255,.16)}
 .tg i{display:none}   /* 点灯は丸い点でなくボタンそのものを光らせる（2026-11-09 ユーザー） */
-.tg{color:var(--mut);transition:background .15s,box-shadow .15s,color .15s}
 .tg.on{color:#2a1c0c;font-weight:600;border-color:#ffd090;background:linear-gradient(#ffe2b0,#ffc472);box-shadow:0 0 10px rgba(255,180,90,.55)}
 .tg.on:active{background:#ffcf8a}
+/* 全点灯・全消灯：一覧のボタンとは格を変える（区切り線の下の大きいボタン・電球の印・太字）。押しやすいようパネルの一番下（バーのすぐ上）、一覧を送っても下に残す（2026-11-09 ユーザー） */
+.allsw{flex:none;position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-top:9px;border-top:1px solid var(--line);background:#1f1a16;box-shadow:0 6px 0 6px #1f1a16}
+.allsw button{min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(255,255,255,.18);border-radius:11px;background:rgba(255,255,255,.13);font-size:13px;font-weight:600;letter-spacing:.04em}
+.allsw button:active{background:rgba(255,255,255,.22)}
+.allsw svg{width:18px;height:18px;flex:none}
+#tAllOn svg{color:#ffc472;filter:drop-shadow(0 0 4px rgba(255,180,90,.7))}
+#tAllOff svg{color:var(--mut)}
+.allsw button.on{border-color:rgba(255,217,168,.75);background:rgba(255,205,145,.2)}
 .shade input{flex:1;min-width:0;margin:0;accent-color:#d9b98c}
 .shade b{flex:0 0 auto;min-width:48px;white-space:nowrap;text-align:right;font-size:12px;font-weight:500}
 #bar{width:auto;max-width:calc(100vw - 20px)}
@@ -62,11 +64,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .joy.on .knob{transition:none;background:var(--accbg);box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,217,168,.55)}
 @media (max-width:430px){#move{padding:8px;gap:8px}.joy{width:92px;height:92px}.joy .knob{width:42px;height:42px;margin:-21px 0 0 -21px}#move .lift button{width:38px;height:44px}}   /* スマホでは小さめにしてメニューと重ならないように */
 /* 照明の個別設定（部屋ごとの行。ボタンはワンボタン式） */
-/* 見やすさ（2026-11-09 ユーザー「ごちゃごちゃ過ぎて訳わからん」）：ボタンは2列の同じ幅で左そろえ、部屋の間に線、階の見出しは色を変えて線を引く */
+/* 見やすさ（2026-11-09 ユーザー「ごちゃごちゃ過ぎて訳わからん」）：ボタンは3列の同じ幅、部屋の間に線、階の見出しは .flh */
 .ind{display:flex;flex-direction:column;padding:2px 0}
-.ind .ifl{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:11.5px;font-weight:600;color:var(--acc)}   /* 階の見出し（すべての部屋のとき） */
-.ind .ifl::after{content:"";flex:1;height:1px;background:rgba(255,217,168,.3)}
-.ind .ifl:first-child{padding-top:0}
 .irow{display:flex;align-items:flex-start;gap:6px;padding:5px 0}
 .irow+.irow{border-top:1px solid var(--line)}
 .irow.here{margin:0 -4px;padding:5px 4px;border-radius:8px;border-top-color:transparent;background:rgba(255,217,168,.10);box-shadow:inset 0 0 0 1px rgba(255,217,168,.4)}   /* いまいる部屋の行 */
@@ -75,7 +74,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .irow.here .rn::after{content:"いまここ";display:block;margin-top:2px;font-size:9.5px;font-weight:400;color:rgba(255,217,168,.75)}
 .irow .rn{flex:0 0 50px;padding-left:2px;padding-top:7px;font-size:12px;color:var(--tx);white-space:nowrap}
 .ind .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}   /* 3列（2026-11-09 ユーザー） */
-.ind .tg{padding:0 3px;min-width:0;font-size:11px}
 /* 読み込み中の表示（全面。回る印は描画の処理中も動くようにCSSのアニメーションで） */
 #loading{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#141c28;color:var(--tx);transition:opacity .3s}
 #loading.done{opacity:0;pointer-events:none}
