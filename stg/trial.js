@@ -333,10 +333,8 @@ function curRoom(){const p=cam.position,G=MOVE.room;if(!G)return null;const EN=G
  if(in2(G.WX,G.LW,G.DZ0,G.SZ1))return '洗面脱衣';
  if(in2(0,G.W,0,G.D))return p.z<G.VZ?'キッチン':'リビング';
  return null;}
-let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
-function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});$('indList').querySelectorAll('.ifl').forEach(h=>h.hidden=!!rm);}
-$('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};
-function openSheet(k){if(k&&openK===k)k=null;if(k==='light'&&openK!=='light')allRooms=false;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();if(k==='light')renderInd();}
+function renderInd(scroll){const cr=curRoom();$('indList').querySelectorAll('.irow').forEach(r=>{const h=r.dataset.room===cr;r.classList.toggle('here',h);if(h&&scroll)r.scrollIntoView({block:'nearest'});});}   // いつも全部屋を出し、いまの部屋の行を目立たせる（本番と同じ）
+function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();if(k==='light')renderInd(true);}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');changed();}
 $('bDay').onclick=()=>setNight(!night);

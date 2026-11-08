@@ -47,12 +47,11 @@ function curRoom(){const p=cam.position,{W,D,FL2,VX,VZ,PZ1}=HOUSE.ldk,{X0:WX,LW,
  if(in2(WX,LW,DZ0,SZ1))return '洗面脱衣';   // 脱衣室・洗面所
  if(in2(0,W,0,D))return p.z<VZ?'キッチン':'リビング';
  return null;}
-let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
-function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});$('indList').querySelectorAll('.ifl').forEach(h=>h.hidden=!!rm);}   // 1部屋のときは部屋名の列を出さない（上に部屋名を出す）
-$('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};   // 切替のボタン：1部屋のとき「すべての部屋」、全部屋のとき「（いまの部屋）だけ」
+// 照明のパネルはいつも全部屋を出し、いまいる部屋の行を目立たせる（.here）。開いたときはその行が見える所まで送る（2026-11-09 ユーザー「居る場所だけ表示は煩わしい」。前は1部屋だけ出して「すべての部屋」で切り替えていた）
+function renderInd(scroll){const cr=curRoom();$('indList').querySelectorAll('.irow').forEach(r=>{const h=r.dataset.room===cr;r.classList.toggle('here',h);if(h&&scroll)r.scrollIntoView({block:'nearest'});});}
 // パネル（視点・照明・シェード）：同時に1つだけ開く。同じアイコンをもう一度押すか、画面をタップすると閉じる
 let openK=null;
-function openSheet(k){if(k&&openK===k)k=null;if(k==='light'&&openK!=='light')allRooms=false;openK=k;$('sheet').hidden=!k;['view','light','shade'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');if(k==='light')renderInd();}
+function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');if(k==='light')renderInd(true);}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');
 // 昼夜：押すたびに切り替える（アイコンは今の状態：太陽＝昼、月＝夜）
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');applyEnvAll();}
