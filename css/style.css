@@ -27,6 +27,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .pg{display:flex;flex-direction:column;gap:8px}
 .pt{font-size:11.5px;color:var(--mut);padding-left:2px}
 .vgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.vgrid .vfl{grid-column:1/-1;padding:4px 0 0 2px;font-size:11px;color:var(--mut)}   /* 階の見出し（1階・2階） */
+.vgrid .vfl:first-child{padding-top:0}
 .vgrid button{min-height:34px;padding:0 2px;border:1px solid var(--line);border-radius:7px;background:var(--btn);font-size:12px}
 .vgrid button:active{background:rgba(255,255,255,.16)}
 .vgrid button.on{border-color:rgba(255,217,168,.7);background:var(--accbg)}
