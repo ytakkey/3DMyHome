@@ -42,8 +42,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .chips{display:flex;flex:1;flex-wrap:wrap;gap:4px;min-width:0}
 .tg{flex:1 1 auto;min-height:30px;padding:0 6px;border:1px solid var(--line);border-radius:7px;background:var(--btn);display:flex;align-items:center;justify-content:center;gap:5px;font-size:11.5px;white-space:nowrap}
 .tg:active{background:rgba(255,255,255,.16)}
-.tg i{flex:0 0 7px;height:7px;border-radius:50%;background:rgba(255,255,255,.25)}
-.tg.on i{background:#ffc070;box-shadow:0 0 6px #ffb050}
+.tg i{display:none}   /* 点灯は丸い点でなくボタンそのものを光らせる（2026-11-09 ユーザー） */
+.tg{color:var(--mut);transition:background .15s,box-shadow .15s,color .15s}
+.tg.on{color:#2a1c0c;font-weight:600;border-color:#ffd090;background:linear-gradient(#ffe2b0,#ffc472);box-shadow:0 0 10px rgba(255,180,90,.55)}
+.tg.on:active{background:#ffcf8a}
 .shade input{flex:1;min-width:0;margin:0;accent-color:#d9b98c}
 .shade b{flex:0 0 auto;min-width:48px;white-space:nowrap;text-align:right;font-size:12px;font-weight:500}
 #bar{width:auto;max-width:calc(100vw - 20px)}
@@ -60,12 +62,16 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .joy.on .knob{transition:none;background:var(--accbg);box-shadow:0 2px 8px rgba(0,0,0,.35),inset 0 0 0 1px rgba(255,217,168,.55)}
 @media (max-width:430px){#move{padding:8px;gap:8px}.joy{width:92px;height:92px}.joy .knob{width:42px;height:42px;margin:-21px 0 0 -21px}#move .lift button{width:38px;height:44px}}   /* スマホでは小さめにしてメニューと重ならないように */
 /* 照明の個別設定（部屋ごとの行。ボタンはワンボタン式） */
-.ind{display:flex;flex-direction:column;gap:5px;padding:2px 0}
-.ind .ifl{padding:4px 0 0 4px;font-size:11px;color:var(--mut)}   /* 階の見出し（すべての部屋のとき） */
+/* 見やすさ（2026-11-09 ユーザー「ごちゃごちゃ過ぎて訳わからん」）：ボタンは2列の同じ幅で左そろえ、部屋の間に線、階の見出しは色を変えて線を引く */
+.ind{display:flex;flex-direction:column;padding:2px 0}
+.ind .ifl{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:11.5px;font-weight:600;color:var(--acc)}   /* 階の見出し（すべての部屋のとき） */
+.ind .ifl::after{content:"";flex:1;height:1px;background:rgba(255,217,168,.3)}
 .ind .ifl:first-child{padding-top:0}
-.ind .ifl[hidden]{display:none}
-.irow{display:flex;align-items:flex-start;gap:6px}
-.irow .rn{flex:0 0 46px;padding-left:4px;padding-top:7px;font-size:11px;color:var(--mut);white-space:nowrap}
+.irow{display:flex;align-items:flex-start;gap:6px;padding:5px 0}
+.irow+.irow{border-top:1px solid var(--line)}
+.irow .rn{flex:0 0 58px;padding-left:2px;padding-top:7px;font-size:12px;color:var(--tx);white-space:nowrap}
+.ind .chips{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.ind .tg{padding:0 6px;min-width:0}
 /* 読み込み中の表示（全面。回る印は描画の処理中も動くようにCSSのアニメーションで） */
 #loading{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#141c28;color:var(--tx);transition:opacity .3s}
 #loading.done{opacity:0;pointer-events:none}
