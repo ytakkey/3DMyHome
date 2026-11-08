@@ -45,8 +45,10 @@ let COMBOS={};
 const D3=['SG311','SG500w','SG33s'],OLDC={bdl:D3,bbr:D3,sky_bed:D3,sun_bed:D3,j1:['SG311','SG500w'],l1:['SG500w','SG311'],k1:['SG33s'],sky_study:['SG33s'],sun_study:['SG33s'],sky_void:['SG311']};   // combos の無い一覧（寝室の試作のとき）
 const NATURAL=['sky_bed','sun_bed','sky_study','sun_study','sky_void','sun_void','sky_ldk1F','sun_ldk1F','sky_dress','sun_dress','sky_ent','sun_ent'];
 const SHADED=new Set(['bed','study','ldk1F']);   // シェードの付いた窓の組（ldk1F は南の大きな窓 FK2042 だけシェード付き。組をまとめて弱める＝仮）
-const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]],
- ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]]];   // 照明のボタン（並びは本番の js/ui.js の LG と同じ）
+const LG=[['リビング',[['ウォールライト','a6'],['ダウンライト','a4'],['スポット','a2'],['階段','h1']]],['キッチン',[['ペンダント','a5'],['下がり天井','a3'],['ダウンライト','a1']]],
+ ['洗面脱衣',[['脱衣室','e1'],['洗面所','d1']]],['浴室',[['ダウンライト','bath']]],['玄関',[['ホール','eh'],['収納','ek'],['廊下','ec']]],['トイレ',[['ペンダント','g1']]],
+ ['寝室',[['ダウンライト','bdl'],['ブラケット','bbr'],['廊下','j1']]],['WIC',[['ダウンライト','l1']]],['書斎',[['ダウンライト','k1']]]];   // 照明のボタン（並びは本番の js/ui.js の LG と同じ）
+const LHEAD={'リビング':'1階','寝室':'2階'};   // 「すべての部屋」の一覧の階の見出し（本番と同じ）
 const LS={a6:false,a4:false,a2:false,h1:false,a5:false,a3:false,a1:false,bdl:false,bbr:false,j1:false,l1:true,k1:false,d1:false,e1:false,eh:false,ec:false,ek:false,g1:true,bath:true};   // 初期はトイレ・浴室・WIC だけ点灯（本番と同じ。2026-11-05 ユーザー）
 const DS={sg311:false,sg500w:false,sg33s:false,sg300l:false,sg300w:true,bath:false,sg33:false,sg11h:false,sg500:true};   // ドアの開閉（キーは本番の DS と同じ）。?doors=open で開いた状態から（一部の層だけ試しに焼いたときの確認用）
 if(Q.get('doors')==='open')for(const k in DS)DS[k]=true;
@@ -313,7 +315,7 @@ function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelecto
 function buildUI(){
  const vr=$('viewRow');vr.innerHTML='';[['1階',['リビング','キッチン','洗面脱衣','浴室','玄関','トイレ']],['2階',['寝室','WIC','書斎','2F廊下']]].forEach(([fl,lbs])=>{const h=document.createElement('div');h.className='vfl';h.textContent=fl;vr.appendChild(h);   // 視点の一覧は階ごとに分ける（2026-11-08 ユーザー。本番の ui.js と同じ）
   lbs.forEach(lb=>{const b=document.createElement('button');b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});});
- const box=$('indList');LG.forEach(([rn,items])=>{const rw=document.createElement('div');rw.className='irow';rw.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
+ const box=$('indList');LG.forEach(([rn,items])=>{if(LHEAD[rn]){const h=document.createElement('div');h.className='ifl';h.textContent=LHEAD[rn];box.appendChild(h);}const rw=document.createElement('div');rw.className='irow';rw.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
  const local=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 比較用の画像（bake/work/）は手元のサーバーでだけ選べる
  const sel=$('lmSel');[['','stg/lm（公開用）'],...(local?['h16','rgbm','logj']:[]).flatMap(e=>[1,2,4].map(k=>[e+'_r'+k,{h16:'半精度',rgbm:'RGBM',logj:'対数JPEG'}[e]+'・'+{1:'原寸',2:'1/2',4:'1/4'}[k]]))].forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);});
@@ -332,7 +334,7 @@ function curRoom(){const p=cam.position,G=MOVE.room;if(!G)return null;const EN=G
  if(in2(0,G.W,0,G.D))return p.z<G.VZ?'キッチン':'リビング';
  return null;}
 let allRooms=false;   // 「すべての部屋」の一覧（照明のパネルを開き直すと、いまの部屋だけに戻る）
-function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});}
+function renderInd(){const cr=curRoom(),rm=allRooms?null:cr;$('roomLbl').textContent=rm||'すべての部屋';$('tAllRooms').textContent=allRooms?cr+'だけ':'すべての部屋';$('tAllRooms').hidden=!cr;$('indList').querySelectorAll('.irow').forEach(r=>{r.hidden=!!rm&&r.dataset.room!==rm;r.querySelector('.rn').hidden=!!rm;});$('indList').querySelectorAll('.ifl').forEach(h=>h.hidden=!!rm);}
 $('tAllRooms').onclick=()=>{allRooms=!allRooms;renderInd();};
 function openSheet(k){if(k&&openK===k)k=null;if(k==='light'&&openK!=='light')allRooms=false;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();if(k==='light')renderInd();}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');
