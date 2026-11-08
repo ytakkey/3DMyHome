@@ -313,7 +313,7 @@ let VIEWS=[];
 function clearView(){$('viewRow').querySelectorAll('button.on').forEach(x=>mark(x,false));$('viewLbl').textContent='';}
 function setView(lb){const v=MOVE.views[lb];look(...v);$('viewRow').querySelectorAll('button').forEach(x=>mark(x,x.textContent===lb));$('viewLbl').textContent=lb;}
 function buildUI(){
- const vr=$('viewRow');vr.innerHTML='';[['1階',['リビング','キッチン','洗面脱衣','浴室','玄関','トイレ']],['2階',['寝室','WIC','書斎','2F廊下']]].forEach(([fl,lbs])=>{const h=document.createElement('div');h.className='flh';h.textContent=fl;vr.appendChild(h);   // 視点の一覧は階ごとに分ける（2026-11-08 ユーザー。本番の ui.js と同じ）
+ const vr=$('viewRow');vr.innerHTML='';[['1階',['リビング','キッチン','洗面脱衣','浴室','玄関','トイレ']],['2階',['寝室','WIC','書斎','廊下']]].forEach(([fl,lbs])=>{const h=document.createElement('div');h.className='flh';h.textContent=fl;vr.appendChild(h);   // 視点の一覧は階ごとに分ける（2026-11-08 ユーザー。本番の ui.js と同じ）
   lbs.forEach(lb=>{const b=document.createElement('button');b.className='tg';b.textContent=lb;b.onclick=()=>{setView(lb);openSheet(null);};vr.appendChild(b);});});
  const box=$('indList');LG.forEach(([rn,items])=>{if(LHEAD[rn]){const h=document.createElement('div');h.className='flh';h.textContent=LHEAD[rn];box.appendChild(h);}const rw=document.createElement('div');rw.className='irow';rw.dataset.room=rn;const t=document.createElement('span');t.className='rn';t.textContent=rn;rw.appendChild(t);
   const c=document.createElement('div');c.className='chips';items.forEach(([lb,k])=>{const b=document.createElement('button');b.className='tg';b.setAttribute('role','switch');b.innerHTML='<i></i>'+lb;b.dataset.k=k;b.onclick=()=>{LS[k]=!LS[k];syncLights();changed();};c.appendChild(b);});rw.appendChild(c);box.appendChild(rw);});
@@ -335,7 +335,7 @@ function curRoom(){const p=cam.position,G=MOVE.room;if(!G)return null;const EN=G
  return null;}
 function renderInd(scroll){const cr=curRoom();$('indList').querySelectorAll('.irow').forEach(r=>{const h=r.dataset.room===cr;r.classList.toggle('here',h);if(h&&scroll)r.scrollIntoView({block:'nearest'});});}   // いつも全部屋を出し、いまの部屋の行を目立たせる（本番と同じ）
 function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade','trial'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bTrial'),k==='trial');if(k==='trial')showStat();if(k==='light')renderInd(true);}
-$('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');
+$('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');$('bTrial').onclick=()=>openSheet('trial');$('bTrial').hidden=!(/^(localhost|127\.0\.0\.1)$/.test(location.hostname)||/[?&]dev\b/.test(location.search));   // 検証（フラスコ）は作業用：容量・切り替えの時間・比較用の画像。公開のページでは隠す（?dev で出す。2026-11-09 ユーザー「何の意味があるの」）
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');changed();}
 $('bDay').onclick=()=>setNight(!night);
 function shadeLabel(p){$('shadeOut').textContent=p===0?'全開':Math.round(p*100)+'%閉';}

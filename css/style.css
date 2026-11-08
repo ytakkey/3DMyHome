@@ -48,7 +48,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 #tAllOn svg{color:#ffc472;filter:drop-shadow(0 0 4px rgba(255,180,90,.7))}
 #tAllOff svg{color:var(--mut)}
 .allsw button.on{border-color:rgba(255,217,168,.75);background:rgba(255,205,145,.2)}
-.shade input{flex:1;min-width:0;margin:0;accent-color:#d9b98c}
+.shade input{flex:1;min-width:0;margin:0;accent-color:#ffc472}   /* つまみは点灯・選択と同じ暖色 */
 .shade b{flex:0 0 auto;min-width:48px;white-space:nowrap;text-align:right;font-size:12px;font-weight:500}
 #bar{width:auto;max-width:calc(100vw - 20px)}
 @media (max-width:430px){#bar{gap:2px;padding:4px}.bb{min-width:38px;height:44px}.bb.sm{min-width:34px}.sep{display:none}#bView{min-width:38px;padding:0}#viewLbl{display:none}#sheet{margin-bottom:64px;max-height:calc(100vh - 150px)}}   /* スマホ：バーを左下の移動ボタンと並ぶ幅に縮め（視点の名前は出さない）、パネルは移動ボタンより上に開く */
