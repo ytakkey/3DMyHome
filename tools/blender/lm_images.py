@@ -250,6 +250,15 @@ if os.path.exists(os.path.join(LD, '_labels', 'links.npz')):
     print('lmimg links', sum(len(v[0]) for v in LKALL.values()), flush=True)
 index = {'enc': ENC, 'scale': K, 'layers': {}, 'res': {}}
 total = 0
+# 照明の層は、ならした後の値（画像にする前の lux）を <層のフォルダ>_proc/<層>/<アトラス>.npy に残す（allon.py が全点灯の足し合わせを作る。2026-11-09）
+PROC = LD.rstrip('/\\') + '_proc' if K == 1 and ENC == 'rgbm' else None
+def keep(L, g, a):
+    if PROC is None or L.startswith(('sky_', 'sun_', 'g1d@')):
+        return
+    try:
+        os.makedirs(os.path.join(PROC, L), exist_ok=True); np.save(os.path.join(PROC, L, g + '.npy'), np.minimum(a, 65504).astype(np.float16))
+    except Exception as x:
+        print('lmimg keep failed', L, g, x, flush=True)
 for L in sorted(os.listdir(LD)):
     d = os.path.join(LD, L)
     if not os.path.isfile(os.path.join(d, 'done')):
@@ -269,6 +278,7 @@ for L in sorted(os.listdir(LD)):
             mx = float(a.max()); name = '%s__%s' % (L.replace('@', '_'), g)
             if mx <= 0:
                 ent[g] = None; continue
+            keep(L, g, a)
             rows = (n + 1023) // 1024; b = np.zeros((rows * 1024, 3), np.float32); b[:n] = a; b = b.reshape(rows, 1024, 3)
             c = b.max(2); m8 = np.ceil(np.sqrt(np.clip(c / mx, 0, 1)) * 255); M = (m8 / 255) ** 2 * mx
             rgb = np.where(M[..., None] > 0, np.round(b / np.maximum(M, 1e-30)[..., None] * 255), 0)
@@ -303,6 +313,7 @@ for L in sorted(os.listdir(LD)):
         e = {'max': mx}
         if mx <= 0:
             ent[g] = None; continue
+        keep(L, g, a)
         if ENC == 'h16':
             fn = name + '.png'; png(os.path.join(OUT, fn), a.astype(np.float16).view(np.uint16), 16)
         elif ENC == 'rgbm':

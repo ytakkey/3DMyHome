@@ -322,17 +322,17 @@ wbox(0.06,H1,0.62,4.07,H1/2,0.31,plasterMat,1);
  box(0.008,0.07,0.012,FX+FW/2-0.008,0.79,fz-0.008,trim);                                 // 冷蔵室の取っ手（右下）
  box(0.05,0.008,0.002,FX-FW/2+0.06,FH-0.05,fz+0.001,0x9a9080);}                          // ロゴ
 
-// ダイニングテーブル（1500×850、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚
+// ダイニングテーブル（標準 1500×850×700、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚。椅子4脚も一緒に diningSet(幅,奥行,高さ) で作る（軽量版のサイズ変更 js/size.js が作り直す。キッチン側の東の端と南北の中心はそのまま）
 const tblTop=tmat(tjC,{specular:0x222222,shininess:20});
-const blk=0x1a1a1a;
-const TX1=2.165,TX0=TX1-1.5,TZ0=1.695,TZ1=TZ0+0.85,TH=0.70,TT=0.025,LG=0.04;
-box(1.5,TT,0.85,(TX0+TX1)/2,TH-TT/2,(TZ0+TZ1)/2,tblTop);
-[TX0+0.07,TX1-0.07].forEach(x=>{
- [TZ0+0.06,TZ1-0.06].forEach(z=>box(LG,TH-TT,LG,x,(TH-TT)/2,z,blk));
- box(LG,LG,0.85-0.12+LG,x,LG/2,(TZ0+TZ1)/2,blk);
- box(LG,LG,0.85-0.12+LG,x,TH-TT-LG/2,(TZ0+TZ1)/2,blk);});
-// 椅子4脚：テーブルに合わせて黒いスチール脚＋ダークグレーの座面・背もたれ。テーブルの下にしまった状態
-const chairSeat=P({color:0x4a4846,specular:0x111111,shininess:10});
+const blk=0x1a1a1a,DIN=[];   // DIN：テーブルと椅子の部品（作り直すときに外す。まとめる対象から外す＝dyn）。この行から下の部品の行は書き出し（tools/export）の部品の名前になるので、行をずらさない
+const TX1=2.165,TX0=TX1-1.5,TZ0=1.695,TZ1=TZ0+0.85,TH=0.70,TT=0.025,LG=0.04;   // 標準の位置と高さ（ペンダントのレールと高さはこれに合わせたまま。テーブルを変えても器具は動かさない）
+function diningSet(W,D,H){const n0=s.children.length,X0=TX1-W,Z0=TZ0+(0.85-D)/2,Z1=Z0+D;box(W,TT,D,(X0+TX1)/2,H-TT/2,(Z0+Z1)/2,tblTop);
+[X0+0.07,TX1-0.07].forEach(x=>{
+ [Z0+0.06,Z1-0.06].forEach(z=>box(LG,H-TT,LG,x,(H-TT)/2,z,blk));
+ box(LG,LG,D-0.12+LG,x,LG/2,(Z0+Z1)/2,blk);
+ box(LG,LG,D-0.12+LG,x,H-TT-LG/2,(Z0+Z1)/2,blk);});
+// 椅子4脚：テーブルに合わせて黒いスチール脚＋ダークグレーの座面・背もたれ。テーブルの下にしまった状態（幅の1/4と3/4、南北の端から175mm）
+const chairSeat=diningSet.cs||(diningSet.cs=P({color:0x4a4846,specular:0x111111,shininess:10}));
 function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）、-1:北向き
  const SW=0.43,SD=0.42,SH=0.44,t=0.02,bz=z-dir*(SD/2-0.015),fz=z+dir*(SD/2-0.03);
  box(SW,0.05,SD,x,SH-0.025,z,chairSeat);
@@ -342,8 +342,8 @@ function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）
   box(t,t,Math.abs(fz-bz)+t,xs,t/2,(fz+bz)/2,blk);
   box(t,t,Math.abs(fz-bz)+t,xs,SH-0.06,(fz+bz)/2,blk);});
  box(SW-0.014,0.2,0.025,x,0.72,bz,chairSeat);}   // 背板（左右の面は後ろ脚の外の面から2mm内側＝面をそろえない）
-const chairs=[[TX0+0.375,TZ0+0.175,1],[TX0+1.125,TZ0+0.175,1],[TX0+0.375,TZ1-0.175,-1],[TX0+1.125,TZ1-0.175,-1]];
-chairs.forEach(([x,z,d])=>chair(x,z,d));
+[[X0+W/4,Z0+0.175,1],[X0+W*3/4,Z0+0.175,1],[X0+W/4,Z1-0.175,-1],[X0+W*3/4,Z1-0.175,-1]].forEach(([x,z,d])=>chair(x,z,d));
+s.children.slice(n0).forEach(o=>{o.userData.dyn=true;DIN.push(o);});}diningSet(1.5,0.85,TH);self.dining={set:diningSet,parts:DIN};
 // カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション（背もたれなし）、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
 const shellMat=P({color:0x1b1b1b,specular:0x1a1a1a,shininess:14,side:THREE.DoubleSide}),cushMat=P({color:0x2b2b2b,specular:0x2a2a2a,shininess:30}),barBlk=P({color:0x161616,specular:0x333333,shininess:30});
 function counterStool(x,z){const SH=0.64;
@@ -411,7 +411,7 @@ const sofa=new THREE.Group();sofa.position.set(SOFA_BACK-SOFA_D/2,0,TVC);sofa.ro
  // 脚（黒、肘掛けの下に4つ）
  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([i,k])=>{const f=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.024,0.05,12),L(0x151515));f.position.set(i*(hx-0.07),0.025,k*(hz-0.08));g.add(f);});
  // 肘掛け：本体と、上端の外側に張り出した丸いロール
- [-1,1].forEach(i=>{rbox(g,AW,0.57,SOFA_D-0.03,0.035,i*(hx-AW/2),0.05+0.285,0,fabric);   // 本体の上端はロールの中まで（ロールの下と本体の上の丸い角の間に溝ができ、明るい線に見えた。2026-11-07 ユーザー。1つの家具の本体は溝を作らない）
+ [-1,1].forEach(i=>{rbox(g,AW,0.57,SOFA_D-0.05,0.035,i*(hx-AW/2),0.05+0.285,0,fabric);   // 本体の上端はロールの中まで（ロールの下と本体の上の丸い角の間に溝ができ、明るい線に見えた。2026-11-07 ユーザー。1つの家具の本体は溝を作らない）。本体の奥行きはロールより前後 1cm ずつ浅く（同じ奥行きでは前と後ろの面で2つの丸い角がほぼ平行に交わり、細い切れ端の面が互い違いに並んで、焼くとギザギザの黒い線になった。2026-11-09）
   rbox(g,AW+0.05,0.12,SOFA_D-0.03,0.055,i*(hx-AW/2+0.012),0.6,0,fabric);});
  // 背もたれの外側
  rbox(g,IW+0.02,0.62,0.12,0.045,0,0.53,-hz+0.06,fabric);rbox(g,IW+0.01,0.23,0.735,0.01,0,0.175,0.0325,fabricDk);   // 背もたれの外側（薄め）、座の下の台（左右の土台の間・土台と背もたれの間・肘掛けとの間のすき間をふさぐ。すき間から床が透けて見えた。2026-11-07 ユーザー）
