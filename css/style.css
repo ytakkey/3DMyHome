@@ -83,3 +83,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 #loading .lbar{width:160px;height:3px;border-radius:2px;background:rgba(245,239,230,.14);overflow:hidden}
 #ldBar{display:block;width:0;height:100%;background:var(--acc);transition:width .2s}
 [hidden]{display:none!important}
+/* 家具のサイズ（軽量版 lite/ の js/size.js）：名前・−・つまみ・＋・寸法の1行。ボタンは一覧の .tg、つまみはシェードと同じ暖色 */
+.sz{display:flex;flex-direction:column;gap:6px}
+.szrow{display:grid;grid-template-columns:36px 34px 1fr 34px 48px;align-items:center;gap:6px}
+.szrow .szn{font-size:12px;padding-left:2px}
+.szrow .tg{font-size:16px;min-height:34px}
+.szrow input{min-width:0;margin:0;accent-color:#ffc472}
+.szrow b{font-size:12px;font-weight:500;text-align:right;white-space:nowrap}
+.szr{margin-top:4px;min-height:36px}
+.szr:disabled{opacity:.4;cursor:default}
