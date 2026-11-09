@@ -322,10 +322,10 @@ wbox(0.06,H1,0.62,4.07,H1/2,0.31,plasterMat,1);
  box(0.008,0.07,0.012,FX+FW/2-0.008,0.79,fz-0.008,trim);                                 // 冷蔵室の取っ手（右下）
  box(0.05,0.008,0.002,FX-FW/2+0.06,FH-0.05,fz+0.001,0x9a9080);}                          // ロゴ
 
-// ダイニングテーブル（標準 1500×850×700、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚。椅子4脚も一緒に diningSet(幅,奥行,高さ) で作る（軽量版のサイズ変更 js/size.js が作り直す。キッチン側の東の端と南北の中心はそのまま）
+// ダイニングテーブル（標準 1500×850×720、キッチン西端に横付け）：天板TJ-10239K＋黒いスチールのロの字脚。椅子4脚も一緒に diningSet(幅,奥行,高さ) で作る（軽量版のサイズ変更 js/size.js が作り直す。キッチン側の東の端と南北の中心はそのまま）
 const tblTop=tmat(tjC,{specular:0x222222,shininess:20});
 const blk=0x1a1a1a,DIN=[];   // DIN：テーブルと椅子の部品（作り直すときに外す。まとめる対象から外す＝dyn）。この行から下の部品の行は書き出し（tools/export）の部品の名前になるので、行をずらさない
-const TX1=2.165,TX0=TX1-1.5,TZ0=1.695,TZ1=TZ0+0.85,TH=0.70,TT=0.025,LG=0.04;   // 標準の位置と高さ（ペンダントのレールと高さはこれに合わせたまま。テーブルを変えても器具は動かさない）
+const TX1=2.165,TX0=TX1-1.5,TZ0=1.695,TZ1=TZ0+0.85,TH=0.70,TT=0.025,LG=0.04;   // 標準の位置と、ペンダントの高さを決めたときの天板の高さ（TH。テーブルを変えても器具は動かさない）。テーブルの標準の高さは 720（2026-11-09 ユーザー。下の diningSet の呼び出し）
 function diningSet(W,D,H){const n0=s.children.length,X0=TX1-W,Z0=TZ0+(0.85-D)/2,Z1=Z0+D;box(W,TT,D,(X0+TX1)/2,H-TT/2,(Z0+Z1)/2,tblTop);
 [X0+0.07,TX1-0.07].forEach(x=>{
  [Z0+0.06,Z1-0.06].forEach(z=>box(LG,H-TT,LG,x,(H-TT)/2,z,blk));
@@ -343,7 +343,7 @@ function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）
   box(t,t,Math.abs(fz-bz)+t,xs,SH-0.06,(fz+bz)/2,blk);});
  box(SW-0.014,0.2,0.025,x,0.72,bz,chairSeat);}   // 背板（左右の面は後ろ脚の外の面から2mm内側＝面をそろえない）
 {const c=Math.min(0.175,D/2-0.215);[[X0+W/4,Z0+c,1],[X0+W*3/4,Z0+c,1],[X0+W/4,Z1-c,-1],[X0+W*3/4,Z1-c,-1]].forEach(([x,z,d])=>chair(x,z,d));}   // c：端から椅子の中心。奥行きが浅いと（78cm 未満）向かい合う座面が重ならないよう浅く入れる
-s.children.slice(n0).forEach(o=>{o.userData.dyn=true;DIN.push(o);});}diningSet(1.5,0.85,TH);self.dining={set:diningSet,parts:DIN};
+s.children.slice(n0).forEach(o=>{o.userData.dyn=true;DIN.push(o);});}diningSet(1.5,0.85,0.72);self.dining={set:diningSet,parts:DIN};
 // カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション（背もたれなし）、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
 const shellMat=P({color:0x1b1b1b,specular:0x1a1a1a,shininess:14,side:THREE.DoubleSide}),cushMat=P({color:0x2b2b2b,specular:0x2a2a2a,shininess:30}),barBlk=P({color:0x161616,specular:0x333333,shininess:30});
 function counterStool(x,z){const SH=0.64;
