@@ -102,7 +102,7 @@ elif a[0] == 'lmimg':   # 焼いた層を検証ページ用の画像に：lmimg 
     ks = ['1', '2', '4'] if a[1] == 'all' else [a[2]]
     for e in encs:
         for k in ks:
-            out = os.path.join(ROOT, 'real', 'lm') if a[3:4] in (['real'], ['stg']) else os.path.join(W, 'trial_lm', a[3] if a[3:4] else '%s_r%s' % (e, k))
+            out = os.path.join(ROOT, 'real', 'lm') if a[3:4] == ['real'] else os.path.join(W, 'trial_lm', a[3] if a[3:4] else '%s_r%s' % (e, k))
             src = os.path.join(W, a[4]) if a[4:5] else LAY
             r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'lm_images.py'), '--', src, out, e, k], capture_output=True, text=True, encoding='utf-8', errors='replace')
             print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('lmimg total', 'lmimg nonfinite', '  '))))
