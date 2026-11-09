@@ -1,4 +1,4 @@
-# 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（stg/）用に glTF で書き出す
+# 焼き込みの模型（bake_uv.blend）を、three.js の検証ページ（real/）用に glTF で書き出す
 # 使い方：blender -b bake_uv.blend -P tools/blender/export_gltf.py -- <出力の .glb>（run.py gltf）
 #  書き出す物：アトラスの物体（A_*。外の面 A_exterior は除く）・扉（L_<ドア>_open／closed）・頂点で焼く物（V_<アトラス>。頂点の番号 _VID 付き）・シェード（S_<アトラス>。動かすための _SHD 付き）・窓のガラス（*_glass）
 #  UV：1つ目＝元の柄の UV（UVMap。無い物は 0 の UV を足す）、2つ目＝ライトマップの UV（LM）→ glTF の TEXCOORD_0／TEXCOORD_1（three.js の uv／uv2）
@@ -157,7 +157,7 @@ for mn in lame:
     bpy.data.materials[mn]['lame'] = 1
 print('emit lame', lame, flush=True)
 # つや・照り（1章：ユーザーの指定した所だけ。キッチンとカップボードの天板は付けない＝2026-11-07 ユーザー）に印：本番の Phong の specular・shininess を
-# extras の gloss に [r, g, b, shininess] で書く（glTF には照りが入らない）。ページで照明の向きから照りを足す（stg/trial.js の glossSpec）
+# extras の gloss に [r, g, b, shininess] で書く（glTF には照りが入らない）。ページで照明の向きから照りを足す（real/trial.js の glossSpec）
 #  テレビの画面（ldk.js：0x07070a・0x555555・90。同じ色の IH のガラストップと分けるため、テレビの面の前の東向きの面だけ）・階段と2階の手すりのアクリル（common.js の acrylMat：0xe8f2f8・0xffffff・90）・
 #  真鍮の照明器具（ダイニングのペンダント ldk.js の brass：0x8a7650・0x6b5a3a・40、玄関ホールのブラケット wash.js の BR：0x5b4d41・0x5a4a3a・34）
 def lin(v):
