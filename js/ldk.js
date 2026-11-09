@@ -384,7 +384,7 @@ const pends=[];
  [-0.008,0.008].forEach(dx=>{const f=new THREE.Mesh(new THREE.BoxGeometry(0.002,0.05,0.002),filMat);f.position.set(x+dx,bc+0.005,RZ);s.add(f);});
  const pl=new THREE.PointLight(0xffb066,0,4.5,1.5);pl.position.set(x,bc,RZ);s.add(pl);pends.push(pl);});
 
-// テレビ（標準 75インチ・壁掛け。軽量版で 65・75・85・100・116 から選べる）とテレビボード（W2000×H200×D295・フロート）：ドアを除いたテレビ設置面の中心に配置
+// テレビ（標準 75インチ・壁掛け。軽量版で 40・65・75・85・100・116 から選べる）とテレビボード（W2000×H200×D295・フロート）：ドアを除いたテレビ設置面の中心に配置
 const TVC=(TVZ+D)/2;
 const bdWood=tmat(tjC,{specular:0x222222,shininess:20});   // TJ-10239K（本体も前板もダイニングテーブルと同じ柄。本体を無地の灰色にしていた。2026-10-27）
 const bdBox=(w,h,d,x,y,z)=>{const b=box(w,h,d,x,y,z,bdWood),uv=b.geometry.attributes.uv,S=1.2,fs=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];   // 柄の大きさを面の大きさに合わせる（箱の UV は面ごとに 0〜1 なので、細い板では柄が伸びていた）。S：柄1枚の長さ(m)
