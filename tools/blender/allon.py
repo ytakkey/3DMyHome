@@ -1,15 +1,15 @@
 # 全点灯（照明すべて）の足し合わせを、アトラスごと・ドアの開閉ごとに前もって作る（2026-11-09 ユーザー了承「その案いいね」）
-# 使い方：run.py allon（lmimg rgbm 1 stg の後。lm_images.py が残した、ならした後の値 bake/work/lm_proc/<層>/<アトラス>.npy を足す）
+# 使い方：run.py allon（lmimg rgbm 1 real の後。lm_images.py が残した、ならした後の値 bake/work/lm_proc/<層>/<アトラス>.npy を足す）
 # 全点灯は層が約300枚（約110MB）あり、ページで取得・展開して足すのに PC でも 5〜7 秒かかっていた（ほとんどが取得と展開。GPU で足すのは 0.15 秒）。
 # 前もって足しておけば、全点灯はアトラスごとに1枚（約30枚・約13MB）を読むだけになる。
-# 足し方はページ（stg/trial.js の wanted）と同じ：照明ごとに、いまのドアの開閉の層を、色温度の色（TINT）を掛けて足す。G1 のまっすぐ届く光（g1d）は模様を掛けるので入れない（ページで別に足す）。
+# 足し方はページ（real/trial.js の wanted）と同じ：照明ごとに、いまのドアの開閉の層を、色温度の色（TINT）を掛けて足す。G1 のまっすぐ届く光（g1d）は模様を掛けるので入れない（ページで別に足す）。
 # 同じアトラスで、ドアの開閉が違っても照明ごとの焼いたフォルダ（alias）がすべて同じなら同じ足し合わせ＝1枚にまとめる（効かないドアの違いは焼き分けていない）。
-# 出力：stg/lm/allon__<アトラス>__<番号>.png（RGBM。頂点の物は幅1024の行）と、stg/lm/index.json の allon：
+# 出力：real/lm/allon__<アトラス>__<番号>.png（RGBM。頂点の物は幅1024の行）と、real/lm/index.json の allon：
 #   {doors:[ドア…], atl:{アトラス:{e:[画像の情報…], m:[ドアの開閉 2^n 通り → e の番号（-1＝光が届かない）]}}}。開閉の番号は doors[i] が開なら i ビット目が1
 import sys, os, json, itertools, zlib, struct
 import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LD = os.path.join(ROOT, 'bake', 'work', 'lm'); PROC = LD + '_proc'; OUT = os.path.join(ROOT, 'stg', 'lm')
+LD = os.path.join(ROOT, 'bake', 'work', 'lm'); PROC = LD + '_proc'; OUT = os.path.join(ROOT, 'real', 'lm')
 idx = json.load(open(os.path.join(OUT, 'index.json'), encoding='utf-8'))
 alias = json.load(open(os.path.join(LD, 'alias.json')))
 C = idx['combos']
