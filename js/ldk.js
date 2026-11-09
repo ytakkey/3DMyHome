@@ -331,7 +331,7 @@ function diningSet(W,D,H){const n0=s.children.length,X0=TX1-W,Z0=TZ0+(0.85-D)/2,
  [Z0+0.06,Z1-0.06].forEach(z=>box(LG,H-TT,LG,x,(H-TT)/2,z,blk));
  box(LG,LG,D-0.12+LG,x,LG/2,(Z0+Z1)/2,blk);
  box(LG,LG,D-0.12+LG,x,H-TT-LG/2,(Z0+Z1)/2,blk);});
-// 椅子4脚：テーブルに合わせて黒いスチール脚＋ダークグレーの座面・背もたれ。テーブルの下にしまった状態（幅の1/4と3/4、南北の端から175mm）
+// 椅子4脚：テーブルに合わせて黒いスチール脚＋ダークグレーの座面・背もたれ。テーブルの下にしまった状態（幅の1/4と3/4、南北の端から175mm。奥行きが浅いときは座面が重ならない所まで）
 const chairSeat=diningSet.cs||(diningSet.cs=P({color:0x4a4846,specular:0x111111,shininess:10}));
 function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）、-1:北向き
  const SW=0.43,SD=0.42,SH=0.44,t=0.02,bz=z-dir*(SD/2-0.015),fz=z+dir*(SD/2-0.03);
@@ -342,7 +342,7 @@ function chair(x,z,dir){ // dir=+1:南向きに座る（背もたれは北側）
   box(t,t,Math.abs(fz-bz)+t,xs,t/2,(fz+bz)/2,blk);
   box(t,t,Math.abs(fz-bz)+t,xs,SH-0.06,(fz+bz)/2,blk);});
  box(SW-0.014,0.2,0.025,x,0.72,bz,chairSeat);}   // 背板（左右の面は後ろ脚の外の面から2mm内側＝面をそろえない）
-[[X0+W/4,Z0+0.175,1],[X0+W*3/4,Z0+0.175,1],[X0+W/4,Z1-0.175,-1],[X0+W*3/4,Z1-0.175,-1]].forEach(([x,z,d])=>chair(x,z,d));
+{const c=Math.min(0.175,D/2-0.215);[[X0+W/4,Z0+c,1],[X0+W*3/4,Z0+c,1],[X0+W/4,Z1-c,-1],[X0+W*3/4,Z1-c,-1]].forEach(([x,z,d])=>chair(x,z,d));}   // c：端から椅子の中心。奥行きが浅いと（78cm 未満）向かい合う座面が重ならないよう浅く入れる
 s.children.slice(n0).forEach(o=>{o.userData.dyn=true;DIN.push(o);});}diningSet(1.5,0.85,TH);self.dining={set:diningSet,parts:DIN};
 // カウンターチェア2脚：参考画像（Clay バーチェア）風。黒いシェル座面＋クッション（背もたれなし）、1本脚のポールと円盤ベース、前側半円の足置き。座面高640mm（天板850mm用）。キッチン側を向けて設置
 const shellMat=P({color:0x1b1b1b,specular:0x1a1a1a,shininess:14,side:THREE.DoubleSide}),cushMat=P({color:0x2b2b2b,specular:0x2a2a2a,shininess:30}),barBlk=P({color:0x161616,specular:0x333333,shininess:30});
