@@ -24,8 +24,8 @@ function setTv(){rebuild(tv);tv.set(tvIn);
 let szSee=null;
 function diningView(){if(szSee==='dining')return;szSee='dining';clearView();VK=1;look(0.3,2.2,3.25,2.05,0.05,1.1,75);frame();$('viewLbl').textContent='ダイニング';}   // 南西の仕切り壁の角の上から、テーブル越しに冷蔵庫・カップボード・アイランドを見下ろす（2026-11-09 ユーザーのスクリーンショットの視点）。幅を変えると左手前（西）へ伸びる
 function tvView(){if(szSee==='tv')return;szSee='tv';clearView();   // ソファの後ろから、テレビ面の正面を水平に（2026-11-09 ユーザー「上からの角度つきすぎ」「正面からテレビを中心に」。東の階段の桁が入らない所）
- const W=window.innerWidth,H=window.innerHeight,rc=$('sheet').getBoundingClientRect(),side=rc.left>W*0.4,fw=side?rc.left:W,fh=side?H:rc.top,X=3.75,Y=1.348,dist=X-0.455;   // Y：116 型の中心の高さ
- const k=1.15*Math.max(1.476*H/fh,2.574*H/fw)/(2*dist);   // 116 型（1476×2574）が空いている所に余白つきで収まる視野（横長の画面では壁の両脇も見えるよう 58 度より狭くしない）。大きさの違いが比べられるよう、どの大きさでも同じ視野にする
+ const W=window.innerWidth,H=window.innerHeight,rc=$('sheet').getBoundingClientRect(),side=rc.left>W*0.4,fw=side?rc.left:W,fh=side?H:rc.top,X=3.75,Y=1.2475,dist=X-0.455;   // Y：100 型の中心の高さ
+ const k=1.15*Math.max(1.275*H/fh,2.222*H/fw)/(2*dist);   // 100 型（1275×2222）が空いている所に余白つきで収まる視野（116 型はネタなので合わせない。上下左右が少し切れてよい。2026-11-09 ユーザー）（横長の画面では壁の両脇も見えるよう 58 度より狭くしない）。大きさの違いが比べられるよう、どの大きさでも同じ視野にする
  VK=1;look(X,Y,5.825,0.455,Y,5.825,Math.min(100,Math.max(58,Math.atan(k)*360/Math.PI)));frame();$('viewLbl').textContent='テレビ';}
 $('szReset').onclick=()=>{SZ.forEach(([k,,,,,df])=>sz[k]=df);tvIn=TVDEF;setDining();setTv();};
 // パネルが開いている間は、写す範囲をパネルの外の空いている所へずらす（レンズのシフト。カメラは傾けない）：横長の画面はパネルの左、縦長の画面（スマホ）はパネルの上の真ん中に、見ている物が来る。
