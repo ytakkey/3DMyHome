@@ -119,10 +119,10 @@ cvs.addEventListener('pointerup',end);cvs.addEventListener('pointercancel',end);
 cvs.addEventListener('wheel',e=>{e.preventDefault();clearView();setFov(cam.fov+e.deltaY*0.03);},{passive:false});
 
 window.addEventListener('resize',()=>{r.setSize(window.innerWidth,window.innerHeight);cam.aspect=window.innerWidth/window.innerHeight;cam.updateProjectionMatrix();draw();});
-// 軽量版（2026-11-09 ユーザー）：昼だけ・照明は窓の無い暗い所（トイレ G1・WIC L1・洗面所 D1・浴室）だけ点けたままにし、昼夜と照明のボタンは出さない。
+// 軽量版（2026-11-09 ユーザー）：昼だけ・照明は窓の無い暗い所（トイレ G1・WIC L1・洗面所 D1・浴室）だけ点けたままにし、昼夜と照明のボタンは出さない。シェードも全開のままでボタンを出さない（2026-11-09 ユーザー「シェードも全開固定でいい」）。
 // 消えたままの光源は場面から外す（シェーダーで回す光源が 60→24。780M では1フレームの GPU 時間はほぼ同じ＝iPad 相当の画素で 10〜13ms。2026-11-09）。?dev のときは昼夜・照明の切り替えを残す（本番との見比べ pair_cap.js の夜・全点灯に使う）
 const DEV=/[?&]dev\b/.test(location.search),FIXLS=['g1','l1','d1','bath'];
-if(!DEV){Object.keys(LS).forEach(k=>LS[k]=FIXLS.includes(k));$('bDay').hidden=$('bLight').hidden=true;}
+if(!DEV){Object.keys(LS).forEach(k=>LS[k]=FIXLS.includes(k));$('bDay').hidden=$('bLight').hidden=$('bShade').hidden=true;}
 bedS.setShade(0);stS.setShade(0);ldkS.setShade(0);syncLights();$('shade').value=0;shadeLabel(0);
 if(!DEV){envAll();scene.traverse(o=>{if(o.isLight&&!o.isHemisphereLight&&(o.intensity===0||o.color.r+o.color.g+o.color.b===0))o.visible=false;});}
 applyEnvAll();setView('リビング');
