@@ -13,7 +13,7 @@ const GAM={day:+Q.get('gd')||0.6,night:+Q.get('gn')||0.75};   // 明るさの幅
 // 照明の色（色温度。4章「照明」の色を線形にして明るさ1にそろえる）：焼き込みは白い光なので、層に掛ける
 const KC=h=>{const c=new THREE.Color(h).convertSRGBToLinear(),y=0.2126*c.r+0.7152*c.g+0.0722*c.b;return [c.r/y,c.g/y,c.b/y];},K2700=KC(0xffc68e),K3500=KC(0xffd9b4),K5000=KC(0xfff3e8),K2400=KC(0xffb066);
 const TINT={bdl:K2700,bbr:K2700,j1:K2700,h1:K3500,k1:K3500,l1:K5000,a1:K3500,a2:K3500,a4:K3500,a6:K3500,a3:K2700,a5:K2400,
- d1:K5000,e1:K3500,eh:K2700,b3:K2400,ec:K2700,ek:K2700,g1:K2700,bath:K5000};   // O1・O2・J1・A3・B1・B2・F1・G1 は 2700K、H1・K1・A1・A2・A4・A6・E1（温白色）は 3500K、L1・D1・浴室は 5000K、A5・B3（電球）は 2400K（js のコメント）
+ d1:K5000,e1:K3500,eh:K2700,b3:K2400,ec:K2700,ek:K2700,g1:K2700,bath:K5000};   // O1・O2・J1・A3・B1・B2・F1・G1 は 2700K、H1・K1・A1・A2・A4・A6・E1（温白色）は 3500K、L1・D1・浴室は 5000K、A5・B3（電球）は 2400K（js のコメント）。全点灯の足し合わせ（tools/blender/allon.py）にも同じ表があるので、変えるときは両方
 const WITH={eh:['b3'],g1:['g1d']};   // 一緒に点く層（玄関ホールのボタンで B2 のダウンライトと B3 のブラケット、トイレで G1 の反射した光とまっすぐ届く光）
 TINT.g1d=K2700;
 // G1（トイレのペンダント）の揺らいだ光（F4。本番の js/lighting.js の cauTex・cauF と同じ）：まっすぐ届く光（g1d。ガラスなしで焼いた層）に、
@@ -229,9 +229,12 @@ void main(){vec4 c=texture2D(t,vUv);vec3 v;
 {const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cMat);m.frustumCulled=false;cScene.add(m);}
 function layerName(src,ds){return src+'@'+((COMBOS[src]||[]).map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
 function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
- Object.keys(LS).forEach(k=>{if(st.LS[k])[k,...(WITH[k]||[])].forEach(q=>add(q,1,TINT[q]));});
+ const AO=IDX.allon&&Object.keys(LS).every(k=>st.LS[k]);   // 全点灯：照明の層の代わりに、前もって足した画像（allon.py）をアトラスごとに1枚。G1 のまっすぐ届く光（g1d）だけは模様を掛けるので層のまま
+ Object.keys(LS).forEach(k=>{if(st.LS[k])[k,...(WITH[k]||[])].forEach(q=>{if(!AO||q==='g1d')add(q,1,TINT[q]);});});
  NATURAL.filter(s=>IDX.layers[layerName(s,st.DS)]).forEach(s=>{const t=SHADED.has(s.split('_')[1])?SHADE_T(st.shade):1;if(!st.night)add(s,t);else if(s.startsWith('sky_'))add(s,t*MOON,MOONC);});
- const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);const c=L.startsWith('g1d@');for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w,c}:{g:c?'c:'+g:g,e:ent[g],w});});return items;}
+ const items=[];out.forEach(({L,w})=>{const ent=IDX.layers[L];if(!ent)throw new Error('層がない '+L);const c=L.startsWith('g1d@');for(const g in ent)if(ent[g])items.push(g.startsWith('V_')?{v:g.slice(2),e:ent[g],w,c}:{g:c?'c:'+g:g,e:ent[g],w});});
+ if(AO){const A=IDX.allon,ai=A.doors.reduce((s,d,i)=>s+(st.DS[dk(d)]?1<<i:0),0);for(const g in A.atl){const j=A.atl[g].m[ai];if(j<0)continue;const e=A.atl[g].e[j];items.push(g.startsWith('V_')?{v:g.slice(2),e,w:[1,1,1],c:false}:{g,e,w:[1,1,1]});}}   // 色温度の色は足すときに掛けてある
+ return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
 let ver=0,shown=null,stat={};
 async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st),bt=setTimeout(()=>{if(v===ver)$('busy').hidden=false;},250);   // 時間がかかるときだけ「切り替え中」

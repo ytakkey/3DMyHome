@@ -4,7 +4,7 @@
 #  py <スクリプト> [引数...]：bake_uv.blend を開いてスクリプトを動かす（調べる用）
 #  prep：焼き込みの準備（bake_uv.blend）　bake [サンプル数] [層,...]：焼く（bake/work/lm）
 #  build：建物（house.blend）　status：焼き込みの進み具合（bake/work/layers）
-#  gltf：検証ページ用の模型（stg/house.glb）　lmimg：焼いた層を検証ページ用の画像に（stg/lm/）　crop：比較の画像の同じ範囲を並べる
+#  gltf：検証ページ用の模型（stg/house.glb）　lmimg：焼いた層を検証ページ用の画像に（stg/lm/）　allon：全点灯の足し合わせ（lmimg の後）　crop：比較の画像の同じ範囲を並べる
 import sys, os, subprocess, json
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BL = r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
@@ -106,6 +106,15 @@ elif a[0] == 'lmimg':   # 焼いた層を検証ページ用の画像に：lmimg 
             src = os.path.join(W, a[4]) if a[4:5] else LAY
             r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'lm_images.py'), '--', src, out, e, k], capture_output=True, text=True, encoding='utf-8', errors='replace')
             print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('lmimg total', 'lmimg nonfinite', '  '))))
+elif a[0] == 'swapatlas':   # 家具だけ直したとき：前の bake_uv をもとに、そのアトラスの物だけ新しい物に差し替える：swapatlas <前の .blend> <新しい .blend> <出力の .blend> <物,...>（swap_atlas.py）
+    r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'swap_atlas.py'), '--', *[os.path.abspath(x) for x in a[1:4]], a[4]], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith('SWAP')))
+elif a[0] == 'uvcmp':   # アトラスごとに UV と形が前と同じか：uvcmp <前の .blend>（bake_uv.blend と比べる。uvcmp.py）
+    r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'bake_uv.blend'), '-P', os.path.join(T, 'uvcmp.py'), '--', os.path.abspath(a[1])], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith('UVCMP')))
+elif a[0] == 'allon':   # 全点灯の足し合わせを前もって作る（lmimg rgbm 1 stg の後）：bake/work/lm_proc → stg/lm/allon__*.png と index.json の allon（allon.py）
+    r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'allon.py')], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('allon', '  '))))
 elif a[0] == 'crop':   # 比較の画像の同じ範囲を拡大して並べる：crop <視点__状態> <x0,y0,x1,y1> <倍率> <出力> [方式,...]
     subprocess.run([sys.executable, '-I', os.path.join(T, 'cmp_crop.py'), os.path.join(W, 'trial_cmp'), *a[1:]])
 elif a[0] == 'pairsheet':   # 見比べの並べ撮り（tools/pair_cap.js）を視点7つずつ1枚に：pairsheet <名前,名前,...（列）> [視点,...]。出力は bake/work/pairsheet_<番号>.jpg
