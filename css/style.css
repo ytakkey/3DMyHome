@@ -92,3 +92,4 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .szrow b{font-size:12px;font-weight:500;text-align:right;white-space:nowrap}
 .szr{margin-top:4px;min-height:36px}
 .szr:disabled{opacity:.4;cursor:default}
+.tvg{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}   /* テレビの大きさ（インチ）。選んだものは .tg.on で光る */
