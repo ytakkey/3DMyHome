@@ -51,7 +51,7 @@ function curRoom(){const p=cam.position,{W,D,FL2,VX,VZ,PZ1}=HOUSE.ldk,{X0:WX,LW,
 function renderInd(scroll){const cr=curRoom();$('indList').querySelectorAll('.irow').forEach(r=>{const h=r.dataset.room===cr;r.classList.toggle('here',h);if(h&&scroll)r.scrollIntoView({block:'nearest'});});}
 // パネル（視点・照明・シェード）：同時に1つだけ開く。同じアイコンをもう一度押すか、画面をタップすると閉じる
 let openK=null;
-function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');if(k==='light')renderInd(true);}
+function openSheet(k){if(k&&openK===k)k=null;openK=k;$('sheet').hidden=!k;['view','light','shade','size'].forEach(n=>$('p_'+n).hidden=n!==k);mark($('bView'),k==='view');mark($('bLight'),k==='light');mark($('bShade'),k==='shade');mark($('bSize'),k==='size');if(k==='light')renderInd(true);}
 $('bView').onclick=()=>openSheet('view');$('bLight').onclick=()=>openSheet('light');$('bShade').onclick=()=>openSheet('shade');
 // 昼夜：押すたびに切り替える（アイコンは今の状態：太陽＝昼、月＝夜）
 function setNight(v){night=v;const b=$('bDay');b.classList.toggle('night',v);b.setAttribute('aria-label',v?'夜（押すと昼）':'昼（押すと夜）');applyEnvAll();}
@@ -119,5 +119,10 @@ cvs.addEventListener('pointerup',end);cvs.addEventListener('pointercancel',end);
 cvs.addEventListener('wheel',e=>{e.preventDefault();clearView();setFov(cam.fov+e.deltaY*0.03);},{passive:false});
 
 window.addEventListener('resize',()=>{r.setSize(window.innerWidth,window.innerHeight);cam.aspect=window.innerWidth/window.innerHeight;cam.updateProjectionMatrix();draw();});
+// 軽量版（2026-11-09 ユーザー）：昼だけ・照明は窓の無い暗い所（トイレ G1・WIC L1・洗面所 D1・浴室）だけ点けたままにし、昼夜と照明のボタンは出さない。
+// 消えたままの光源は場面から外す（シェーダーで回す光源が 60→24。780M では1フレームの GPU 時間はほぼ同じ＝iPad 相当の画素で 10〜13ms。2026-11-09）。?dev のときは昼夜・照明の切り替えを残す（本番との見比べ pair_cap.js の夜・全点灯に使う）
+const DEV=/[?&]dev\b/.test(location.search),FIXLS=['g1','l1','d1','bath'];
+if(!DEV){Object.keys(LS).forEach(k=>LS[k]=FIXLS.includes(k));$('bDay').hidden=$('bLight').hidden=true;}
 bedS.setShade(0);stS.setShade(0);ldkS.setShade(0);syncLights();$('shade').value=0;shadeLabel(0);
+if(!DEV){envAll();scene.traverse(o=>{if(o.isLight&&!o.isHemisphereLight&&(o.intensity===0||o.color.r+o.color.g+o.color.b===0))o.visible=false;});}
 applyEnvAll();setView('リビング');
