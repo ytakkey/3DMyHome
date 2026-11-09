@@ -16,10 +16,8 @@ h1{margin:0 0 6px;font-size:22px;font-weight:600;letter-spacing:.04em}
 a.card{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:inherit;text-decoration:none;box-shadow:0 8px 28px rgba(0,0,0,.3);transition:border-color .15s,background .15s}
 a.card:hover,a.card:focus-visible{border-color:rgba(255,217,168,.6);outline:none}
 a.card:active{background:rgba(255,205,145,.12)}
-.no{font-size:12px;font-weight:600;color:var(--acc)}
 .nm{font-size:18px;font-weight:600}
 .ds{margin:0;font-size:13px;line-height:1.7;color:var(--mut)}
-ul{margin:0;padding-left:1.2em;font-size:12.5px;line-height:1.8}
 .go{margin-top:auto;align-self:flex-start;padding:9px 16px;border-radius:10px;background:linear-gradient(#ffe2b0,#ffc472);color:#2a1c0c;font-size:13px;font-weight:600}
 </style>
 </head>
@@ -29,15 +27,16 @@ ul{margin:0;padding-left:1.2em;font-size:12.5px;line-height:1.8}
   <p class="lead">開く版を選んでください</p>
   <div class="cards">
     <a class="card" href="real/">
-      <span class="no">①</span><span class="nm">リアル版</span>
-      <p class="ds">光と影の質を重視。Blender で計算した光で、部屋の明るさや陰を本物に近く見られます。</p>
-      <ul><li>昼・夜、照明の点灯・消灯、ドアの開閉で光が変わる</li><li>読み込む画像が多いので、開くのに少し時間がかかります（PC・iPad 向け）</li></ul>
+      <span class="nm">リアル版</span>
+      <p class="ds">光と影の質を重視。Blender で計算した光で、部屋の明るさや陰を現実のように再現します。</p>
+      <p class="ds">昼・夜、照明の点灯・消灯、シェード・ドアの開閉状況をライティングに反映します。</p>
+      <p class="ds">ページの読み込み、状況の切り替えに時間がかかる場合があります。</p>
       <span class="go">リアル版を開く</span>
     </a>
     <a class="card" href="lite/">
-      <span class="no">②</span><span class="nm">軽量・検証版</span>
-      <p class="ds">すぐ開いて軽く動く版。家具の大きさを変えて、置いたときの感じを確かめられます。</p>
-      <ul><li>昼だけ・シェードは全開。照明は暗い所（トイレ・WIC・洗面所・浴室）だけ点灯</li><li>家具のサイズ変更（ダイニングテーブル）</li></ul>
+      <span class="nm">軽量・検証版</span>
+      <p class="ds">ライティングが簡素化された軽量版です。</p>
+      <p class="ds">代わりに家具のサイズ変更機能があります。（現在の対象：TV、ダイニングテーブル）</p>
       <span class="go">軽量・検証版を開く</span>
     </a>
   </div>
