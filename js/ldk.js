@@ -384,7 +384,7 @@ const pends=[];
  [-0.008,0.008].forEach(dx=>{const f=new THREE.Mesh(new THREE.BoxGeometry(0.002,0.05,0.002),filMat);f.position.set(x+dx,bc+0.005,RZ);s.add(f);});
  const pl=new THREE.PointLight(0xffb066,0,4.5,1.5);pl.position.set(x,bc,RZ);s.add(pl);pends.push(pl);});
 
-// テレビ（75インチ・壁掛け）とテレビボード（W2000×H200×D295・フロート）：ドアを除いたテレビ設置面の中心に配置
+// テレビ（標準 75インチ・壁掛け。軽量版で 65・75・85・100・116 から選べる）とテレビボード（W2000×H200×D295・フロート）：ドアを除いたテレビ設置面の中心に配置
 const TVC=(TVZ+D)/2;
 const bdWood=tmat(tjC,{specular:0x222222,shininess:20});   // TJ-10239K（本体も前板もダイニングテーブルと同じ柄。本体を無地の灰色にしていた。2026-10-27）
 const bdBox=(w,h,d,x,y,z)=>{const b=box(w,h,d,x,y,z,bdWood),uv=b.geometry.attributes.uv,S=1.2,fs=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];   // 柄の大きさを面の大きさに合わせる（箱の UV は面ごとに 0〜1 なので、細い板では柄が伸びていた）。S：柄1枚の長さ(m)
@@ -393,8 +393,8 @@ bdBox(0.295,0.2,2.0,TVX+0.1475,0.30,TVC);
 [-1,0,1].forEach(k=>bdBox(0.006,0.154,0.649,TVX+0.298,0.30,TVC+k*0.6536));
 bdBox(0.006,0.023,2.0,TVX+0.298,0.2115,TVC);bdBox(0.006,0.023,2.0,TVX+0.298,0.3885,TVC);
 bdBox(0.006,0.154,0.0196,TVX+0.298,0.30,TVC-0.9902);bdBox(0.006,0.154,0.0196,TVX+0.298,0.30,TVC+0.9902);   // 両端の縦の帯は上下の帯の間だけ（角で重ねない）
-box(0.04,0.962,1.672,TVX+0.055,0.61+0.481,TVC,0x121212);
-{const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65,0.94),P({color:0x07070a,specular:0x555555,shininess:90}));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0775,1.091,TVC);s.add(sc);}
+function tvSet(I){const n0=s.children.length,k=I/75,bh=0.94*k+0.022;box(0.04,bh,1.65*k+0.022,TVX+0.055,0.61+bh/2,TVC,0x121212);   // テレビは tvSet(インチ)：画面は 75 インチで 1650×940 を大きさに比例、枠は上下左右 11mm、下の端（床から 610）とテレビ面の中心はそのまま（軽量版のサイズ変更 js/size.js が作り直す。2026-11-09 ユーザー）。この2行も書き出しの部品の名前になるので、行をずらさない
+ const sc=new THREE.Mesh(new THREE.PlaneGeometry(1.65*k,0.94*k),tvSet.m||(tvSet.m=P({color:0x07070a,specular:0x555555,shininess:90})));sc.rotation.y=Math.PI/2;sc.position.set(TVX+0.0775,0.61+bh/2,TVC);s.add(sc);s.children.slice(n0).forEach(o=>{o.userData.dyn=true;TVP.push(o);});}const TVP=[];tvSet(75);self.tv={set:tvSet,parts:TVP};
 // テレビ前のウォールウォッシャダウンライト A6：パナソニック SLD1310VLB1 ×2（拡散タイプのウォールウォッシャ。LEDが壁向きに傾いていて壁面を照らす・温白色3500K・320lm・埋込穴φ75）：中心から左右750mm、壁の中心（仕上げ面から60mm奥と仮定）から500mm
 const a6Mat=new THREE.MeshBasicMaterial({color:0xd9d8d4});
 const a6=[TVC-0.75,TVC+0.75].map(z=>{const x=TVX-0.06+0.5;const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.006,32),L(0xffffff));ring.position.set(x,H1-0.003,z);s.add(ring);const disc=new THREE.Mesh(new THREE.CylinderGeometry(0.037,0.037,0.008,32),a6Mat);disc.position.set(x,H1-0.0045,z);s.add(disc);const sp=new THREE.SpotLight(0xffd9b4,0,5,THREE.MathUtils.degToRad(55),0.8,1.1);sp.position.set(x,H1-0.02,z);sp.target.position.set(TVX-0.2,0.5,z);s.add(sp);s.add(sp.target);return sp;});
