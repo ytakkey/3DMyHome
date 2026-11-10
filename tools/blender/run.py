@@ -41,7 +41,7 @@ elif a[0] == 'review':   # 焼いた層の確認：夜（照明すべて・廊�
         subprocess.run([sys.executable, '-I', os.path.join(T, 'sheet.py'), out, os.path.join(W, 'view', 'review_' + st + '.jpg'), '4', '480'])
 elif a[0] == 'build':   # 建物を作り、家具と本番の材質を付ける：bake/work/export/furniture.glb・building.glb → bake/work/blender/house.blend
     r = subprocess.run([BL, '-b', '--factory-startup', '-P', os.path.join(T, 'build_house.py'), '--', os.path.join(W, 'export', 'furniture.glb'), os.path.join(W, 'blender', 'house.blend')], capture_output=True, text=True, encoding='utf-8', errors='replace')
-    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('BUILDING', 'prod materials', 'no building', 'DONE', '  File', 'buried cut', 'outward', 'shades', 'leaves trimmed', 'coplanar'))))
+    print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if 'Error' in l or 'Traceback' in l or l.startswith(('BUILDING', 'prod materials', 'no building', 'DONE', '  File', 'buried cut', 'buried mutual', 'outward', 'shades', 'leaves trimmed', 'coplanar'))))
 elif a[0] == 'measure':   # ドアの効き目を粗く焼いて測る：measure <名前> [サンプル数] [解像度] [光源,...] → bake/work/measure/<名前>.json
     os.makedirs(os.path.join(W, 'measure'), exist_ok=True)
     r = subprocess.run([BL, '-b', os.path.join(W, 'blender', 'house.blend'), '-P', os.path.join(T, 'bake_measure.py'), '--', os.path.join(W, 'measure', a[1] + '.json'), *a[2:5]], capture_output=True, text=True, encoding='utf-8', errors='replace')

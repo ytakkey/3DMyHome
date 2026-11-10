@@ -38,6 +38,6 @@ function frame(){const W=window.innerWidth,H=window.innerHeight,t=Math.tan(cam.f
  cam.fov=Math.atan(t*VK)*360/Math.PI;cam.updateProjectionMatrix();draw();}
 {const os=openSheet;openSheet=k=>{os(k);frame();};}   // パネルを開け閉めするたびに合わせる
 window.addEventListener('resize',frame);   // ui.js の resize（視野の縦横比を戻す）の後に
-$('bSize').onclick=()=>{openSheet('size');szSee=null;if(openK==='size')diningView();};
+$('bSize').onclick=()=>{openSheet('size');szSee=null;};   // 開いただけでは視点を動かさない。テーブル・テレビの値を触ったときにその物の視点へ（2026-11-10 ユーザー「定規マーク押した瞬間にダイニングテーブルに飛ぶのやめて」）
 ['pointerdown','wheel','keydown'].forEach(t=>window.addEventListener(t,e=>{if(!e.target.closest||!e.target.closest('#panel'))szSee=null;},true));   // 自分で動いたり見回したりしたら、次に変えるときはまたその物の視点へ
 setDining();setTv();
