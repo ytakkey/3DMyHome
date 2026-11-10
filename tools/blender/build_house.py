@@ -799,6 +799,14 @@ def cut_buried():
                     deep += 1
             if deep:
                 pairs.append((a, b))
+    # 互いに食い込んだ組は小さい方だけ切る（2026-11-10）：両方を切ると重なった所が両方から消え、切り口のふたも消すので、
+    # 継ぎ目に穴があいて奥（床）が透けた（ソファの背もたれの外側と背クッションの間の長いすき間、肘掛けの本体とロールの前の端のギザギザ）
+    def vol(o):
+        (p0, p1) = bb(o); return (p1[0] - p0[0]) * (p1[1] - p0[1]) * (p1[2] - p0[2])
+    names = {(a.name, b.name) for a, b in pairs}
+    mutual = sorted({tuple(sorted((a.name, b.name))) for a, b in pairs if (b.name, a.name) in names})
+    pairs = [(a, b) for a, b in pairs if (b.name, a.name) not in names or (vol(a), a.name) < (vol(b), b.name)]
+    print('buried mutual', len(mutual), '; '.join('%s/%s' % m for m in mutual), flush=True)
     if not pairs:
         print('buried cut 0', flush=True); return
     orig = {}
@@ -826,7 +834,7 @@ def cut_buried():
         done.append('%s-%s %d>%d' % (a.name, b.name, n0, len(me.polygons)))
     for c in orig.values():
         bpy.data.objects.remove(c)
-    print('buried cut', len(done), '; '.join(done[:40]), flush=True)
+    print('buried cut', len(done), '; '.join(done), flush=True)
 if GLB:
     cut_buried()
 
