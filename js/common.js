@@ -4,7 +4,7 @@ r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
 r.setSize(window.innerWidth,window.innerHeight);
 document.body.prepend(r.domElement);
 const cam=new THREE.PerspectiveCamera(85,window.innerWidth/window.innerHeight,0.05,80);cam.rotation.order='YXZ';
-const R=Math.random,WARM=0xffc68e,FIT=0xfbfbf9;
+const R=(()=>{const m=/[?&]seed=(\d+)/.exec(location.search);if(!m)return Math.random;let s=+m[1]||1;return ()=>(s=s*16807%2147483647)/2147483647;})(),WARM=0xffc68e,FIT=0xfbfbf9;   // ?seed=<数>：柄の乱数を毎回同じにする（確認用。作りを変える前後で画素が同じかを tools/state_cap.js で撮り比べる）
 // ===== 寸法データ（m）。座標：X=東、Z=南、原点はLDK北西の室内側の角。部屋を足すときはここに追加する =====
 const EYE=1.2,VDOWN=6*Math.PI/180;   // 視点（各部屋のショートカット）の目の高さ（どの視点も、その階の基本の床から。玄関も土間ではなくホールの床から）と、見下ろす角度（どの視点も同じ。2026-10-27）
 const HOUSE={
@@ -101,10 +101,13 @@ const oakTile=(()=>{const N=1536,rows=12,ph=N/rows,c=document.createElement('can
  for(let r=0;r<rows;r++){const segs=[];let x=R()*N;const end=x+N;
   while(x<end-1){const len=Math.min(N*(0.42+R()*0.5),end-x);segs.push({x0:x,len,tone:0.95+R()*0.09,warm:(R()-0.5)*0.04,cath:R()<0.55,cx:x+len*(0.15+R()*0.7),cy:ph*(0.25+R()*0.5),k:0.9+R()*1.6,sp:5.5+R()*5,sd:R()*1000,fleck:R()<0.25});x+=len;}
   const y0=r*ph;
+  // どの板か・板の中の位置・木目のうねり（warp）は横の位置だけで決まるので、列ごとに先に求めておく（2026-11-14：前は画素ごとに求めていた。式と計算の順番は同じなので、できる柄は1画素も変わらない）
+  const SG=new Array(N),LX=new Float64Array(N),WP=new Float64Array(N);
+  for(let px=0;px<N;px++){let sg=null,lx=0;for(const q of segs){let t=px-q.x0;if(t<0)t+=N;if(t<q.len){sg=q;lx=t;break;}}if(!sg){sg=segs[0];lx=0;}
+   const wx=lx+sg.sd*7;SG[px]=sg;LX[px]=lx;WP[px]=7*vn(wx/220,r*3.1+sg.sd)+2.5*vn(wx/45,r*5.7+sg.sd)-4.75;}
   for(let yy=0;yy<ph;yy++){const y=y0+yy;
-   for(let px=0;px<N;px++){let sg=null,lx=0;for(const q of segs){let t=px-q.x0;if(t<0)t+=N;if(t<q.len){sg=q;lx=t;break;}}if(!sg){sg=segs[0];lx=0;}
+   for(let px=0;px<N;px++){const sg=SG[px],lx=LX[px],warp=WP[px];
     const wx=lx+sg.sd*7,wy=yy;   // 板の中の位置で計算（タイルの端で柄が途切れない）
-    const warp=7*vn(wx/220,r*3.1+sg.sd)+2.5*vn(wx/45,r*5.7+sg.sd)-4.75;
     let t;
     if(sg.cath){const dy=yy-sg.cy-warp*0.6,dx=lx-(sg.cx-sg.x0<0?sg.cx-sg.x0+N:sg.cx-sg.x0);t=Math.sqrt(dy*dy+Math.max(0,dx)*sg.k*ph*0.05)/sg.sp+vn(wx/60,wy/9+sg.sd)*0.6;}
     else t=(yy+warp)/sg.sp+vn(wx/80,wy/14+sg.sd)*0.5;
@@ -124,10 +127,12 @@ const walnutTile=(()=>{const N=1536,rows=10,ph=N/rows,c=document.createElement('
   const lens=R()<0.45?[N]:(l1=>[l1,N-l1])(N*(0.4+R()*0.2));   // 1列に1〜2枚（短い端材ができないように）
   for(const len of lens){segs.push({x0:x,len,tone:0.9+R()*0.2,cath:R()<0.4,cx:len*(0.2+R()*0.6),cy:ph*(0.3+R()*0.4),k:0.8+R()*1.4,sp:4+R()*4.5,sd:R()*1000});x+=len;}
   const y0=Math.round(r*ph),PH=Math.round((r+1)*ph)-y0;   // 板の幅は整数ピクセルに丸める
+  const SG=new Array(N),LX=new Float64Array(N),WP=new Float64Array(N);   // 列ごとに先に求めておく（1階の床と同じ。柄は変わらない）
+  for(let px=0;px<N;px++){let sg=null,lx=0;for(const q of segs){let t=px-q.x0;if(t<0)t+=N;if(t<q.len){sg=q;lx=t;break;}}if(!sg){sg=segs[0];lx=0;}
+   const wx=lx+sg.sd*7;SG[px]=sg;LX[px]=lx;WP[px]=14*vn(wx/260,r*3.3+sg.sd)+4*vn(wx/60,r*6.1+sg.sd)-9;}   // 波打つ木目
   for(let yy=0;yy<PH;yy++){const y=y0+yy;
-   for(let px=0;px<N;px++){let sg=null,lx=0;for(const q of segs){let t=px-q.x0;if(t<0)t+=N;if(t<q.len){sg=q;lx=t;break;}}if(!sg){sg=segs[0];lx=0;}
+   for(let px=0;px<N;px++){const sg=SG[px],lx=LX[px],warp=WP[px];
     const wx=lx+sg.sd*7;   // 板の中の位置で計算（タイルの端で柄が途切れない）
-    const warp=14*vn(wx/260,r*3.3+sg.sd)+4*vn(wx/60,r*6.1+sg.sd)-9;             // 波打つ木目
     let t;if(sg.cath){const dy=yy-sg.cy-warp*0.5,dx=lx-sg.cx;t=Math.sqrt(dy*dy+Math.max(0,dx)*sg.k*ph*0.04)/sg.sp+vn(wx/70,yy/10+sg.sd)*0.7;}
     else t=(yy+warp)/sg.sp+vn(wx/90,yy/12+sg.sd)*0.6;
     const fr=t-Math.floor(t),line=Math.pow(fr,4)*0.30;                           // 濃い木目の線
@@ -171,10 +176,11 @@ const domaC=(()=>{const N=1024,TW=256,TH=128,c=document.createElement('canvas');
  const tiles={};const tile=(cx,ry)=>{const k=cx+','+ry;if(tiles[k])return tiles[k];const r=q=>hs(cx*7+q*131,ry*13+q*17),th=0.25+0.25*r(1),veins=[];   // th：層・鉱脈の傾き
   const nv=r(2)<0.45?(r(3)<0.4?2:1):0;for(let v=0;v<nv;v++)veins.push({c:(r(4+v)-0.5)*160,w:0.7+r(6+v)*0.9,st:0.5+0.5*r(8+v)});
   return tiles[k]={tone:0.82+0.3*r(5),th,cs:Math.cos(th),sn:Math.sin(th),sd:r(9)*100,veins};};
+ let T=null,Tc=-1,Tr=-1;
  for(let y=0;y<N;y++){const ry=Math.floor(y/TH),off=(ry%2)*TH,tv=y%TH;
   for(let x=0;x<N;x++){const xs=(x+off)%N,cx=Math.floor(xs/TW),tu=xs%TW,p=(y*N+x)*4;
    if(tu<2||tv<2){d[p]=66;d[p+1]=68;d[p+2]=71;d[p+3]=255;continue;}   // 目地
-   const T=tile(cx,ry),a=tu*T.cs+tv*T.sn,b=-tu*T.sn+tv*T.cs;   // a：層の向き、b：層に直角
+   if(cx!==Tc||ry!==Tr){T=tile(cx,ry);Tc=cx;Tr=ry;}const a=tu*T.cs+tv*T.sn,b=-tu*T.sn+tv*T.cs;   // a：層の向き、b：層に直角。板の情報は板が替わったときだけ引く（2026-11-14：前は画素ごと。柄は変わらない）
    const band=vn(b/14+T.sd,a/220)*0.6+vn(b/5+T.sd,a/90)*0.4,cloud=vn(tu/45+T.sd,tv/30),fine=(hs(x,y)-0.5)*0.05;
    let vein=0;for(const V of T.veins){const wob=(vn(a/40+V.c,T.sd)-0.5)*10,dd=Math.abs(b-V.c-TH/2-wob)/V.w;if(dd<1.6)vein=Math.max(vein,(1-dd/1.6)*V.st*(vn(a/30,V.c+3)>0.35?1:0.25));}
    const k=T.tone*(1+0.14*(band-0.5)+0.10*Math.max(0,cloud-0.55)*2+fine);

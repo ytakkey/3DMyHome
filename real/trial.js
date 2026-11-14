@@ -1,6 +1,6 @@
 // ===== 焼き込みの検証ページ（本番とは別。CLAUDE.md 1章「照明とドア」）=====
-// 模型：house.glb（tools/blender/export_gltf.py。uv＝元の柄、uv2＝ライトマップ）。光：lm/index.json と層ごと・アトラスごとの画像（tools/blender/lm_images.py）
-// 点灯している光源・ドアの開閉・昼夜・シェードが変わったときだけ、要る層をアトラスごとに1枚（半精度）へ足し合わせ、普段の描画はその1枚を読むだけ
+// 模型：house.glb.gz（tools/blender/export_gltf.py → glb_pack.py。uv＝元の柄、uv2＝ライトマップ）。光：lm/index.json と層ごと・アトラスごとの画像（tools/blender/lm_images.py → lm_webp.py）
+// 点灯している光源・ドアの開閉・昼夜・シェードが変わったときだけ、中身の変わるアトラスの要る層を1枚（半精度）へ足し合わせ、普段の描画はその1枚を読むだけ
 // ?lm=<方式>_r<縮小>（例 rgbm_r2）で、bake/work/trial_lm/ の比較用の画像を読む（手元の確認用。無指定は real/lm/）
 const $=id=>document.getElementById(id);
 const Q=new URLSearchParams(location.search);
@@ -94,7 +94,7 @@ if(shd.z>0.5){float sL=max(0.02,shd.y*uShP);
 const CMP='vec3 cmpL(vec3 l){float y=max(dot(l,vec3(0.2126,0.7152,0.0722)),1e-6);return l*pow(y/uE,uG-1.0);}';
 // ===== ラメ（テレビの面とトイレのアクセント面の IC-5025。CLAUDE.md 1章「つや・照り」）=====
 // 本番 common.js の ic5025 と同じ作り方で、色・照り（specularMap）・粒の向き（normalMap）の画像を作る（glTF には照りと向きが入らない）
-const ic5025=(()=>{const N=512,R=Math.random,c8=v=>v<0?0:v>255?255:v|0,mk=()=>{const c=document.createElement('canvas');c.width=c.height=N;return c;},cC=mk(),cS=mk(),cN=mk(),gC=cC.getContext('2d'),gS=cS.getContext('2d'),gN=cN.getContext('2d'),iC=gC.createImageData(N,N),iS=gS.createImageData(N,N),iN=gN.createImageData(N,N),dC=iC.data,dS=iS.data,dN=iN.data;
+const ic5025=(()=>{const N=512,R=Q.get('seed')?(()=>{let s=+Q.get('seed')||1;return ()=>(s=s*16807%2147483647)/2147483647;})():Math.random,c8=v=>v<0?0:v>255?255:v|0,mk=()=>{const c=document.createElement('canvas');c.width=c.height=N;return c;},cC=mk(),cS=mk(),cN=mk(),gC=cC.getContext('2d'),gS=cS.getContext('2d'),gN=cN.getContext('2d'),iC=gC.createImageData(N,N),iS=gS.createImageData(N,N),iN=gN.createImageData(N,N),dC=iC.data,dS=iS.data,dN=iN.data;
  const hs=(x,y)=>{let h=Math.imul(x|0,374761393)+Math.imul(y|0,668265263)|0;h=Math.imul(h^h>>>13,1274126177);return((h^h>>>16)>>>0)/4294967296;};
  const vn=(x,y,n)=>{const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,sx=fx*fx*(3-2*fx),sy=fy*fy*(3-2*fy),X0=((xi%n)+n)%n,X1=(X0+1)%n,Y0=((yi%n)+n)%n,Y1=(Y0+1)%n,a=hs(X0,Y0),b=hs(X1,Y0),c=hs(X0,Y1),d=hs(X1,Y1);return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy;};
  const sd=R()*1000|0;
@@ -195,9 +195,12 @@ function decodeTex(buf){const main=()=>decodePNG(buf).then(texData);if(!PNGW||PN
 let IDX=null,netBytes=0,tick=0;
 const byteCache=new Map(),texCache=new Map();   // ファイル名 → {p:Promise<ArrayBuffer>,n,used} ／ {tex,n,used}
 async function fetchRetry(f,tries=4){for(let i=0;;i++){try{const x=await fetch(LMDIR+f);if(!x.ok)throw new Error(f+' '+x.status);return await x.arrayBuffer();}catch(e){if(i>=tries-1)throw e;await new Promise(z=>setTimeout(z,500*2**i));}}}   // 通信が途切れたときは間をあけて数回やり直す
-function fetchBytes(f){let c=byteCache.get(f);if(!c){c={p:fetchRetry(f).then(b=>{c.n=b.byteLength;netBytes+=b.byteLength;return b;},e=>{if(byteCache.get(f)===c)byteCache.delete(f);throw e;}),n:0};byteCache.set(f,c);}c.used=++tick;return c.p;}   // 失敗したらキャッシュから外す（次に要るとき取り直す）
+let onNet=null;   // 読み込み中の表示の進み具合（開いたときだけ）
+function fetchBytes(f){let c=byteCache.get(f);if(!c){c={p:fetchRetry(f).then(b=>{c.n=b.byteLength;netBytes+=b.byteLength;if(onNet)onNet();return b;},e=>{if(byteCache.get(f)===c)byteCache.delete(f);throw e;}),n:0};byteCache.set(f,c);}c.used=++tick;return c.p;}   // 失敗したらキャッシュから外す（次に要るとき取り直す）
 async function getTex(e){let c=texCache.get(e.file);if(c){c.used=++tick;return c.tex;}
  const buf=await fetchBytes(e.file);let w,h,data,type=THREE.UnsignedByteType,n;
+ if(e.file.endsWith('.webp')){const im=await webpImage(buf);c=texCache.get(e.file);if(c){if(im.close)im.close();return c.tex;}   // 可逆の WebP（lm_webp.py）：GPU で元の RGBA に詰め直した物を置く
+  const rt=packRT(im);texCache.set(e.file,{tex:rt.texture,rt,n:rt.width*rt.height*4,used:++tick});return rt.texture;}
  if(IDX.enc==='logj'){const bmp=await createImageBitmap(new Blob([buf],{type:'image/jpeg'}),{colorSpaceConversion:'none',premultiplyAlpha:'none'});w=bmp.width;h=bmp.height;
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.drawImage(bmp,0,0);data=new Uint8Array(cx.getImageData(0,0,w,h).data.buffer);bmp.close();n=w*h*4;}
  else{const t=await decodeTex(buf);w=t.w;h=t.h;data=t.data;if(t.half){type=THREE.HalfFloatType;n=w*h*8;}else n=w*h*4;}
@@ -209,7 +212,7 @@ const vtxCache=new Map();   // 頂点の明るさのファイル → 読んだ�
 async function getVtx(e){let c=vtxCache.get(e.file);if(!c){c=fetchBytes(e.file).then(decodeTex).then(t=>t.data);c.catch(()=>{if(vtxCache.get(e.file)===c)vtxCache.delete(e.file);});vtxCache.set(e.file,c);}return c;}
 function evict(keep){
  let t=[...texCache.values()].reduce((s,c)=>s+c.n,0);
- for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;c.tex.dispose();texCache.delete(f);t-=c.n;}
+ for(const [f,c] of [...texCache].sort((a,b)=>a[1].used-b[1].used)){if(t<=TEX_BUDGET)break;if(keep.has(f))continue;(c.rt||c.tex).dispose();texCache.delete(f);t-=c.n;}
  let b=[...byteCache.values()].reduce((s,c)=>s+c.n,0);
  for(const [f,c] of [...byteCache].sort((a,b)=>a[1].used-b[1].used)){if(b<=BYTE_BUDGET)break;if(keep.has(f))continue;byteCache.delete(f);b-=c.n;}}
 
@@ -227,6 +230,23 @@ void main(){vec4 c=texture2D(t,vUv);vec3 v;
  gl_FragColor=vec4(v*w,1.0);}`,
  blending:THREE.CustomBlending,blendSrc:THREE.OneFactor,blendDst:THREE.OneFactor,blendEquation:THREE.AddEquation,depthTest:false,depthWrite:false});
 {const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),cMat);m.frustumCulled=false;cScene.add(m);}
+// 可逆の WebP の層（tools/blender/lm_webp.py。2026-11-14）：幅 W・高さ 2H の透明度のない画像（上の半分＝RGB、下の半分＝M）。展開はブラウザに任せ（別のスレッド。自前の PNG の展開の約2倍速い。
+// 透明度が無いので、端末によって色が丸まることがない）、GPU で元の RGBA（W×H）に詰め直して置く（getTex）。足し合わせが読む画素は PNG のときと1つも違わない
+const pkScene=new THREE.Scene(),pkMat=new THREE.ShaderMaterial({uniforms:{t:{value:null}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+ fragmentShader:'uniform sampler2D t;varying vec2 vUv;void main(){gl_FragColor=vec4(texture2D(t,vec2(vUv.x,vUv.y*0.5)).rgb,texture2D(t,vec2(vUv.x,vUv.y*0.5+0.5)).g);}',depthTest:false,depthWrite:false});
+{const m=new THREE.Mesh(new THREE.PlaneGeometry(2,2),pkMat);m.frustumCulled=false;pkScene.add(m);}
+let WIMG=false;   // true：<img> で読む（webpCheck が決める）
+async function webpImage(buf){const b=new Blob([buf],{type:'image/webp'});
+ if(!WIMG&&typeof createImageBitmap!=='undefined'){try{return await createImageBitmap(b,{premultiplyAlpha:'none',colorSpaceConversion:'none'});}catch(e){}}   // 指定を受け付けないブラウザは <img> で
+ const u=URL.createObjectURL(b),im=new Image();try{im.src=u;await im.decode();}finally{URL.revokeObjectURL(u);}return im;}
+function packRT(im){const w=im.width,h=im.height>>1,src=new THREE.Texture(im);src.format=THREE.RGBFormat;src.minFilter=src.magFilter=THREE.NearestFilter;src.generateMipmaps=false;src.flipY=false;src.needsUpdate=true;   // 展開した画像（W×2H）→ 元の RGBA（W×H）の描画先
+ const rt=new THREE.WebGLRenderTarget(w,h,{minFilter:THREE.NearestFilter,magFilter:THREE.NearestFilter,depthBuffer:false,stencilBuffer:false});rt.texture.generateMipmaps=false;
+ const rt0=r.getRenderTarget(),ac=r.autoClear;r.autoClear=true;pkMat.uniforms.t.value=src;r.setRenderTarget(rt);r.render(pkScene,cCam);r.setRenderTarget(rt0);r.autoClear=ac;pkMat.uniforms.t.value=null;src.dispose();if(im.close)im.close();return rt;}
+// 自己点検（開いたとき1回）：小さな WebP（2×4 画素）を同じ道筋（展開 → GPU で詰め直し）に通し、画素が元の数と1つも違わないことを確かめる（ブラウザの画像の読み込みが色・上下を変える端末を見分ける。
+// 手元で確かめられるのは PC だけなので、スマホで崩れないための保険）。createImageBitmap で違ったら <img> で読む方に切り替える。どちらも違うときはコンソールに出す
+async function webpCheck(){const buf=Uint8Array.from(atob('UklGRjgAAABXRUJQVlA4TCwAAAAvAcAAAIWCSDao9yGeFoK8eFLJQZBtU70rXX4E2TYd1RGv3f9Q5d+6rRnCAw=='),c=>c.charCodeAt(0)).buffer,want=[1,2,3,5,250,128,7,77,99,100,101,128,17,200,255,254],px=new Uint8Array(16);
+ for(const v of [false,true]){WIMG=v;try{const rt=packRT(await webpImage(buf));r.readRenderTargetPixels(rt,0,0,2,2,px);rt.dispose();if(want.every((x,i)=>px[i]===x))return true;}catch(e){}}
+ console.warn('WebP の層の画素が元と違う');return false;}
 function layerName(src,ds){return src+'@'+((COMBOS[src]||[]).map(d=>d+(ds[dk(d)]?'o':'c')).join('_')||'all');}
 function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(src,st.DS),w:(tint||[1,1,1]).map(x=>x*k)});
  const AO=IDX.allon&&Object.keys(LS).every(k=>st.LS[k]);   // 全点灯：照明の層の代わりに、前もって足した画像（allon.py）をアトラスごとに1枚。G1 のまっすぐ届く光（g1d）だけは模様を掛けるので層のまま
@@ -236,19 +256,34 @@ function wanted(st){const out=[];const add=(src,k,tint)=>out.push({L:layerName(s
  if(AO){const A=IDX.allon,ai=A.doors.reduce((s,d,i)=>s+(st.DS[dk(d)]?1<<i:0),0);for(const g in A.atl){const j=A.atl[g].m[ai];if(j<0)continue;const e=A.atl[g].e[j];items.push(g.startsWith('V_')?{v:g.slice(2),e,w:[1,1,1],c:false}:{g,e,w:[1,1,1]});}}   // 色温度の色は足すときに掛けてある
  return items;}
 const cur=()=>({LS:{...LS},DS:{...DS},night,shade:shadeP});
-let ver=0,shown=null,stat={};
+// 足し直すのは、入る層の組（ファイルと重み）が変わった描画先だけ（2026-11-14。前は状態が変わるたびに全部のアトラスを足し直し、いまの状態の層を全部 GPU に置いたままにしていた＝昼の初期の状態で約180MB）。
+// 描画先＝アトラス（ライトマップ）・c:アトラス（G1 のまっすぐ届く光）・v:アトラス（頂点で焼く物）。足す順番は前と同じ（wanted の並び）なので、足した結果は前と1画素も違わない
+let ver=0,shown=null,stat={},SIG={};const hold=new Map();   // SIG：描画先 → いま入っている層の組。hold：いま読んでいる・足している層のファイル（捨てない）
+const tgOf=it=>it.v?'v:'+it.v:it.g,sigOf=it=>it.e.file+'*'+it.w.join(',')+(it.c?'c':'');
+const holdF=(its,d)=>its.forEach(it=>{const n=(hold.get(it.e.file)||0)+d;if(n>0)hold.set(it.e.file,n);else hold.delete(it.e.file);});
+function composeTo(g,its,tx){
+ if(g.startsWith('v:')){const a=new Float32Array(((IDX.vn||{})[g.slice(2)]||0)*3);   // 頂点で焼く物：点の明るさ（lux）を CPU で足す
+  its.forEach((it,i)=>{const d=tx[i],w=it.w,k=it.e.max,cf=it.c?vCau(it.v):null;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255*(cf?cf[j]:1);a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
+  VMESH[g.slice(2)].forEach(m=>{const c=m.col.array,id=m.vid;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=a[b]||0;c[j*3+1]=a[b+1]||0;c[j*3+2]=a[b+2]||0;}m.col.needsUpdate=true;});return;}
+ const ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
+ its.forEach((it,i)=>{const u=cMat.uniforms,e=it.e;u.t.value=tx[i];
+  u.mode.value=IDX.enc==='h16'?0:IDX.enc==='rgbm'?1:2;const k=(IDX.enc==='rgbm'?e.max:1)/LMK;u.w.value.set(it.w[0]*k,it.w[1]*k,it.w[2]*k);u.p.value.set(e.lo||0,e.hi||0);r.render(cScene,cCam);});
+ r.setRenderTarget(rt0);r.autoClear=ac;}
 async function recompose(){const v=++ver,st=cur(),t0=performance.now();const items=wanted(st),bt=setTimeout(()=>{if(v===ver)$('busy').hidden=false;},250);   // 時間がかかるときだけ「切り替え中」
- const texs=await Promise.all(items.map(it=>it.v?getVtx(it.e):getTex(it.e)));clearTimeout(bt);if(v!==ver)return false;$('busy').hidden=true;
- const acc={};for(const g in VMESH)acc[g]=new Float32Array(((IDX.vn||{})[g]||0)*3);   // 頂点で焼く物：アトラスごとに点の明るさ（lux）を CPU で足す
- items.forEach((it,i)=>{if(!it.v)return;const a=acc[it.v],d=texs[i],w=it.w,k=it.e.max,cf=it.c?vCau(it.v):null;if(!a)return;for(let j=0,n=it.e.n;j<n;j++){const q=d[j*4+3]/255,s=q*q*k/255*(cf?cf[j]:1);a[j*3]+=d[j*4]*s*w[0];a[j*3+1]+=d[j*4+1]*s*w[1];a[j*3+2]+=d[j*4+2]*s*w[2];}});
- for(const g in VMESH)VMESH[g].forEach(m=>{const c=m.col.array,a=acc[g],id=m.vid;for(let j=0;j<id.length;j++){const b=id[j]*3;c[j*3]=a[b]||0;c[j*3+1]=a[b+1]||0;c[j*3+2]=a[b+2]||0;}m.col.needsUpdate=true;});
- const t1=performance.now(),ac=r.autoClear,rt0=r.getRenderTarget();r.autoClear=false;
- for(const g of [...Object.keys(IDX.res),...CAUG.map(x=>'c:'+x)]){r.setRenderTarget(compRT(g));r.setClearColor(0x000000,0);r.clear(true,false,false);
-  items.forEach((it,i)=>{if(it.v||it.g!==g)return;const u=cMat.uniforms,e=it.e;u.t.value=texs[i];
-   u.mode.value=IDX.enc==='h16'?0:IDX.enc==='rgbm'?1:2;const k=(IDX.enc==='rgbm'?e.max:1)/LMK;u.w.value.set(it.w[0]*k,it.w[1]*k,it.w[2]*k);u.p.value.set(e.lo||0,e.hi||0);r.render(cScene,cCam);});}
- r.setRenderTarget(rt0);r.autoClear=ac;r.getContext().finish();
- shown=st;applyShown();evict(new Set(items.map(it=>it.e.file)));
- stat.load=Math.round(t1-t0);stat.gpu=Math.round(performance.now()-t1);stat.layers=items.length;draw();showStat();prefetch();return true;}
+ const sig={};[...Object.keys(IDX.res),...CAUG.map(x=>'c:'+x),...Object.keys(VMESH).map(g=>'v:'+g)].forEach(g=>sig[g]='');   // 模型を読む前は VMESH が空＝頂点の物は後で
+ items.forEach(it=>{const g=tgOf(it);if(g in sig)sig[g]+=sigOf(it)+';';});
+ const chg=Object.keys(sig).filter(g=>sig[g]!==SIG[g]),of=g=>items.filter(it=>tgOf(it)===g),load=its=>Promise.all(its.map(it=>it.v?getVtx(it.e):getTex(it.e)));
+ let tg=0,redo=0;const put=(g,its,tx)=>{const t=performance.now();composeTo(g,its,tx);SIG[g]=sig[g];redo+=its.length;tg+=performance.now()-t;};
+ if(!shown){   // 開いたとき（読み込み中の表示の裏）：描画先ごとに 読む→足す→捨てる（全部を読んでから足すと、足す前の層が一度に約180MB GPU に載る）。大きいアトラスから、3つずつ並べて
+  const px=g=>g.startsWith('v:')?0:IDX.res[g.replace(/^c:/,'')],q=chg.slice().sort((a,b)=>px(b)-px(a));
+  const run=async()=>{while(q.length&&v===ver){const g=q.shift(),its=of(g);holdF(its,1);try{const tx=await load(its);if(v===ver)put(g,its,tx);}finally{holdF(its,-1);}evict(hold);}};
+  try{await Promise.all(Array.from({length:PHONE?2:3},run));}finally{clearTimeout(bt);}
+  if(v!==ver)return false;}
+ else{const its=chg.flatMap(of);holdF(its,1);   // 切り替え：変わる描画先の層をそろえてから、まとめて足す（途中の状態を見せない）
+  try{const tx=await load(its);if(v!==ver)return false;let i=0;chg.forEach(g=>{const n=of(g).length;put(g,its.slice(i,i+n),tx.slice(i,i+n));i+=n;});}finally{clearTimeout(bt);holdF(its,-1);}}
+ $('busy').hidden=true;if(openK==='trial')r.getContext().finish();   // 検証のパネルを開いているときだけ、足し終わるまで待って時間を測る
+ shown=st;applyShown();evict(hold);
+ stat.gpu=Math.round(tg);stat.load=Math.round(performance.now()-t0-tg);stat.layers=items.length;stat.redo=redo;draw();showStat();if(ready)prefetch();return true;}   // 先読みは模型を読んでから（開いたときの模型の取得と通信を取り合わない）
 // 1回の操作で変わりうる状態（ドア1枚・照明1つ・昼夜・全点灯・全消灯）の層のファイルを先に取っておく（GPU には送らない）
 function prefetch(){const st=cur(),fs=new Set();const add=s=>{try{wanted(s).forEach(it=>{if(!texCache.has(it.e.file))fs.add(it.e.file);});}catch(e){}};   // 焼いていない組み合わせ（試しに焼いた一部の層だけのとき）は飛ばす
  const all=v=>Object.fromEntries(Object.keys(LS).map(k=>[k,v]));add({...st,night:!st.night});add({...st,LS:all(true)});add({...st,LS:all(false)});   // 層が百枚以上変わる昼夜・全点灯・全消灯を先に
@@ -352,7 +387,7 @@ function showStat(){if(!IDX||openK!=='trial')return;const m=memory(),hp=performa
  $('stat').textContent=`画像：${IDX.enc}・1/${IDX.scale}（全${Object.keys(IDX.layers).length}層 ${MB_(IDX.bytes)}MB）
 取得 ${MB_(netBytes)}MB・手元に ${MB_(m.bytes)}MB
 GPU：まとめた画像 ${MB_(m.rt)}・層 ${m.layN}枚 ${MB_(m.lay)}・柄 ${MB_(m.tex)}・形 ${MB_(m.geo)}
-いまの層 ${stat.layers}枚：読み込み ${stat.load}ms・足し合わせ ${stat.gpu}ms
+いまの層 ${stat.layers}枚（足し直し ${stat.redo}枚）：読み込み ${stat.load}ms・足し合わせ ${stat.gpu}ms
 描画 ${r.info.render.calls}回・三角形 ${Math.round(r.info.render.triangles/1000)}k${hp?`・JS ${MB_(hp)}MB`:''}`;}
 
 // 全画面（非対応のブラウザではボタンを隠す）
@@ -412,11 +447,26 @@ const bar=$('ldBar'),ldBox=$('loading');
 function fail(e){console.error(e);ldBox.querySelector('span').textContent='読み込みに失敗しました';ldBox.querySelector('.spin').hidden=true;}
 // 確認用（自動で撮るとき）：T.set({night,LS,DS,shade})→まとめ終わるまで待つ、T.view(名前)、T.pose([x,y,z,yaw,pitch,fov])
 window.T={async set(s){if('night' in s)night=s.night;if('shade' in s)shadeP=s.shade;Object.assign(LS,s.LS||{});Object.assign(DS,s.DS||{});updMove();syncLights();return changed();},view:setView,pose:a=>look(...a),memory,stat:()=>stat};
+// 模型は house.glb.gz（tools/blender/glb_pack.py：柄の画像を可逆の WebP にし、全体を gzip で包んだ物。約28MB → 約10MB）。取得しながら進み具合を出し、gzip をほどいてから読む
+async function loadGLB(url,onp){let parts,n;
+ for(let i=0;;i++){try{const x=await fetch(url);if(!x.ok)throw new Error(url+' '+x.status);const total=+x.headers.get('content-length')||0,rd=x.body.getReader();parts=[];n=0;
+   for(;;){const {done,value}=await rd.read();if(done)break;parts.push(value);n+=value.length;onp(n,total);}break;}catch(e){if(i>=3)throw e;await new Promise(z=>setTimeout(z,500*2**i));}}   // 通信が途切れたときは間をあけてやり直す（層の画像と同じ）
+ const b=new Blob(parts),h=new Uint8Array(await b.slice(0,2).arrayBuffer()),gz=h[0]===0x1f&&h[1]===0x8b;   // サーバーが先にほどいて渡したときはそのまま
+ const buf=await (gz?new Response(b.stream().pipeThrough(new DecompressionStream('gzip'))):new Response(b)).arrayBuffer();
+ return new Promise((res,rej)=>new THREE.GLTFLoader().parse(buf,'',res,rej));}
+r.domElement.addEventListener('webglcontextrestored',()=>{SIG={};texCache.clear();if(ready)changed();});   // GPU の中身が消えたとき（スマホで別のアプリから戻ったときなど）は、まとめた画像をすべて足し直す（足し直しを変わった所だけにしたので、放っておくと黒いまま残る）
 (async()=>{
- const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;COMBOS=idx.combos||OLDC;CAUG=[...new Set(Object.entries(idx.layers).filter(([L])=>L.startsWith('g1d@')).flatMap(([,e])=>Object.keys(e).filter(g=>e[g]&&!g.startsWith('V_'))))];MOVE=mv;updMove();buildUI();bar.style.width='10%';
- const g=await new Promise((res,rej)=>new THREE.GLTFLoader().load('house.glb',res,e=>{if(e.total)bar.style.width=(10+e.loaded/e.total*50)+'%';},rej));
- setupModel(g.scene);bar.style.width='70%';
+ const [idx,mv]=await Promise.all([fetch(LMDIR+'index.json').then(x=>x.json()),fetch('move.json').then(x=>x.json())]);IDX=idx;COMBOS=idx.combos||OLDC;CAUG=[...new Set(Object.entries(idx.layers).filter(([L])=>L.startsWith('g1d@')).flatMap(([,e])=>Object.keys(e).filter(g=>e[g]&&!g.startsWith('V_'))))];MOVE=mv;updMove();buildUI();
+ // 模型と、最初の状態の層を同時に取りに行く（前は模型を読み終えてから層を取り始めていた）。ライトマップは模型を待たずに足し始め、頂点で焼く物は模型の後で足す
+ const its=wanted(cur()),need=[...new Map(its.map(it=>[it.e.file,it.e.bytes])).values()].reduce((a,b)=>a+b,0);let gl=0,gt=0;
+ onNet=()=>{bar.style.width=Math.min(96,3+93*(gl+netBytes)/((gt||1e7)+need))+'%';};   // 進み具合＝取得した量（模型＋最初の状態の層）
+ its.forEach(it=>fetchBytes(it.e.file).catch(()=>{}));
+ await webpCheck();
+ const first=recompose();first.catch(()=>{});
+ const g=await loadGLB('house.glb.gz',(n,t)=>{gl=n;gt=t;onNet();});
+ if(Q.get('seed')){const A=g.parser.associations,ix=o=>(A.get(o)||{}).index||0;g.scene.children.sort((a,b)=>ix(a)-ix(b));}   // 確認用（?seed=）：物の並びを模型のファイルの順にそろえる（読み込みは柄の展開が済んだ順に物を足すので、並び＝描く順が開くたびに変わり、ぴったり重なった面のどちらが見えるかが1〜2画素だけ変わる。撮り比べ tools/state_cap.js で毎回同じ画素になるように）
+ setupModel(g.scene);
  ready=true;syncLights();shadeLabel(0);setView('リビング');   // 最初の視点は本番と同じリビング（2026-11-08 ユーザー）
- await recompose();bar.style.width='100%';
+ await first;await recompose();onNet=null;bar.style.width='100%';
  ldBox.classList.add('done');setTimeout(()=>ldBox.remove(),400);
 })().catch(fail);
