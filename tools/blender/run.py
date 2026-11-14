@@ -4,7 +4,7 @@
 #  py <スクリプト> [引数...]：bake_uv.blend を開いてスクリプトを動かす（調べる用）
 #  prep：焼き込みの準備（bake_uv.blend）　bake [サンプル数] [層,...]：焼く（bake/work/lm）
 #  build：建物（house.blend）　status：焼き込みの進み具合（bake/work/layers）
-#  gltf：検証ページ用の模型（real/house.glb）　lmimg：焼いた層を検証ページ用の画像に（real/lm/）　allon：全点灯の足し合わせ（lmimg の後）　crop：比較の画像の同じ範囲を並べる
+#  gltf：検証ページ用の模型（real/house.glb.gz）　lmimg：焼いた層を検証ページ用の画像に（real/lm/）　allon：全点灯の足し合わせ（lmimg の後）　lmwebp：その画像を可逆の WebP に（allon の後）　crop：比較の画像の同じ範囲を並べる
 import sys, os, subprocess, json
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 BL = r'C:\Program Files\Blender Foundation\Blender 5.2\blender.exe'
@@ -89,8 +89,13 @@ elif a[0] == 'pyh':   # 調べる用：pyh <スクリプト> [引数...]（house
     print(chr(10).join(l for l in (r.stdout + r.stderr).splitlines() if not l.startswith(('Fra:', '00:', 'Blender', 'Info'))))
 elif a[0] == 'cover':   # 覆われて見えない画素（棚板の端が当たった壁など）を調べる：bake_uv.blend → bake/work/lm/_labels/<アトラス>_cover.npy（lm_images.py が見える画素の明るさで埋める）
     blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'cover_mask.py', os.path.join(LAY, '_labels'))
-elif a[0] == 'gltf':   # 検証ページ（real/）用の模型：bake_uv.blend → real/house.glb
-    blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(ROOT, 'real', 'house.glb'))
+elif a[0] == 'gltf':   # 検証ページ（real/）用の模型：bake_uv.blend → bake/work/house.glb（書き出したまま）→ real/house.glb.gz（glb_pack.py：柄を可逆の WebP に・全体を gzip で。中身は同じ）
+    blender(os.path.join(W, 'blender', 'bake_uv.blend'), 'export_gltf.py', os.path.join(W, 'house.glb'))
+    subprocess.run([sys.executable, '-I', os.path.join(T, 'glb_pack.py'), os.path.join(W, 'house.glb'), os.path.join(ROOT, 'real', 'house.glb.gz')])
+elif a[0] == 'lmwebp':   # real/lm のライトマップの PNG を可逆の WebP に（lmimg rgbm 1 real・allon の後。画素は変えない。lm_webp.py）：lmwebp [並べて動かす数]
+    subprocess.run([sys.executable, '-I', os.path.join(T, 'lm_webp.py'), os.path.join(ROOT, 'real', 'lm'), *a[1:2]])
+elif a[0] == 'imgcmp':   # 撮った画像の2組を画素ごとに比べる（tools/state_cap.js で撮った前後）：imgcmp <名前A> <名前B>
+    subprocess.run([sys.executable, '-I', os.path.join(T, 'imgcmp.py'), os.path.join(W, 'pair'), *a[1:3]])
 elif a[0] == 'lmimg' and any(x.startswith('smooth=') for x in a):   # smooth=<回数>[,<幅>]：ならす処理を変えて比べる（lm_images.py の LM_SMOOTH_IT・LM_SMOOTH_RANGE）
     sm = next(x for x in a if x.startswith('smooth='))[7:].split(',')
     os.environ['LM_SMOOTH_IT'] = sm[0]

@@ -47,6 +47,12 @@ const cauTex=(()=>{const W=512,H=256,img=new Uint8Array(W*H*4);let sd=7;const rn
  const t=new THREE.DataTexture(img,W,H,THREE.RGBAFormat);t.wrapS=THREE.RepeatWrapping;t.magFilter=t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;t.needsUpdate=true;return t;})();
 const ZU={zPC:{value:Array.from({length:MAXP},()=>new THREE.Vector4())},zCau:{value:cauTex},zCauK:{value:new THREE.Vector4(0.441,0.97,0.85,0.8)},zDF:{value:new Array(MAXD).fill(0)},zSMin:{value:[]},zSMax:{value:[]},zPMin:{value:[]},zPMax:{value:[]},zDMin:{value:[]},zDMax:{value:[]},zHMin:{value:[]},zHMax:{value:[]}};
 [['zSMin','zSMax',MAXS],['zPMin','zPMax',MAXP],['zDMin','zDMax',MAXD],['zHMin','zHMax',MAXH]].forEach(([a,b,n])=>{for(let i=0;i<n*ZK;i++){ZU[a].value.push(new THREE.Vector4(1,0,0,1));ZU[b].value.push(new THREE.Vector4(0,0,0,1));}});
+// 範囲の数値（ZU の配列。合わせて vec4 が約570個）は、値を変えたとき（updateLights）と、まだ送っていないシェーダーにだけ送る（2026-11-14）。three.js は材質が替わるたびに
+// 材質の数値を全部送り直すので、同じ値を1コマに約340回送っていた（リビングで1コマ 8.6ms のうち約3.7ms）。模様の画像 zCau は毎回送る（画像は送るたびに結び直す決まり）。
+// 描く直前（onBeforeRender）に「送る・送らない」を決め、描いた後（onAfterRender）に、送ったシェーダーへ版を記録する。送らないと決めた後で three.js がシェーダーを作り直していたら、もう一度描く（ZRE。build.js の draw）
+let ZV=1,ZRE=false,zUp=true,zPr=null;const ZPV=new WeakMap(),ZSK=Object.keys(ZU).filter(k=>k!=='zCau');   // ZV：値の版、ZPV：シェーダー → 送った版。currentProgram は three.js r128 が材質ごとに持つ「いま使っているシェーダー」（three.js を替えるときは名前を確かめる。無ければ毎回送るだけ＝前と同じ）
+THREE.Mesh.prototype.onBeforeRender=function(rd,sc,cm,geo,mat){zPr=rd.properties.get(mat).currentProgram;zUp=!zPr||ZPV.get(zPr)!==ZV;for(let i=0;i<ZSK.length;i++)ZU[ZSK[i]].needsUpdate=zUp;};
+THREE.Mesh.prototype.onAfterRender=function(rd,sc,cm,geo,mat){const p=rd.properties.get(mat).currentProgram;if(!p)return;if(zUp)ZPV.set(p,ZV);else if(p!==zPr)ZRE=true;};
 // 揺らいだ光（zPC.w=1の点光源だけ。今はG1）：光源から見た向きで、下の口から出る光（zCauK.x：口の縁の向きのcos）はそのまま、ガラスを通る光は透過率（zCauK.z）と模様（zCau）を掛ける。真上はソケットの陰（zCauK.y）、口の縁の向きは縁で集まった明るい帯（zCauK.w）
 const cauGL=`#if NUM_POINT_LIGHTS>0\nuniform vec4 zPC[${MAXP}];uniform sampler2D zCau;uniform vec4 zCauK;\nfloat cauF(int li){vec4 c=zPC[li];if(c.w<0.5)return 1.0;vec3 d=normalize(vWPos-c.xyz);float p=texture2D(zCau,vec2(atan(d.z,d.x)*0.1591549+0.5,asin(clamp(d.y,-1.0,1.0))*0.3183099+0.5)).r;\nfloat cd=-d.y,op=smoothstep(zCauK.x-0.015,zCauK.x+0.015,cd),gl=zCauK.z*(0.3+1.6*p)*(1.0-smoothstep(zCauK.y-0.02,zCauK.y+0.01,d.y)),rim=zCauK.w*exp(-pow((cd-zCauK.x+0.02)/0.03,2.0))*(0.5+p);return mix(gl,1.0,op)+rim;}\n#endif\n`;
 // 照明の計算（Phong）に、光源ごとの範囲を掛ける
@@ -58,6 +64,10 @@ function zonePatch(sh){Object.assign(sh.uniforms,ZU);
   .replace('#include <lights_fragment_begin>',THREE.ShaderChunk.lights_fragment_begin
    .replace(/(pointLight = pointLights\[ i \];)([\s\S]*?)(RE_Direct\( directLight, geometry, material, reflectedLight \);)/,'$1\nif(dot(pointLight.color,vec3(1.0))>0.0){float zf=zoneP( UNROLLED_LOOP_INDEX );if(zf>0.0){$2directLight.color *= zf * cauF( UNROLLED_LOOP_INDEX );\n$3}}')
    .replace(/(spotLight = spotLights\[ i \];)([\s\S]*?)(RE_Direct\( directLight, geometry, material, reflectedLight \);)/,'$1\nif(dot(spotLight.color,vec3(1.0))>0.0){float zf=zoneS( UNROLLED_LOOP_INDEX );if(zf>0.0){$2directLight.color *= zf;\n$3}}')   // 範囲の外・消えている光は計算を飛ばす
+   // スポットライト（軽量版で17個・?dev で49個）は、three.js の「光源の数だけ同じ計算を書き並べる」展開をやめ、同じ計算の繰り返し（for）のままにする（2026-11-14）。
+   // 書き並べるとシェーダーが長くなり、初めて開いたとき（ブラウザがまだ覚えていないとき）のシェーダー作りが PC でも1本 0.45〜0.75 秒×11本＝約6.6秒かかっていた（繰り返しにして1本 0.17 秒。描画の速さ・画素は同じ）。
+   // 影（shadowMap）は使っていないので、影の分岐（数だけ書き並べる前提の書き方）は外す。点光源は模様の画像を読むので書き並べたまま（数も少ない）
+   .replace(/#pragma unroll_loop_start\s*(for \( int i = 0; i < NUM_SPOT_LIGHTS; i \+\+ \) \{[\s\S]*?)#pragma unroll_loop_end/,(m,b)=>b.replace(/#if defined\( USE_SHADOWMAP \) && \( UNROLLED_LOOP_INDEX < NUM_SPOT_LIGHT_SHADOWS \)[\s\S]*?#endif/,'').replace(/UNROLLED_LOOP_INDEX/g,'i'))
    .replace('getDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );','getDirectionalDirectLightIrradiance( directionalLight, geometry, directLight );\n\t\tdirectLight.color *= zoneD( UNROLLED_LOOP_INDEX );')
    .replace('getHemisphereLightIrradiance( hemisphereLights[ i ], geometry )','getHemisphereLightIrradiance( hemisphereLights[ i ], geometry ) * zoneH( UNROLLED_LOOP_INDEX )')
    .replace(/(NUM_DIR_LIGHTS > 0 \) && defined\( RE_Direct \)[\s\S]*?)RE_Direct\( directLight, geometry, material, reflectedLight \);/,'$1{vec3 zSp=reflectedLight.directSpecular;RE_Direct( directLight, geometry, material, reflectedLight );reflectedLight.directSpecular=mix(reflectedLight.directSpecular,zSp,zDF[ UNROLLED_LOOP_INDEX ]);}'));}   // 補助光（zDF=1）は照りを足さない
@@ -70,5 +80,5 @@ function updateLights(){const sp=[],pt=[],dr=[],hm=[];
  (function walk(o){if(!o.visible)return;if(o.isSpotLight)sp.push(o);else if(o.isPointLight)pt.push(o);else if(o.isDirectionalLight)dr.push(o);else if(o.isHemisphereLight)hm.push(o);o.children.forEach(walk);})(scene);
  const fill=(ls,mn,mx)=>ls.forEach((l,i)=>{for(let k=0;k<ZK;k++){const z=(l.userData.zones||[])[k],a=ZU[mn].value[i*ZK+k],b=ZU[mx].value[i*ZK+k];
   if(z){const w=Array.isArray(z[2])?z[2]:[z[2],z[2]];a.set(z[0][0],z[0][1],z[0][2],w[0]);b.set(z[1][0],z[1][1],z[1][2],w[1]);}else if(k===0&&!l.userData.zones){a.set(-1e4,-1e4,-1e4,1);b.set(1e4,1e4,1e4,1);}else{a.set(1,0,0,1);b.set(0,0,0,1);}}});   // ぼかし：数1つ＝全方向、[東西と上下, 南北]
- fill(sp,'zSMin','zSMax');fill(pt,'zPMin','zPMax');ZU.zPC.value.forEach((v,i)=>{const l=pt[i];if(l&&l.userData.caustic){const p=l.getWorldPosition(new THREE.Vector3());v.set(p.x,p.y,p.z,1);}else v.set(0,0,0,0);});fill(dr,'zDMin','zDMax');fill(hm,'zHMin','zHMax');ZU.zDF.value.fill(0);dr.forEach((l,i)=>ZU.zDF.value[i]=l.userData.fill?1:0);}
+ fill(sp,'zSMin','zSMax');fill(pt,'zPMin','zPMax');ZU.zPC.value.forEach((v,i)=>{const l=pt[i];if(l&&l.userData.caustic){const p=l.getWorldPosition(new THREE.Vector3());v.set(p.x,p.y,p.z,1);}else v.set(0,0,0,0);});fill(dr,'zDMin','zDMax');fill(hm,'zHMin','zHMax');ZU.zDF.value.fill(0);dr.forEach((l,i)=>ZU.zDF.value[i]=l.userData.fill?1:0);ZV++;}   // ZV：値を変えた印（次に描くとき、シェーダーごとに1回だけ送る）
 

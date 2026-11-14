@@ -2297,6 +2297,15 @@
 
 					}
 
+					if ( source.mimeType === 'image/webp' ) {
+
+						// 3Dマイホームで足した所（2026-11-14）：可逆の WebP（VP8L。tools/blender/glb_pack.py が PNG から変えた柄）のヘッダーの
+						// 「透明度を使う」の印を見る。透明度が無ければ、PNG のときと同じく THREE.RGBFormat にする
+						const b = new Uint8Array( bufferView, 0, 25 );
+						if ( b[ 12 ] === 0x56 && b[ 13 ] === 0x50 && b[ 14 ] === 0x38 && b[ 15 ] === 0x4c && b[ 20 ] === 0x2f ) hasAlpha = ( b[ 24 ] & 0x10 ) !== 0;
+
+					}
+
 					isObjectURL = true;
 					const blob = new Blob( [ bufferView ], {
 						type: source.mimeType
