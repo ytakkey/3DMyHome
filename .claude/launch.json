@@ -1,0 +1,1 @@
+{"version":"0.0.1","configurations":[{"name":"house","runtimeExecutable":"python","runtimeArgs":["-I","tools/devserver.py","8765"],"port":8765},{"name":"house2","runtimeExecutable":"python","runtimeArgs":["-I","tools/devserver.py","8766"],"port":8766}]}

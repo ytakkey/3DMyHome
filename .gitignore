@@ -2,3 +2,4 @@ _test/
 bake/work/
 __pycache__/
 docs/
+.claude/settings.local.json
