@@ -3,7 +3,7 @@ import sys, os
 sys.path.insert(0, __import__('os').environ.get('SWEEP_LIB', '.'))   # numpy と PIL の入ったフォルダ（pip install --target で入れた所。環境変数 SWEEP_LIB）
 import numpy as np
 from PIL import Image
-D = r'C:\Users\Yuhei\MyApp\Claude\3DMyHome\bake\work\pair'
+D = r'C:\Users\Yuhei\Claude\projects\3DMyHome\bake\work\pair'
 for t in sys.argv[1:]:
     for f in sorted(os.listdir(D)):
         if not f.endswith('__' + t + '.png'):

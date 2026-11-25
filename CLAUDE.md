@@ -331,7 +331,7 @@
 | js/size.js | 軽量版の家具のサイズ（ダイニングテーブル・テレビ。ldk.js の `diningSet`・`tvSet` で作り直す。その行は書き出しの部品の名前になるので、ldk.js では行をずらさない） |
 | tools/ | devserver.py（確認用サーバー）・audit（形の点検）・cap.js／shotat.js／survey.js／pair_cap.js／state_cap.js（画像を撮る道具。state_cap.js は作りを変える前後の撮り比べ）・export（本番の書き出し）・blender（1章） |
 
-- 公開：GitHub ytakkey/3DMyHome（main のルート）→ https://ytakkey.github.io/3DMyHome/ （入口）、リアル版は /real 、軽量版は /lite 。**コミットと push は Claude Code が行う**。作業フォルダ：`C:\Users\Yuhei\MyApp\Claude\3DMyHome`。`_test/`・`bake/work/` は確認用（.gitignore 済み）
+- 公開：GitHub ytakkey/3DMyHome（main のルート）→ https://ytakkey.github.io/3DMyHome/ （入口）、リアル版は /real 、軽量版は /lite 。**コミットと push は Claude Code が行う**。作業フォルダ：`C:\Users\Yuhei\Claude\projects\3DMyHome`。`_test/`・`bake/work/` は確認用（.gitignore 済み）
 - **履歴の掃除**（2026-11-15 ユーザー「過去版は消していいよ」）：焼き直すたびに古い画像・模型が履歴に残り、.git が 4.4GB（GitHub の目安 5GB）になったので、今の版に無い .png・.glb・.jpg を過去の全コミットから外して作り直した（約0.5GB。コード・資料の履歴とコミットの文・日付は残る。コミットの番号は全部変わった。過去の焼き上がりは git から取り出せない）。今後も焼き直すたびに約0.5GB 増えるので、大きくなったら同じ掃除をする（今の版の木が前後で同じ番号になることを確かめてから `push --force-with-lease`）
 - どれも普通のスクリプト（ESモジュールではない。file:// で開けるように）。トップレベルの `const`／`function` はファイルをまたいで共有される。**関数の巻き上げはファイルをまたがない**
 - **1行に複数の文を詰めて書いているので、行の途中に `//` を足すと後ろの処理が消える**。コメントは行末だけ。編集のあとは `python -I tools/audit/checkcomments.py js/*.js` で確かめる
@@ -347,7 +347,7 @@
 
 ## 8. 動作の確認
 
-- 内蔵ブラウザ（Claude の Browser pane）で devserver を開く（`MyApp\Claude\.claude\launch.json` の `house`＝ポート8765。ほかの会話が使っているときは `house2`＝8766）。STG の夜は焼いた画像を一度に数百枚読むので、devserver の接続の待ち行列は 256（既定の5では接続が時間切れになり、夜の撮影が「Failed to fetch」で止まった。2026-10-29）。`ready`（トップレベルの let。`window.ready` ではない）が true になり、読み込み中の表示が消え、エラーが出ないことを確かめる
+- 内蔵ブラウザ（Claude の Browser pane）で devserver を開く（`C:\Users\Yuhei\Claude\.claude\launch.json` の `house`＝ポート8765。ほかの会話が使っているときは `house2`＝8766）。STG の夜は焼いた画像を一度に数百枚読むので、devserver の接続の待ち行列は 256（既定の5では接続が時間切れになり、夜の撮影が「Failed to fetch」で止まった。2026-10-29）。`ready`（トップレベルの let。`window.ready` ではない）が true になり、読み込み中の表示が消え、エラーが出ないことを確かめる
 - 画像の撮り方：描画のあと `r.domElement.toDataURL()` を `fetch('/save?path=bake/work/shots/名前.jpg',{method:'POST',body})` で保存し、Read で見る（`tools/cap.js` の `cap()`、任意の位置は `tools/shotat.js` の `shotAt()`）。画面が隠れていても撮れる
 - 見た目を変えないはずの変更：`?seed=1` を付けて開き、変える前と後を tools/state_cap.js で撮って `run.py imgcmp` で画素ごとに比べる（1章「軽くする・速くする」。2026-11-14。前は `Math.random` を固定する script を入れた新旧のコピーを `_test/` に置いて比べていた）
 - **確認の一覧**（要件 I2）

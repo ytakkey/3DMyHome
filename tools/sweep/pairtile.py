@@ -2,7 +2,7 @@
 import sys, os
 sys.path.insert(0, __import__('os').environ.get('SWEEP_LIB', '.'))   # numpy と PIL の入ったフォルダ（pip install --target で入れた所。環境変数 SWEEP_LIB）
 from PIL import Image, ImageDraw
-D = r'C:\Users\Yuhei\MyApp\Claude\3DMyHome\bake\work\pair'
+D = r'C:\Users\Yuhei\Claude\projects\3DMyHome\bake\work\pair'
 head, pre, pt, st, W, per = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), int(sys.argv[6])
 vs = sorted({f.split('__')[0] for f in os.listdir(D) if f.startswith(pre) and f.endswith('__' + st + '.png')})
 for k in range(0, len(vs), per):
