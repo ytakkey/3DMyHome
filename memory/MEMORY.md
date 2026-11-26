@@ -1,0 +1,4 @@
+- [3Dマイホーム](3dmyhome-project.md) — repo Claude/projects/3DMyHome (ytakkey/3DMyHome, Pages); docs in its CLAUDE.md; I commit+push; lightmap rework abandoned 2026-10-19
+- [親チャットは統括役](coordinator-session.md) — 3DMyHome：作業は都度新しいセッションに任せ、親はまとめだけ
+- [焼く前に確認](confirm-before-bake.md) — 3DMyHome：bake を始める前に必ずユーザーの了承を取る（準備までは進めてよい）
+- [仕様書が正](spec-is-authoritative.md) — 3DMyHome：ユーザーの記憶・注文は参考、照明仕様書・図面が正
